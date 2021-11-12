@@ -1,10 +1,5 @@
 # Azure Deployment of Neo4j
 
-## POCs and People
-
-* Technical: Brian Moore bmoore@microsoft.com
-* Partnering: Patrick Butler Monterde Patrick.Butler@microsoft.com
-
 ## Partnering Site
 
 Use the [Azure Cloud Partner Site](https://cloudpartner.azure.com/#alloffers) to work with Azure "offers".  The way this is structured there is that there is a VM-based offering (for the packer-built VM) and a second Azure Application offering for Causal Cluster, which is a set of ARM templates that use the VM.
