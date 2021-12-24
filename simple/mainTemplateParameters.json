@@ -1,0 +1,29 @@
+{
+  "GraphDatabaseVersion": {
+    "value": "4.4.1"
+  },
+  "GraphDataScienceVersion": {
+    "value": "None"
+  },
+  "BloomVersion": {
+    "value": "None"
+  },
+  "adminUsername": {
+    "value": "neo4j"
+  },
+  "adminPassword": {
+    "value": "foo123!"
+  },
+  "LicenseKey": {
+    "value": "None"
+  },
+  "NodeCount": {
+    "value": 3
+  },
+  "vmSize": {
+    "value": "Standard_DS3_v2"
+  },
+  "diskSize": {
+     "value": 100
+  }
+}
