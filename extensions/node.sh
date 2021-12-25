@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-echo "Running server.sh"
+echo "Running node.sh"
 
 adminUsername=$1
 adminPassword=$2
@@ -26,7 +26,7 @@ nodeIndex=`curl -H Metadata:true "http://169.254.169.254/metadata/instance/compu
   | sed 's/.*_//' \
   | sed 's/"//'`
 
-nodeDNS='vm0.server-'$uniqueString'.'$location'.cloudapp.azure.com'
+nodeDNS='vm0.node-'$uniqueString'.'$location'.cloudapp.azure.com'
 
 echo Adding neo4j yum repo...
 rpm --import https://debian.neo4j.com/neotechnology.gpg.key
