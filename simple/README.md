@@ -1,5 +1,5 @@
 # simple
-This is anAzure Resource Manager (ARM) template that deploys Neo4j Enterprise on Azure.  It sets up Neo4j Graph Database, Graph Data Science and Bloom.  You can run it from the  CLI or using the [Azure Portal](https://portal.azure.com).
+This is an Azure Resource Manager (ARM) template that deploys Neo4j Enterprise on Azure.  It sets up Neo4j Graph Database, Graph Data Science and Bloom.  You can run it from the  CLI or using the [Azure Portal](https://portal.azure.com).
 
 The template provisions a virtual network, VM Scale Sets (VMSS), Managed Disks with Premium Storage and public IPs with a DNS record per node.  It also sets up a network security group.
 
