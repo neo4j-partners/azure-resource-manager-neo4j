@@ -133,6 +133,10 @@
         "name": "node",
         "location": "[resourceGroup().location]",
         "apiVersion": "2017-03-30",
+        "sku": {
+          "name": "[parameters('vmSize')]",
+          "capacity": "[parameters('nodeCount')]"
+        },
         "properties": {
           "overprovision": false,
           "upgradePolicy": {
