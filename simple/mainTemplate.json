@@ -153,7 +153,7 @@
               "imageReference": {
                 "publisher": "RedHat",
                 "offer": "RHEL",
-                "sku": "7-LVM",
+                "sku": "8_5",
                 "version": "latest"
               },
               "dataDisks": [
