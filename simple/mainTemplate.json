@@ -133,6 +133,9 @@
         "name": "node",
         "location": "[resourceGroup().location]",
         "apiVersion": "2017-03-30",
+        "dependsOn": [
+          "[resourceId('Microsoft.Network/virtualNetworks', 'vnet')]"
+        ],
         "sku": {
           "name": "[parameters('vmSize')]",
           "capacity": "[parameters('nodeCount')]"
@@ -148,9 +151,9 @@
                 "createOption": "FromImage"
               },
               "imageReference": {
-                "publisher": "Canonical",
-                "offer": "UbuntuServer",
-                "sku": "16.04-LTS",
+                "publisher": "RedHat",
+                "offer": "RHEL",
+                "sku": "7-LVM",
                 "version": "latest"
               },
               "dataDisks": [
