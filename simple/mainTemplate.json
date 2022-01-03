@@ -107,7 +107,7 @@
         "apiVersion": "2015-06-15",
         "location": "[resourceGroup().location]",
         "dependsOn": [
-          "Microsoft.Resources/deployments/networksecuritygroups"
+          "[resourceId('Microsoft.Network/networkSecurityGroups', 'networksecuritygroups')]"
         ],
         "properties": {
           "addressSpace": {
