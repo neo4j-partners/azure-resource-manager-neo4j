@@ -21,7 +21,7 @@
     "value": 3
   },
   "vmSize": {
-    "value": "Standard_DS3_v2"
+    "value": "Standard_DS3_v1"
   },
   "diskSize": {
      "value": 100
