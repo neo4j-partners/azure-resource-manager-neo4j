@@ -7,11 +7,10 @@ adminPassword=$2
 uniqueString=$3
 licenseKey=$4
 location=$5
-
-graphDatabaseVersion
-graphDataScienceVersion
-bloomVersion
-nodeCount
+graphDatabaseVersion=$6
+graphDataScienceVersion=$7
+bloomVersion=$8
+nodeCount=$9
 
 echo "Using the settings:"
 echo adminUsername \'$adminUsername\'
@@ -19,6 +18,10 @@ echo adminPassword \'$adminPassword\'
 echo uniqueString \'$uniqueString\'
 echo licenseKey \'$licenseKey\'
 echo location \'$location\'
+echo graphDatabaseVersion \'$graphDatabaseVersion\'
+echo graphDataScienceVersion \'$graphDataScienceVersion\'
+echo bloomVersion \'$bloomVersion\'
+echo nodeCount \'$nodeCount\'
 
 apt-get -y install jq
 nodeIndex=`curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01" \
