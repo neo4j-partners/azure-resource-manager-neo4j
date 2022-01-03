@@ -31,4 +31,4 @@ When complete the template prints the URLs to access Couchbase Server and Couchb
 
 To delete your deployment you can either run the command below or use the GUI in the [Azure Portal](https://portal.azure.com).
 
-    azure group delete <RESOURCE_GROUP_NAME>
+    az group delete --name <RESOURCE_GROUP_NAME>
