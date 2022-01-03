@@ -31,7 +31,6 @@
       }
     },
     "variables": {
-      "templateUrl": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/master/simple/",
       "extensionUrl": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/master/extensions/",
       "uniqueString": "[uniquestring(resourceGroup().id, deployment().name)]"
     },

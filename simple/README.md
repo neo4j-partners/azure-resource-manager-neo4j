@@ -7,7 +7,7 @@ The template provisions a virtual network, VM Scale Sets (VMSS), Managed Disks w
 
 You will need an Azure account.
 
-First we need to install and configure the Azure CLI.  You can install the CLI by following the instructions [here](https://docs.microsoft.com/en-us/azure/cli-install-nodejs).
+First we need to install and configure the Azure CLI.  You can install the CLI by following the instructions [here](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli).
 
 You can confirm the CLI is working properly by running:
 
