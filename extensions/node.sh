@@ -23,14 +23,6 @@ echo graphDataScienceVersion \'$graphDataScienceVersion\'
 echo bloomVersion \'$bloomVersion\'
 echo nodeCount \'$nodeCount\'
 
-apt-get -y install jq
-nodeIndex=`curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01" \
-  | jq ".name" \
-  | sed 's/.*_//' \
-  | sed 's/"//'`
-
-nodeDNS='vm0.node-'$uniqueString'.'$location'.cloudapp.azure.com'
-
 echo Adding neo4j yum repo...
 rpm --import https://debian.neo4j.com/neotechnology.gpg.key
 echo "
@@ -49,19 +41,19 @@ yum -y install neo4j-enterprise-${graphDatabaseVersion}
 
 echo Configuring network in neo4j.conf...
 sed -i 's/#dbms.default_listen_address=0.0.0.0/dbms.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf
-publicHostname=$(curl -s http://169.254.169.254/latest/meta-data/public-hostname)
+nodeIndex=`curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01" \
+  | jq ".name" \
+  | sed 's/.*_//' \
+  | sed 's/"//'`
+publicHostname='vm0.node-'$uniqueString'.'$location'.cloudapp.azure.com'
 sed -i s/#dbms.default_advertised_address=localhost/dbms.default_advertised_address=${publicHostname}/g /etc/neo4j/neo4j.conf
 
 if [[ \"$nodeCount\" == 1 ]]; then
   echo Running on a single node.
 else
   echo Running on multiple nodes.  Configuring membership in neo4j.conf...
-  region=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone | sed 's/.$//')
-  instanceId=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-  stackName=$(aws cloudformation describe-stack-resources --physical-resource-id $instanceId --query 'StackResources[0].StackName' --output text --region $region)
-  coreMembers=$(aws autoscaling describe-auto-scaling-instances --region $region --output text --query \"AutoScalingInstances[?AutoScalingGroupName=='Neo4jAutoScalingGroup'].InstanceId\" | xargs -n1 aws ec2 describe-instances --instance-ids $ID --region $region --query \"Reservations[].Instances[].PublicDnsName\" --output text --filter \"Name=tag:aws:cloudformation:stack-name,Values=$stackName\")
-  coreMembers=$(echo $coreMembers | sed 's/ /:5000,/g')
-  coreMembers=$(echo $coreMembers):5000
+  coreMembers='vm0X,vm1X,vm2X'
+  coreMembers=$(echo $coreMembers | sed 's/X/.node-'$uniqueString'.'$location'.cloudapp.azure.com:5000/g')
   sed -i s/#causal_clustering.initial_discovery_members=localhost:5000,localhost:5001,localhost:5002/causal_clustering.initial_discovery_members=${coreMembers}/g /etc/neo4j/neo4j.conf
   sed -i s/#dbms.mode=CORE/dbms.mode=CORE/g /etc/neo4j/neo4j.conf
 fi
@@ -70,9 +62,16 @@ echo Turning on SSL...
 sed -i 's/dbms.connector.https.enabled=false/dbms.connector.https.enabled=true/g' /etc/neo4j/neo4j.conf
 #sed -i 's/#dbms.connector.bolt.tls_level=DISABLED/dbms.connector.bolt.tls_level=OPTIONAL/g' /etc/neo4j/neo4j.conf
 
-/etc/pki/tls/certs/make-dummy-cert cert
-awk '/-----BEGIN PRIVATE KEY-----/,/-----END PRIVATE KEY-----/' cert > private.key
-awk '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' cert > public.crt
+answers() {
+echo --
+echo SomeState
+echo SomeCity
+echo SomeOrganization
+echo SomeOrganizationalUnit
+echo localhost.localdomain
+echo root@localhost.localdomain
+}
+answers | /usr/bin/openssl req -newkey rsa:2048 -keyout private.key -nodes -x509 -days 365 -out public.crt
 
 #for service in bolt https cluster backup; do
 for service in https; do
