@@ -1,11 +1,11 @@
 {
-  "GraphDatabaseVersion": {
+  "graphDatabaseVersion": {
     "value": "4.4.1"
   },
-  "GraphDataScienceVersion": {
+  "graphDataScienceVersion": {
     "value": "None"
   },
-  "BloomVersion": {
+  "bloomVersion": {
     "value": "None"
   },
   "adminUsername": {
@@ -14,10 +14,10 @@
   "adminPassword": {
     "value": "foo123!"
   },
-  "LicenseKey": {
+  "licenseKey": {
     "value": "None"
   },
-  "NodeCount": {
+  "nodeCount": {
     "value": 3
   },
   "vmSize": {
