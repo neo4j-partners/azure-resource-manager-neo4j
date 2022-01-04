@@ -33,6 +33,7 @@ enabled=1
 gpgcheck=1" > /etc/yum.repos.d/neo4j.repo
 
 echo Writing neo4j license key file...
+mkdir /etc/neo4j/license
 echo $licenseKey > /etc/neo4j/license/neo4j.license
 
 echo Installing Graph Database...
@@ -85,14 +86,14 @@ done
 chown -R neo4j:neo4j /var/lib/neo4j/certificates
 chmod -R 755 /var/lib/neo4j/certificates
 
-if [[ \"$graphDataScienceVersion\" != None ]]; then
+if [[ \"$graphDataScienceVersion\" != "None" ]]; then
   echo Installing Graph Data Science...
   curl \"https://s3-eu-west-1.amazonaws.com/com.neo4j.graphalgorithms.dist/graph-data-science/neo4j-graph-data-science-${graphDataScienceVersion}-standalone.zip\" -o neo4j-graph-data-science-${graphDataScienceVersion}-standalone.zip
   unzip neo4j-graph-data-science-${graphDataScienceVersion}-standalone.zip
   mv neo4j-graph-data-science-${graphDataScienceVersion}.jar /var/lib/neo4j/plugins
 fi
 
-if [[ \"$bloomVersion\" != None ]]; then
+if [[ \"$bloomVersion\" != "None" ]]; then
   echo Installing Bloom...
   curl -L \"https://neo4j.com/artifact.php?name=neo4j-bloom-${bloomVersion}.zip\" -o neo4j-bloom-${bloomVersion}.zip
   unzip neo4j-bloom-${bloomVersion}.zip
@@ -105,4 +106,4 @@ sed -i s/#dbms.security.procedures.allowlist=apoc.coll.*,apoc.load.*,gds.*/dbms.
 
 echo Starting Neo4j...
 service neo4j start
-neo4j-admin set-initial-password ${password}
+neo4j-admin set-initial-password ${adminPassword}
