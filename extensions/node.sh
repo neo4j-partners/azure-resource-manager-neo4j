@@ -46,7 +46,7 @@ nodeIndex=`curl -H Metadata:true "http://169.254.169.254/metadata/instance/compu
   | jq ".name" \
   | sed 's/.*_//' \
   | sed 's/"//'`
-publicHostname='vm0.node-'$uniqueString'.'$location'.cloudapp.azure.com'
+publicHostname='vm'$nodeIndex'.node-'$uniqueString'.'$location'.cloudapp.azure.com'
 sed -i s/#dbms.default_advertised_address=localhost/dbms.default_advertised_address=${publicHostname}/g /etc/neo4j/neo4j.conf
 
 if [[ \"$nodeCount\" == 1 ]]; then
