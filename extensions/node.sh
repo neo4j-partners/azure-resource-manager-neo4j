@@ -32,13 +32,13 @@ baseurl=http://yum.neo4j.com/stable
 enabled=1
 gpgcheck=1" > /etc/yum.repos.d/neo4j.repo
 
-echo Writing neo4j license key file...
-mkdir /etc/neo4j/license
-echo $licenseKey > /etc/neo4j/license/neo4j.license
-
 echo Installing Graph Database...
 export NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
 yum -y install neo4j-enterprise-${graphDatabaseVersion}
+
+echo Writing neo4j license key file...
+mkdir /etc/neo4j/license
+echo $licenseKey > /etc/neo4j/license/neo4j.license
 
 echo Configuring network in neo4j.conf...
 sed -i 's/#dbms.default_listen_address=0.0.0.0/dbms.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf
