@@ -46,7 +46,7 @@
               "name": "SSH",
               "properties": {
                 "description": "SSH",
-                "protocol": "Tcp",
+                "protocol": "TCP",
                 "sourcePortRange": "*",
                 "destinationPortRange": "22",
                 "sourceAddressPrefix": "Internet",
@@ -60,7 +60,7 @@
               "name": "HTTS",
               "properties": {
                 "description": "HTTPS",
-                "protocol": "Tcp",
+                "protocol": "TCP",
                 "sourcePortRange": "*",
                 "destinationPortRange": "7473",
                 "sourceAddressPrefix": "Internet",
@@ -74,7 +74,7 @@
               "name": "HTTP",
               "properties": {
                 "description": "HTTP",
-                "protocol": "Tcp",
+                "protocol": "TCP",
                 "sourcePortRange": "*",
                 "destinationPortRange": "7474",
                 "sourceAddressPrefix": "Internet",
@@ -88,7 +88,7 @@
               "name": "Bolt",
               "properties": {
                 "description": "Bolt",
-                "protocol": "Tcp",
+                "protocol": "TCP",
                 "sourcePortRange": "*",
                 "destinationPortRange": "7687",
                 "sourceAddressPrefix": "Internet",
@@ -102,11 +102,11 @@
               "name": "InternalCluster",
               "properties": {
                 "description": "Internal Cluster",
-                "protocol": "Tcp",
+                "protocol": "TCP",
                 "sourcePortRange": "*",
                 "destinationPortRange": "*",
-                "sourceAddressPrefix": "*",
-                "destinationAddressPrefix": "*",
+                "sourceAddressPrefix": "VirtualNetwork",
+                "destinationAddressPrefix": "VirtualNetwork",
                 "access": "Allow",
                 "priority": 104,
                 "direction": "Inbound"
