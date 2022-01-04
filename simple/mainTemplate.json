@@ -106,7 +106,7 @@
                 "sourcePortRange": "*",
                 "destinationPortRange": "*",
                 "sourceAddressPrefix": "VirtualNetwork",
-                "destinationAddressPrefix": "VirtualNetwork",
+                "destinationAddressPrefix": "*",
                 "access": "Allow",
                 "priority": 104,
                 "direction": "Inbound"
