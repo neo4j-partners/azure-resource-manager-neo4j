@@ -212,9 +212,7 @@
                     "typeHandlerVersion": "2.0",
                     "autoUpgradeMinorVersion": true,
                     "settings": {
-                      "fileUris": [
-                        "[concat(variables('extensionUrl'), 'node.sh')]"
-                      ],
+                      "fileUris": ["[concat(variables('extensionUrl'), 'node.sh')]"],
                       "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('licenseKey'), ' ', resourceGroup().location, ' ', parameters('graphDatabaseVersion'), ' ', parameters('graphDataScienceVersion'), ' ', parameters('bloomVersion'), ' ', parameters('nodeCount'))]"
                     }
                   }
