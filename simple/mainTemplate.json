@@ -97,6 +97,118 @@
                 "priority": 103,
                 "direction": "Inbound"
               }
+            },
+            {
+              "name": "CausalClusterDiscoveryManagement",
+              "properties": {
+                "description": "Causal Cluster Discovery Management",
+                "protocol": "Tcp",
+                "sourcePortRange": "*",
+                "destinationPortRange": "5000",
+                "sourceAddressPrefix": "Internet",
+                "destinationAddressPrefix": "*",
+                "access": "Allow",
+                "priority": 104,
+                "direction": "Inbound"
+              }
+            },
+            {
+              "name": "CausalClusterTransaction",
+              "properties": {
+                "description": "Causal Cluster Transaction",
+                "protocol": "Tcp",
+                "sourcePortRange": "*",
+                "destinationPortRange": "6000",
+                "sourceAddressPrefix": "Internet",
+                "destinationAddressPrefix": "*",
+                "access": "Allow",
+                "priority": 105,
+                "direction": "Inbound"
+              }
+            },
+            {
+              "name": "CausalClusterRAFT",
+              "properties": {
+                "description": "Causal Cluster RAFT",
+                "protocol": "Tcp",
+                "sourcePortRange": "*",
+                "destinationPortRange": "7000",
+                "sourceAddressPrefix": "Internet",
+                "destinationAddressPrefix": "*",
+                "access": "Allow",
+                "priority": 106,
+                "direction": "Inbound"
+              }
+            },
+            {
+              "name": "CausalClusterRoutingConnector",
+              "properties": {
+                "description": "Causal Cluster Routing Connector",
+                "protocol": "Tcp",
+                "sourcePortRange": "*",
+                "destinationPortRange": "7688",
+                "sourceAddressPrefix": "Internet",
+                "destinationAddressPrefix": "*",
+                "access": "Allow",
+                "priority": 107,
+                "direction": "Inbound"
+              }
+            },
+            {
+              "name": "GraphiteMonitoring",
+              "properties": {
+                "description": "Graphite Monitoring",
+                "protocol": "Tcp",
+                "sourcePortRange": "*",
+                "destinationPortRange": "2003",
+                "sourceAddressPrefix": "Internet",
+                "destinationAddressPrefix": "*",
+                "access": "Allow",
+                "priority": 108,
+                "direction": "Inbound"
+              }
+            },
+            {
+              "name": "PrometheusMonitoring",
+              "properties": {
+                "description": "Prometheus Monitoring",
+                "protocol": "Tcp",
+                "sourcePortRange": "*",
+                "destinationPortRange": "2004",
+                "sourceAddressPrefix": "Internet",
+                "destinationAddressPrefix": "*",
+                "access": "Allow",
+                "priority": 109,
+                "direction": "Inbound"
+              }
+            },
+            {
+              "name": "JMXMonitoring",
+              "properties": {
+                "description": "JMX monitoring",
+                "protocol": "Tcp",
+                "sourcePortRange": "*",
+                "destinationPortRange": "3637",
+                "sourceAddressPrefix": "Internet",
+                "destinationAddressPrefix": "*",
+                "access": "Allow",
+                "priority": 110,
+                "direction": "Inbound"
+              }
+            },
+            {
+              "name": "RemoteDebugging",
+              "properties": {
+                "description": "Remote Debugging",
+                "protocol": "Tcp",
+                "sourcePortRange": "*",
+                "destinationPortRange": "5005",
+                "sourceAddressPrefix": "Internet",
+                "destinationAddressPrefix": "*",
+                "access": "Allow",
+                "priority": 111,
+                "direction": "Inbound"
+              }
             }
           ]
         }
