@@ -23,6 +23,10 @@ echo graphDataScienceVersion \'$graphDataScienceVersion\'
 echo bloomVersion \'$bloomVersion\'
 echo nodeCount \'$nodeCount\'
 
+echo "Turning off firewalld"
+systemctl stop firewalld
+systemctl disable firewalld
+
 echo Adding neo4j yum repo...
 rpm --import https://debian.neo4j.com/neotechnology.gpg.key
 echo "
