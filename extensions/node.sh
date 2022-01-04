@@ -80,7 +80,7 @@ answers | /usr/bin/openssl req -newkey rsa:2048 -keyout private.key -nodes -x509
 
 #for service in bolt https cluster backup; do
 for service in https; do
-  sed -i \"s/#dbms.ssl.policy.${service}/dbms.ssl.policy.${service}/g\" /etc/neo4j/neo4j.conf
+  sed -i s/#dbms.ssl.policy.${service}/dbms.ssl.policy.${service}/g /etc/neo4j/neo4j.conf
   mkdir -p /var/lib/neo4j/certificates/${service}/trusted
   mkdir -p /var/lib/neo4j/certificates/${service}/revoked
   cp private.key /var/lib/neo4j/certificates/${service}
