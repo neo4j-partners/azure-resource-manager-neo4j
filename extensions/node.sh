@@ -49,7 +49,7 @@ nodeIndex=`curl -H Metadata:true "http://169.254.169.254/metadata/instance/compu
 publicHostname='vm'$nodeIndex'.node-'$uniqueString'.'$location'.cloudapp.azure.com'
 sed -i s/#dbms.default_advertised_address=localhost/dbms.default_advertised_address=${publicHostname}/g /etc/neo4j/neo4j.conf
 
-if [[ "$nodeCount" == 1 ]]; then
+if [[ $nodeCount == 1 ]]; then
   echo Running on a single node.
 else
   echo Running on multiple nodes.  Configuring membership in neo4j.conf...
@@ -86,14 +86,14 @@ done
 chown -R neo4j:neo4j /var/lib/neo4j/certificates
 chmod -R 755 /var/lib/neo4j/certificates
 
-if [[ "$graphDataScienceVersion" != "None" ]]; then
+if [[ $graphDataScienceVersion != None ]]; then
   echo Installing Graph Data Science...
   curl https://s3-eu-west-1.amazonaws.com/com.neo4j.graphalgorithms.dist/graph-data-science/neo4j-graph-data-science-${graphDataScienceVersion}-standalone.zip -o neo4j-graph-data-science-${graphDataScienceVersion}-standalone.zip
   unzip neo4j-graph-data-science-${graphDataScienceVersion}-standalone.zip
   mv neo4j-graph-data-science-${graphDataScienceVersion}.jar /var/lib/neo4j/plugins
 fi
 
-if [[ "$bloomVersion" != "None" ]]; then
+if [[ $bloomVersion != None ]]; then
   echo Installing Bloom...
   curl -L https://neo4j.com/artifact.php?name=neo4j-bloom-${bloomVersion}.zip -o neo4j-bloom-${bloomVersion}.zip
   unzip neo4j-bloom-${bloomVersion}.zip
