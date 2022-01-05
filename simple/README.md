@@ -5,12 +5,15 @@ This is an Azure Resource Manager (ARM) template that deploys Neo4j Enterprise o
 [![Deploy To Azure US Gov](https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/deploytoazuregov.svg?sanitize=true)](https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fneo4j-partners%2Fazure-resource-manager-neo4j%2Fmain%2Fsimple%2FmainTemplate.json)
 [![Visualize](https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/visualizebutton.svg?sanitize=true)](http://armviz.io/#/?load=https%3A%2F%2Fraw.githubusercontent.com%2Fneo4j-partners%2Fazure-resource-manager-neo4j%2Fmain%2Fsimple%2FmainTemplate.json)
 
-The template provisions a virtual network, VM Scale Sets (VMSS), Managed Disks with Premium Storage and public IPs with a DNS record per node.  It also sets up a network security group.
+The template provisions a virtual network, Virtual Machine Scale Sets (VMSS), Managed Disks with Premium Storage and Public IPs with a DNS record per node.  It also sets up a network security group.
 
 ## Environment Setup
 You will need an Azure account.
 
-First we need to install and configure the Azure CLI.  You can install the CLI by following the instructions [here](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli).
+First we need to install and configure the Azure CLI.  You can install the CLI by following the instructions [here](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli).  Bascially all you need to do is run:
+
+    brew update && brew install azure-cli
+    az login
 
 You can confirm the CLI is working properly by running:
 
@@ -35,4 +38,4 @@ To delete your deployment you can either run the command below or use the GUI in
     az group delete --yes --name <RESOURCE_GROUP_NAME>
 
 ## Debugging a Deployment
-Each node runs a startup script that the waagent invokes.  To debug, you can SSH into the box and view the logs. They are in the directory `/var/lib/waagent/custom-script/download/1`.
+Each node runs a startup script that the waagent invokes.  To debug, you can SSH into the box and view the logs. They are in the directory `/var/lib/waagent/custom-script/download/1`
