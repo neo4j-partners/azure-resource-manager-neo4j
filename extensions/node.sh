@@ -53,6 +53,14 @@ nodeIndex=`curl -H Metadata:true "http://169.254.169.254/metadata/instance/compu
 publicHostname='vm'$nodeIndex'.node-'$uniqueString'.'$location'.cloudapp.azure.com'
 sed -i s/#dbms.default_advertised_address=localhost/dbms.default_advertised_address=${publicHostname}/g /etc/neo4j/neo4j.conf
 
+echo "Adding entries to /etc/hosts to route cluster traffic internally..."
+echo "
+# Route cluster traffic internally
+node000000 vm0.node-${uniqueString}.${location}.cloudapp.azure.com
+node000001 vm1.node-${uniqueString}.${location}.cloudapp.azure.com
+node000002 vm2.node-${uniqueString}.${location}.cloudapp.azure.com
+" >> /etc/hosts
+
 if [[ $nodeCount == 1 ]]; then
   echo Running on a single node.
 else
