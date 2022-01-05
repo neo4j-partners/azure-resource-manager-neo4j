@@ -97,20 +97,6 @@
                 "priority": 103,
                 "direction": "Inbound"
               }
-            },
-            {
-              "name": "InternalCluster",
-              "properties": {
-                "description": "Internal Cluster",
-                "protocol": "TCP",
-                "sourcePortRange": "*",
-                "destinationPortRange": "*",
-                "sourceAddressPrefix": "VirtualNetwork",
-                "destinationAddressPrefix": "*",
-                "access": "Allow",
-                "priority": 104,
-                "direction": "Inbound"
-              }
             }
           ]
         }
