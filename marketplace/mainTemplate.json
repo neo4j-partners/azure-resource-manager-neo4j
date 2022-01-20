@@ -1,0 +1,232 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "graphDatabaseVersion": {
+        "type": "string"
+      },
+      "graphDataScienceVersion": {
+        "type": "string"
+      },
+      "bloomVersion": {
+        "type": "string"
+      },
+      "adminUsername": {
+        "type": "string"
+      },
+      "adminPassword": {
+        "type": "securestring"
+      },
+      "licenseKey": {
+        "type": "string"
+      },
+      "nodeCount": {
+        "type": "int"
+      },
+      "vmSize": {
+        "type": "string"
+      },
+      "diskSize": {
+        "type": "int"
+      }
+    },
+    "variables": {
+      "extensionUrl": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/master/extensions/",
+      "uniqueString": "[uniquestring(resourceGroup().id, deployment().name)]"
+    },
+    "resources": [
+      {
+        "name": "networksecuritygroups",
+        "type": "Microsoft.Network/networkSecurityGroups",
+        "apiVersion": "2016-06-01",
+        "location": "[resourceGroup().location]",
+        "properties": {
+          "securityRules": [
+            {
+              "name": "SSH",
+              "properties": {
+                "description": "SSH",
+                "protocol": "TCP",
+                "sourcePortRange": "*",
+                "destinationPortRange": "22",
+                "sourceAddressPrefix": "Internet",
+                "destinationAddressPrefix": "*",
+                "access": "Allow",
+                "priority": 100,
+                "direction": "Inbound"
+              }
+            },
+            {
+              "name": "HTTS",
+              "properties": {
+                "description": "HTTPS",
+                "protocol": "TCP",
+                "sourcePortRange": "*",
+                "destinationPortRange": "7473",
+                "sourceAddressPrefix": "Internet",
+                "destinationAddressPrefix": "*",
+                "access": "Allow",
+                "priority": 101,
+                "direction": "Inbound"
+              }
+            },
+            {
+              "name": "HTTP",
+              "properties": {
+                "description": "HTTP",
+                "protocol": "TCP",
+                "sourcePortRange": "*",
+                "destinationPortRange": "7474",
+                "sourceAddressPrefix": "Internet",
+                "destinationAddressPrefix": "*",
+                "access": "Allow",
+                "priority": 102,
+                "direction": "Inbound"
+              }
+            },
+            {
+              "name": "Bolt",
+              "properties": {
+                "description": "Bolt",
+                "protocol": "TCP",
+                "sourcePortRange": "*",
+                "destinationPortRange": "7687",
+                "sourceAddressPrefix": "Internet",
+                "destinationAddressPrefix": "*",
+                "access": "Allow",
+                "priority": 103,
+                "direction": "Inbound"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "vnet",
+        "type": "Microsoft.Network/virtualNetworks",
+        "apiVersion": "2015-06-15",
+        "location": "[resourceGroup().location]",
+        "dependsOn": [
+          "[resourceId('Microsoft.Network/networkSecurityGroups', 'networksecuritygroups')]"
+        ],
+        "properties": {
+          "addressSpace": {
+            "addressPrefixes": [
+              "10.0.0.0/8"
+            ]
+          },
+          "subnets": [
+            {
+              "name": "subnet",
+              "properties": {
+                "addressPrefix": "10.0.0.0/16",
+                "networkSecurityGroup": {
+                  "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'networksecuritygroups')]"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "Microsoft.Compute/virtualMachineScaleSets",
+        "name": "nodes",
+        "location": "[resourceGroup().location]",
+        "apiVersion": "2017-03-30",
+        "dependsOn": [
+          "[resourceId('Microsoft.Network/virtualNetworks', 'vnet')]"
+        ],
+        "sku": {
+          "name": "[parameters('vmSize')]",
+          "capacity": "[parameters('nodeCount')]"
+        },
+        "properties": {
+          "overprovision": false,
+          "upgradePolicy": {
+            "mode": "Manual"
+          },
+          "virtualMachineProfile": {
+            "storageProfile": {
+              "osDisk": {
+                "createOption": "FromImage"
+              },
+              "imageReference": {
+                "publisher": "RedHat",
+                "offer": "RHEL",
+                "sku": "8_5",
+                "version": "latest"
+              },
+              "dataDisks": [
+                {
+                  "lun": 0,
+                  "createOption": "Empty",
+                  "managedDisk": {
+                    "storageAccountType": "Premium_LRS"
+                  },
+                  "caching": "None",
+                  "diskSizeGB": "[parameters('diskSize')]"
+                }
+              ]
+            },
+            "osProfile": {
+              "computerNamePrefix": "node",
+              "adminUsername": "[parameters('adminUsername')]",
+              "adminPassword": "[parameters('adminPassword')]"
+            },
+            "networkProfile": {
+              "networkInterfaceConfigurations": [
+                {
+                  "name": "nic",
+                  "properties": {
+                    "primary": true,
+                    "ipConfigurations": [
+                      {
+                        "name": "ipconfig",
+                        "properties": {
+                          "subnet": {
+                            "id": "[concat(resourceId('Microsoft.Network/virtualNetworks/', 'vnet'), '/subnets/subnet')]"
+                          },
+                          "publicipaddressconfiguration": {
+                            "name": "public",
+                            "properties": {
+                              "idleTimeoutInMinutes": 30,
+                              "dnsSettings": {
+                                "domainNameLabel": "[concat('node-', variables('uniqueString'))]"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "extensionProfile": {
+              "extensions": [
+                {
+                  "name": "extension",
+                  "properties": {
+                    "publisher": "Microsoft.Azure.Extensions",
+                    "type": "CustomScript",
+                    "typeHandlerVersion": "2.0",
+                    "autoUpgradeMinorVersion": true,
+                    "settings": {
+                      "fileUris": ["[concat(variables('extensionUrl'), 'node.sh')]"],
+                      "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('licenseKey'), ' ', resourceGroup().location, ' ', parameters('graphDatabaseVersion'), ' ', parameters('graphDataScienceVersion'), ' ', parameters('bloomVersion'), ' ', parameters('nodeCount'))]"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "outputs": {
+      "adminURL": {
+        "type": "string",
+        "value": "[concat('http://vm0.node-', variables('uniqueString'), '.', resourceGroup().location, '.cloudapp.azure.com:7474')]"
+      }
+    }
+  }
