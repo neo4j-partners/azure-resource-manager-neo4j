@@ -4,7 +4,7 @@ This template is used by the Neo4j Azure Marketplace offer.  It is not intended 
 
 # Testing the createUiDefinition
 
-The [createUiDefinition.json](createUiDefinition.json) file can be tested by following this [link](https://portal.azure.com/?clientOptimizations=false#blade/Microsoft_Azure_Compute/CreateMultiVmWizardBlade/internal_bladeCallId/anything/internal_bladeCallerParams/%7B%22initialData%22:%7B%7D,%22providerConfig%22:%7B%22createUiDefinition%22:%22https%3A%2F%2Fraw.githubusercontent.com%2Fcouchbase-partners%2Fazure-resource-manager-couchbase%2Fmaster%2Fmarketplace%2FcreateUiDefinition.json%22%7D%7D)
+The [createUiDefinition.json](createUiDefinition.json) file can be tested by following this [link](https://portal.azure.com/?clientOptimizations=false#blade/Microsoft_Azure_Compute/CreateMultiVmWizardBlade/internal_bladeCallId/anything/internal_bladeCallerParams/%7B%22initialData%22:%7B%7D,%22providerConfig%22:%7B%22createUiDefinition%22:%22https%3A%2F%2Fraw.githubusercontent.com%2Fneo4j-partners%2Fazure-resource-manager-neo4j%2Fmaster%2Fmarketplace%2FcreateUiDefinition.json%22%7D%7D)
 
 # Build VM Image
 
@@ -22,17 +22,17 @@ Documentation on the process is here.  It is incomplete at best.
 
 ## Identify the VM Image to Use
 
-    az vm image list-skus --publish Canonical --location westus --offer UbuntuServer
+    az vm image list-skus --publish RedHat --location westus --offer RHEL
 
 ## Create a VM
 
     az group create --name resourcegroup --location westus
     az storage account create --sku Premium_LRS --resource-group resourcegroup --location westus --name sa34859435734
-    az vm create --name vm --resource-group resourcegroup --image Canonical:UbuntuServer:14.04.5-LTS:latest --admin-username couchbase --use-unmanaged-disk --storage-account sa34859435734
+    az vm create --name vm --resource-group resourcegroup --image RedHat:RHEL:8_5:latest --admin-username neo4j --use-unmanaged-disk --storage-account sa34859435734
 
 SSH into the image using the command:
 
-    ssh couchbase@<publicIpAddress>
+    ssh neo4j@<publicIpAddress>
 
 ## Clear the History
 
