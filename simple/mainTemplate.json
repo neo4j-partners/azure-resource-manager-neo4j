@@ -2,6 +2,15 @@
     "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
+      "adminUsername": {
+        "type": "string"
+      },
+      "adminPassword": {
+        "type": "securestring"
+      },
+      "vmSize": {
+        "type": "string"
+      },
       "graphDatabaseVersion": {
         "type": "string"
       },
@@ -11,20 +20,11 @@
       "bloomVersion": {
         "type": "string"
       },
-      "adminUsername": {
-        "type": "string"
-      },
-      "adminPassword": {
-        "type": "securestring"
-      },
       "licenseKey": {
         "type": "string"
       },
       "nodeCount": {
         "type": "int"
-      },
-      "vmSize": {
-        "type": "string"
       },
       "diskSize": {
         "type": "int"

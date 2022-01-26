@@ -1,4 +1,19 @@
 {
+  "adminUsername": {
+    "value": "neo4j"
+  },
+  "adminPassword": {
+    "value": "foo123!"
+  },
+  "vmSize": {
+    "value": "Standard_D2s_v3"
+  },
+  "nodeCount": {
+    "value": 3
+  },
+  "diskSize": {
+     "value": 128
+  },
   "graphDatabaseVersion": {
     "value": "4.4.3"
   },
@@ -8,22 +23,7 @@
   "bloomVersion": {
     "value": "None"
   },
-  "adminUsername": {
-    "value": "neo4j"
-  },
-  "adminPassword": {
-    "value": "foo123!"
-  },
   "licenseKey": {
     "value": "None"
-  },
-  "nodeCount": {
-    "value": 3
-  },
-  "vmSize": {
-    "value": "Standard_D2s_v3"
-  },
-  "diskSize": {
-     "value": 100
   }
 }

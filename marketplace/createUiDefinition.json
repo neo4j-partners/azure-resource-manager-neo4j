@@ -1,0 +1,134 @@
+{
+    "handler": "Microsoft.Compute.MultiVm",
+    "version": "0.0.1-preview",
+    "parameters": {
+      "basics": [
+        {
+          "name": "adminUsername",
+          "type": "Microsoft.Compute.UserNameTextBox",
+          "label": "Admin Username",
+          "toolTip": "Admin username on all VMs",
+          "osPlatform": "Linux"
+        },
+        {
+          "name": "adminPassword",
+          "type": "Microsoft.Common.PasswordBox",
+          "label": {
+            "password": "Admin Password",
+            "confirmPassword": "Confirm password"
+          },
+          "toolTip": "Admin password on all VMs",
+          "constraints": {
+            "required": true,
+            "regex": "^(?:(?=.*[a-z])(?:(?=.*[A-Z])(?=.*[\\d\\W])|(?=.*\\W)(?=.*\\d))|(?=.*\\W)(?=.*[A-Z])(?=.*\\d)).{6,72}$",
+            "validationMessage": "The password must be between 6 and 72 characters long, and contain characters from at least 3 of the following groups: uppercase characters, lowercase characters, numbers, and special characters."
+          },
+          "options": {
+            "hideConfirmation": false
+          }
+        }
+      ],
+      "steps": [
+        {
+          "name": "neo4jConfig",
+          "label": "Neo4j Config",
+          "subLabel": {
+            "preValidation": "Configure the Cluster",
+            "postValidation": "Done"
+          },
+          "bladeTitle": "Neo4j Settings",
+          "elements": [
+            {
+              "name": "vmSize",
+              "type": "Microsoft.Compute.SizeSelector",
+              "label": "Virtual Machine Size",
+              "toolTip": "Size of VMs in the cluster",
+              "recommendedSizes": [
+                "Standard_D2s_v3",
+                "Standard_D3s_v3"
+              ],
+              "constraints": {
+                "allowedSizes": [
+                  "Standard_D2s_v3",
+                  "Standard_D3s_v3"  
+                ]
+              },
+              "osPlatform": "Linux",
+              "imageReference": {
+                "publisher": "Canonical",
+                "offer": "UbuntuServer",
+                "sku": "14.04.5-LTS",
+                "version": "latest"
+              }
+            },
+            {
+              "name": "nodeCount",
+              "type": "Microsoft.Common.DropDown",
+              "label": "Node Count",
+              "defaultValue": "3",
+              "toolTip": "Number of virtual machines to provision for Neo4j",
+              "constraints": {
+                "allowedValues": [
+                  {
+                    "label": "1",
+                    "value": 1
+                  },
+                  {
+                    "label": "3",
+                    "value": 3
+                  }
+                ]
+              }
+            },
+            {
+              "name": "diskSize",
+              "type": "Microsoft.Common.DropDown",
+              "label": "Disk Size",
+              "defaultValue": "32 GB",
+              "toolTip": "Size of disk on each node in the cluster",
+              "constraints": {
+                "allowedValues": [
+                  {
+                    "label": "32 GB",
+                    "value": 32
+                  },
+                  {
+                    "label": "64 GB",
+                    "value": 64
+                  },
+                  {
+                    "label": "128 GB",
+                    "value": 128
+                  },
+                  {
+                    "label": "512 GB",
+                    "value": 512
+                  },
+                  {
+                    "label": "1 TB",
+                    "value": 1024
+                  },
+                  {
+                    "label": "2 TB",
+                    "value": 2048
+                  },
+                  {
+                    "label": "4 TB",
+                    "value": 4095
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "outputs": {
+        "adminUsername": "[basics('adminUsername')]",
+        "adminPassword": "[basics('adminPassword')]",
+        "nodeCount": "[steps('neo4jConfig').serverNodeCount]",
+        "diskSize": "[steps('neo4jConfig').serverDiskSize]",
+        "vmSize": "[steps('neo4jConfig').vmSize]",
+        "location": "[location()]"
+      }
+    }
+  }
