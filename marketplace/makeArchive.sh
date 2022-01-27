@@ -5,7 +5,7 @@
 mkdir tmp
 cd tmp
 
-cp ../../extensions/* ./
+cp ../../extensions/node.sh ./
 cp ../mainTemplate.json ./
 cp ../createUiDefinition.json ./
 
