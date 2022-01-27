@@ -118,6 +118,77 @@
                 }
               ]
             }
+          },
+          {
+            "name": "graphDatabaseVersion",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Graph Database Version",
+            "defaultValue": "4.4.3",
+            "toolTip": "Graph Database Version",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "4.4.3",
+                  "value": "4.4.3"
+                },
+                {
+                  "label": "4.3.10",
+                  "value": "4.3.10"
+                },
+                {
+                  "label": "4.2.14",
+                  "value": "4.2.14"
+                }
+              ]
+            }
+          },
+          {
+            "name": "graphDataScienceVersion",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Graph Data Science Version",
+            "defaultValue": "None",
+            "toolTip": "Graph Data Science Version",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "None",
+                  "value": "None"
+                },
+                {
+                  "label": "1.8.0",
+                  "value": "1.8.0"
+                }
+              ]
+            }
+          },
+          {
+            "name": "bloomVersion",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Bloom Version",
+            "defaultValue": "None",
+            "toolTip": "Bloom Version",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "None",
+                  "value": "None"
+                },
+                {
+                  "label": "1.8.0",
+                  "value": "1.8.0"
+                }
+              ]
+            }
+          },
+          {
+            "name": "licenseKey",
+            "type": "Microsoft.Common.TextBox",
+            "label": "License Key",
+            "defaultValue": "",
+            "toolTip": "License Key",
+            "constraints": {
+              "required": false          
+            }
           }
         ]
       }
@@ -126,8 +197,8 @@
       "adminUsername": "[basics('adminUsername')]",
       "adminPassword": "[basics('adminPassword')]",
       "vmSize": "[steps('neo4jConfig').vmSize]",
-      "nodeCount": "[steps('neo4jConfig').serverNodeCount]",
-      "diskSize": "[steps('neo4jConfig').serverDiskSize]",
+      "nodeCount": "[steps('neo4jConfig').nodeCount]",
+      "diskSize": "[steps('neo4jConfig').diskSize]",
       "graphDatabaseVersion": "[steps('neo4jConfig').graphDatabaseVersion]",
       "graphDataScienceVersion": "[steps('neo4jConfig').graphDataScienceVersion]",
       "bloomVersion": "[steps('neo4jConfig').bloomVersion]",
