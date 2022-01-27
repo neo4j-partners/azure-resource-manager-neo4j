@@ -4,11 +4,9 @@ This template is used by the Neo4j Azure Marketplace offer.  It is not intended 
 
 Unless you are a Neo4j employee updating the Azure Marketplace listing, you probably want to be using either the Marketplace listing itself or [simple](../simple).
 
-# Testing the createUiDefinition
+# Build the archive and upload
 
-The [createUiDefinition.json](createUiDefinition.json) file can be tested by following this [link](https://portal.azure.com/?clientOptimizations=false#blade/Microsoft_Azure_Compute/CreateMultiVmWizardBlade/internal_bladeCallId/anything/internal_bladeCallerParams/%7B%22initialData%22:%7B%7D,%22providerConfig%22:%7B%22createUiDefinition%22:%22https%3A%2F%2Fraw.githubusercontent.com%2Fneo4j-partners%2Fazure-resource-manager-neo4j%2Fmaster%2Fmarketplace%2FcreateUiDefinition.json%22%7D%7D)
-
-Note --- It seems like the test link doesn't work anymore.
+To update the listing, run [makeArchive.sh](markArchive.sh).  Then upload the resulting archive.zip to the [Azure Marketplace publish portal](https://partner.microsoft.com/en-us/dashboard/commercial-marketplace/overview).
 
 # Build VM Image
 
