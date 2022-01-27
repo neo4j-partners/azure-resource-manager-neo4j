@@ -1,6 +1,8 @@
 # marketplace
 
-This template is used by the Neo4j Azure Marketplace offer.  It is not intended to be used outside the marketplace. [makeArchive.sh](makeArchive.sh) will build a zip file that can be uploaded to the publish portal.  This template depends on the [simple](../simple) template.  That is probably what you want to be using instead of this anyway.
+This template is used by the Neo4j Azure Marketplace offer.  It is not intended to be used outside the marketplace. [makeArchive.sh](makeArchive.sh) will build a zip file that can be uploaded to the publish portal. 
+
+Unless you are a Neo4j employee updating the Azure Marketplace listing, you probably want to be using either the Marketplace listing itself or [simple](../simple).
 
 # Testing the createUiDefinition
 
