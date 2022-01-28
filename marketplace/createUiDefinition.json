@@ -179,10 +179,10 @@
             "name": "licenseKey",
             "type": "Microsoft.Common.TextBox",
             "label": "License Key",
-            "defaultValue": "",
+            "defaultValue": "None",
             "toolTip": "License Key",
             "constraints": {
-              "required": false          
+              "required": true          
             }
           }
         ]
