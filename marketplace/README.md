@@ -9,6 +9,25 @@ Unless you are a Neo4j employee updating the Azure Marketplace listing, you prob
 To update the listing, run [makeArchive.sh](markArchive.sh).  Then upload the resulting archive.zip to the [Azure Marketplace publish portal](https://partner.microsoft.com/en-us/dashboard/commercial-marketplace/overview).
 
 # Build VM Image
+In the bad old days, you had to build an image, extract a SAS URL and so on.  Azure has a newer [shared image gallery](https://docs.microsoft.com/en-us/azure/virtual-machines/shared-image-galleries) feature that we're now using instead.  Periodically you'll want to update the listing that underlies the template.
+
+The image gallery currently lives in an Azure account associated with the Neo4j publisher account.  It's not visible from our main Azure subscription.  We'd like to fix that eventually.  You can access the image gallery [here](https://portal.azure.com/#@neo4j.onmicrosoft.com/resource/subscriptions/b4457da9-0c4d-4b12-ab47-962f6864fa06/resourceGroups/marketplace/providers/Microsoft.Compute/galleries/marketplace/overview).
+
+First off, you're going to need to figure out what the latest RHEL image is.  A command like this will list the URN:
+
+
+Now you need to make a copy of that image.
+
+
+
+az image copy --source-resource-group mySources-rg --source-object-name myVm \
+    --source-type vm --target-location uksouth northeurope --target-resource-group "images-repo-rg"
+
+
+az vm image list --image RedHat:RHEL:8-LVM:latest
+
+
+# Build VM Image (SAS URL)
 
 This describes how we build the VM that the templates use.  Users should not need to do this.
 
@@ -23,6 +42,7 @@ Documentation on the process is here.  It is incomplete at best.
 * https://docs.microsoft.com/en-us/azure/virtual-machines/virtual-machines-linux-classic-capture-image
 
 ## Identify the VM Image to Use
+    az vm image list --publisher RedHat --offer RHEL --sku 8_5 --all
 
     az vm image list-skus --publish RedHat --location westus --offer RHEL
 
