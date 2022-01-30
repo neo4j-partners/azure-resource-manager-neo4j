@@ -11,7 +11,7 @@ This describes how we build the VM that the templates use.  Users should not nee
 
 There's a newer feature called [Azure Image Gallery](https://docs.microsoft.com/en-us/azure/marketplace/azure-vm-use-approved-base#capture-image).  That requires the Azure AD be the same as the publisher one.  Our isn't.  I set up another Azure account and started down that path, but decided that we should fix the AD and come back to that appraoach later.
 
-So, we're taking the older SAS URL approach here.  Of course, most of the documentation has gone missing since I last did this.
+So, we're taking the older SAS URI approach here.  Of course, most of the documentation has gone missing since I last did this.
 
 ## Identify the VM Image to Use
 We want the latest RHEL platform image.
@@ -41,8 +41,8 @@ SSH into the image using the command:
     az vm deallocate --resource-group $resourceGroup --name vm
     az vm generalize --resource-group $resourceGroup --name vm
 
-## Get the SAS URL
-The portal now has a generate SAS URL button.  I just used that this last time.  What follows is a half working attempt to automate that which I'm going to punt on for now.
+## Get the SAS URI
+The portal now has a generate SAS URI button.  I just used that this last time.  What follows is a half working attempt to automate that which I'm going to punt on for now.
 
 First off let's set the connection variable.
 
@@ -53,19 +53,19 @@ Now make sure the image is a vhd.
 
     az storage blob list --container-name vhds --connection-string $connectionString
 
-We need to create a URL for the image.  
+We need to create a URI for the image.  
 
 The Publish Portal could potentially print an error: "The SAS URL start date (st) for the SAS URL should be one day before the current date in UTC, please ensure that the start date for SAS link is on or before mm/dd/yyyy. Please ensure that the SAS URL is generated following the instructions available in the [help link](https://docs.microsoft.com/en-us/azure/marketplace-publishing/marketplace-publishing-vm-image-creation)."
 
     token=`az storage container generate-sas --name vhds --connection-string $connectionString --permissions r --expiry 2023-01-01 --output tsv`
-    sasurl=`az storage blob url --container-name vhds --connection-string $connectionString --sas-token $token --name foo123`
+    sasuri=`az storage blob url --container-name vhds --connection-string $connectionString --sas-token $token --name foo123`
 
-The SAS url should look like this:
+The SAS URI should look like this:
 
     https://sa45345345.blob.core.windows.net/vhds/osdisk_b91e6a0e9a.vhd?sp=r&st=2022-01-30T02:07:41Z&se=2023-01-30T10:07:41Z&spr=https&sv=2020-08-04&sr=b&sig=%2FNfIZWzp1pE2JcH2lQcVLx72k0M%2Fidaan%2BlNHWMzOl0%3D
 
 Make sure it works by running:
 
-    wget $url
+    wget $uri
 
 Once you can successfully get the image, drop it into the publisher portal.
