@@ -11,11 +11,7 @@ This describes how we build the VM that the templates use.  Users should not nee
 
 There's a newer feature called [Azure Image Gallery](https://docs.microsoft.com/en-us/azure/marketplace/azure-vm-use-approved-base#capture-image).  That requires the Azure AD be the same as the publisher one.  Our isn't.  I set up another Azure account and started down that path, but decided that we should fix the AD and come back to that appraoach later.
 
-So, we're taking the older SAS URI approach here.  Of course, most of the documentation has gone missing since I last did this.
-
-## Documentation
-Documentation on the process is here.  It is incomplete at best.
-* https://docs.microsoft.com/en-us/azure/virtual-machines/linux/capture-image
+So, we're taking the older SAS URL approach here.  Of course, most of the documentation has gone missing since I last did this.
 
 ## Identify the VM Image to Use
 We want the latest RHEL platform image.
@@ -47,6 +43,7 @@ SSH into the image using the command:
 
 ## Get the SAS URL
 The portal now has a generate SAS URL button.  I just used that this last time.  What follows is a half working attempt to automate that which I'm going to punt on for now.
+
 First off let's set the connection variable.
 
     az storage account show-connection-string --resource-group $resourceGroup --name $saAccountName
