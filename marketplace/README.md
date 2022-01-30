@@ -1,56 +1,35 @@
 # marketplace
-
 This template is used by the Neo4j Azure Marketplace offer.  It is not intended to be used outside the marketplace. [makeArchive.sh](makeArchive.sh) will build a zip file that can be uploaded to the publish portal. 
 
 Unless you are a Neo4j employee updating the Azure Marketplace listing, you probably want to be using either the Marketplace listing itself or [simple](../simple).
 
 # Build the archive and upload
-
 To update the listing, run [makeArchive.sh](markArchive.sh).  Then upload the resulting archive.zip to the [Azure Marketplace publish portal](https://partner.microsoft.com/en-us/dashboard/commercial-marketplace/overview).
 
 # Build VM Image
-In the bad old days, you had to build an image, extract a SAS URL and so on.  Azure has a newer [shared image gallery](https://docs.microsoft.com/en-us/azure/virtual-machines/shared-image-galleries) feature that we're now using instead.  Periodically you'll want to update the listing that underlies the template.
-
-The image gallery currently lives in an Azure account associated with the Neo4j publisher account.  It's not visible from our main Azure subscription.  We'd like to fix that eventually.  You can access the image gallery [here](https://portal.azure.com/#@neo4j.onmicrosoft.com/resource/subscriptions/b4457da9-0c4d-4b12-ab47-962f6864fa06/resourceGroups/marketplace/providers/Microsoft.Compute/galleries/marketplace/overview).
-
-First off, you're going to need to figure out what the latest RHEL image is.  A command like this will list the URN:
-
-
-Now you need to make a copy of that image.
-
-
-
-az image copy --source-resource-group mySources-rg --source-object-name myVm \
-    --source-type vm --target-location uksouth northeurope --target-resource-group "images-repo-rg"
-
-
-az vm image list --image RedHat:RHEL:8-LVM:latest
-
-
-# Build VM Image (SAS URL)
-
 This describes how we build the VM that the templates use.  Users should not need to do this.
 
-https://docs.microsoft.com/en-us/azure/marketplace/azure-vm-use-approved-base#capture-image
+There's a newer feature called [Azure Image Gallery](https://docs.microsoft.com/en-us/azure/marketplace/azure-vm-use-approved-base#capture-image).  That requires the Azure AD be the same as the publisher one.  Our isn't.  I set up another Azure account and started down that path, but decided that we should fix the AD and come back to that appraoach later.
+
+So, we're taking the older SAS URI approach here.  Of course, most of the documentation has gone missing since I last did this.
 
 ## Documentation
-
 Documentation on the process is here.  It is incomplete at best.
-* https://docs.microsoft.com/en-us/azure/virtual-machines/virtual-machines-linux-capture-image
-* https://azure.microsoft.com/en-us/documentation/articles/marketplace-publishing-vm-image-creation/
-* https://azure.microsoft.com/en-us/documentation/articles/virtual-machines-linux-classic-create-upload-vhd/
-* https://docs.microsoft.com/en-us/azure/virtual-machines/virtual-machines-linux-classic-capture-image
+* https://docs.microsoft.com/en-us/azure/virtual-machines/linux/capture-image
 
 ## Identify the VM Image to Use
-    az vm image list --publisher RedHat --offer RHEL --sku 8_5 --all
+We want the latest RHEL platform image.
 
     az vm image list-skus --publish RedHat --location westus --offer RHEL
 
 ## Create a VM
 
-    az group create --name resourcegroup --location westus
-    az storage account create --sku Premium_LRS --resource-group resourcegroup --location westus --name sa34859435734
-    az vm create --name vm --resource-group resourcegroup --image RedHat:RHEL:8_5:latest --admin-username neo4j --use-unmanaged-disk --storage-account sa34859435734
+    saAccountName=sa45345345
+    resourceGroup=rg1
+
+    az group create --name $resourceGroup --location westus
+    az storage account create --sku Premium_LRS --resource-group $resourceGroup --location westus --name $saAccountName
+    az vm create --name vm --resource-group $resourceGroup --image RedHat:RHEL:8_5:latest --admin-username neo4j --use-unmanaged-disk --storage-account $saAccountName --admin-password fooBar12345!
 
 SSH into the image using the command:
 
@@ -63,36 +42,33 @@ SSH into the image using the command:
 
 ## Deallocate and Generalize the VM Image
 
-    az vm deallocate --resource-group resourcegroup --name vm
-    az vm generalize --resource-group resourcegroup --name vm
+    az vm deallocate --resource-group $resourceGroup --name vm
+    az vm generalize --resource-group $resourceGroup --name vm
 
 ## Get the SAS URL
-
+The portal now has a generate SAS URL button.  I just used that this last time.  What follows is a half working attempt to automate that which I'm going to punt on for now.
 First off let's set the connection variable.
 
-    azure storage account connectionstring show sa34859435734 --resource-group resourcegroup
-    connection="DefaultEndpointsProtocol=https;AccountName=sa34859435734;AccountKey=<your key>"
+    az storage account show-connection-string --resource-group $resourceGroup --name $saAccountName
+    connectionString="DefaultEndpointsProtocol=https;AccountName=sa34859435734;AccountKey=<your key>"
 
 Now make sure the image is a vhd.
 
-    azure storage blob list vhds -c $connection
+    az storage blob list --container-name vhds --connection-string $connectionString
 
 We need to create a URL for the image.  
 
 The Publish Portal could potentially print an error: "The SAS URL start date (st) for the SAS URL should be one day before the current date in UTC, please ensure that the start date for SAS link is on or before mm/dd/yyyy. Please ensure that the SAS URL is generated following the instructions available in the [help link](https://docs.microsoft.com/en-us/azure/marketplace-publishing/marketplace-publishing-vm-image-creation)."
 
-    azure storage container sas create vhds rl 01/01/2018 -c $connection --start 07/31/2017
+    token=`az storage container generate-sas --name vhds --connection-string $connectionString --permissions r --expiry 2023-01-01 --output tsv`
+    sasurl=`az storage blob url --container-name vhds --connection-string $connectionString --sas-token $token --name foo123`
 
-The Shared Access URL should look like this:
+The SAS url should look like this:
 
-    https://sa34859435734.blob.core.windows.net/vhds?st=2017-03-22T07%3A00%3A00Z&se=2017-04-22T07%3A00%3A00Z&sp=rl&sv=2015-04-05&sr=c&sig=6lL4F5GHcsEJ6o3UV0kwFqmjskTv0IHX6kE%2FiY4MLz4%3D
-
-To get the SAS URL, add the name of the os disk as follows.  You can find it early in your terminal session or in the [Portal](http://portal.azure.com).  Stick that value in a variable so we can use it later.
-
-    url="https://sa34859435734.blob.core.windows.net/vhds/osdisk_PgSDWOnoai.vhd?st=2017-03-22T07%3A00%3A00Z&se=2017-04-22T07%3A00%3A00Z&sp=rl&sv=2015-04-05&sr=c&sig=6lL4F5GHcsEJ6o3UV0kwFqmjskTv0IHX6kE%2FiY4MLz4%3D"
+    https://sa45345345.blob.core.windows.net/vhds/osdisk_b91e6a0e9a.vhd?sp=r&st=2022-01-30T02:07:41Z&se=2023-01-30T10:07:41Z&spr=https&sv=2020-08-04&sr=b&sig=%2FNfIZWzp1pE2JcH2lQcVLx72k0M%2Fidaan%2BlNHWMzOl0%3D
 
 Make sure it works by running:
 
     wget $url
 
-Once you can successfully get the image, proceed to the [Publisher Portal](https://cloudpartner.azure.com/#publisher).
+Once you can successfully get the image, drop it into the publisher portal.
