@@ -151,9 +151,9 @@
                 "createOption": "FromImage"
               },
               "imageReference": {
-                "publisher": "RedHat",
-                "offer": "RHEL",
-                "sku": "8_5",
+                "publisher": "Neo4j",
+                "offer": "neo4j-ee-vm",
+                "sku": "byol",
                 "version": "latest"
               },
               "dataDisks": [
