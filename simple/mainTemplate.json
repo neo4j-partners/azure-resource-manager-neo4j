@@ -136,6 +136,11 @@
         "dependsOn": [
           "[resourceId('Microsoft.Network/virtualNetworks', 'vnet')]"
         ],
+        "plan": {
+          "publisher": "neo4j",
+          "product": "neo4j-ee-vm",
+          "name": "byol"
+        },
         "sku": {
           "name": "[parameters('vmSize')]",
           "capacity": "[parameters('nodeCount')]"
