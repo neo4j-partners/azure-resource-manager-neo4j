@@ -29,18 +29,9 @@
       "diskSize": {
         "type": "int"
       },
-      "baseUrl": {
-        "type": "string",
-        "metadata": {
-          "description": "Not User Configurable -- The base URL for dependent assets",
-          "artifactsBaseUrl": ""
-        }
-      },
       "location": {
         "type": "string",
-        "metadata": {
-          "description": "Not User Configurable -- Dummy parameter required by portal"
-        }
+        "defaultValue": "[resourceGroup().location]"
       }
     },
     "variables": {
@@ -52,7 +43,7 @@
         "name": "networksecuritygroups",
         "type": "Microsoft.Network/networkSecurityGroups",
         "apiVersion": "2016-06-01",
-        "location": "[resourceGroup().location]",
+        "location": "[parameters('location')]",
         "properties": {
           "securityRules": [
             {
@@ -118,7 +109,7 @@
         "name": "vnet",
         "type": "Microsoft.Network/virtualNetworks",
         "apiVersion": "2015-06-15",
-        "location": "[resourceGroup().location]",
+        "location": "[parameters('location')]",
         "dependsOn": [
           "[resourceId('Microsoft.Network/networkSecurityGroups', 'networksecuritygroups')]"
         ],
@@ -144,7 +135,7 @@
       {
         "type": "Microsoft.Compute/virtualMachineScaleSets",
         "name": "nodes",
-        "location": "[resourceGroup().location]",
+        "location": "[parameters('location')]",
         "apiVersion": "2017-03-30",
         "dependsOn": [
           "[resourceId('Microsoft.Network/virtualNetworks', 'vnet')]"
@@ -202,7 +193,7 @@
                         "name": "ipconfig",
                         "properties": {
                           "subnet": {
-                            "id": "[concat(resourceId('Microsoft.Network/virtualNetworks/', 'vnet'), '/subnets/subnet')]"
+                            "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'vnet', 'subnet')]"
                           },
                           "publicipaddressconfiguration": {
                             "name": "public",
@@ -229,7 +220,7 @@
                     "type": "CustomScript",
                     "typeHandlerVersion": "2.0",
                     "autoUpgradeMinorVersion": true,
-                    "settings": {
+                    "protectedSettings": {
                       "fileUris": ["[concat(variables('extensionUrl'), 'node.sh')]"],
                       "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('licenseKey'), ' ', resourceGroup().location, ' ', parameters('graphDatabaseVersion'), ' ', parameters('graphDataScienceVersion'), ' ', parameters('bloomVersion'), ' ', parameters('nodeCount'))]"
                     }
@@ -244,7 +235,7 @@
     "outputs": {
       "adminURL": {
         "type": "string",
-        "value": "[concat('http://vm0.node-', variables('uniqueString'), '.', resourceGroup().location, '.cloudapp.azure.com:7474')]"
+        "value": "[concat('http://vm0.node-', variables('uniqueString'), '.', parameters('location'), '.cloudapp.azure.com:7474')]"
       }
     }
   }
