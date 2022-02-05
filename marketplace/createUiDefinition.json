@@ -182,7 +182,9 @@
             "defaultValue": "None",
             "toolTip": "License Key",
             "constraints": {
-              "required": true          
+              "required": true,
+              "regex": "[a-zA-Z0-9_.-]*",
+              "validationMessage": "If you don't have a key enter None.  The license key is made up of letters, numbers and the characters -, _ and ."
             }
           }
         ]
