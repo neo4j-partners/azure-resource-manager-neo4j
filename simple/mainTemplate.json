@@ -189,7 +189,7 @@
                         "name": "ipconfig",
                         "properties": {
                           "subnet": {
-                            "id": "[concat(resourceId('Microsoft.Network/virtualNetworks/', 'vnet'), '/subnets/subnet')]"
+                            "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'vnet', 'subnet')]"
                           },
                           "publicipaddressconfiguration": {
                             "name": "public",
