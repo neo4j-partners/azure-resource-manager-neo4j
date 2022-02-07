@@ -31,7 +31,6 @@
       }
     },
     "variables": {
-      "extensionUrl": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/master/extensions/",
       "uniqueString": "[uniquestring(resourceGroup().id, deployment().name)]"
     },
     "resources": [
@@ -217,7 +216,7 @@
                     "typeHandlerVersion": "2.0",
                     "autoUpgradeMinorVersion": true,
                     "settings": {
-                      "fileUris": ["[concat(variables('extensionUrl'), 'node.sh')]"],
+                      "fileUris": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/master/scripts/node.sh",
                       "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('licenseKey'), ' ', resourceGroup().location, ' ', parameters('graphDatabaseVersion'), ' ', parameters('graphDataScienceVersion'), ' ', parameters('bloomVersion'), ' ', parameters('nodeCount'))]"
                     }
                   }
