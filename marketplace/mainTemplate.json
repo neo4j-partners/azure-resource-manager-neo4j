@@ -148,7 +148,7 @@
       {
         "type": "Microsoft.Compute/virtualMachineScaleSets",
         "name": "nodes",
-        "location": "[parameters('location')]",.sh
+        "location": "[parameters('location')]",
         "apiVersion": "2017-03-30",
         "dependsOn": [
           "[resourceId('Microsoft.Network/virtualNetworks', 'vnet')]"
@@ -234,7 +234,7 @@
                     "typeHandlerVersion": "2.0",
                     "autoUpgradeMinorVersion": true,
                     "protectedSettings": {
-                      "fileUris": "node.sh",
+                      "fileUris": "[uri(parameters('_artifactsLocation'), concat('scripts/node.sh', parameters('_artifactsLocationSasToken')))]",
                       "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('licenseKey'), ' ', resourceGroup().location, ' ', parameters('graphDatabaseVersion'), ' ', parameters('graphDataScienceVersion'), ' ', parameters('bloomVersion'), ' ', parameters('nodeCount'))]"
                     }
                   }
