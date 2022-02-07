@@ -35,7 +35,6 @@
       }
     },
     "variables": {
-      "extensionUrl": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/master/extensions/",
       "uniqueString": "[uniquestring(resourceGroup().id, deployment().name)]"
     },
     "resources": [
@@ -135,7 +134,7 @@
       {
         "type": "Microsoft.Compute/virtualMachineScaleSets",
         "name": "nodes",
-        "location": "[parameters('location')]",
+        "location": "[parameters('location')]",.sh
         "apiVersion": "2017-03-30",
         "dependsOn": [
           "[resourceId('Microsoft.Network/virtualNetworks', 'vnet')]"
@@ -221,7 +220,7 @@
                     "typeHandlerVersion": "2.0",
                     "autoUpgradeMinorVersion": true,
                     "protectedSettings": {
-                      "fileUris": ["[concat(variables('extensionUrl'), 'node.sh')]"],
+                      "fileUris": "node.sh",
                       "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('licenseKey'), ' ', resourceGroup().location, ' ', parameters('graphDatabaseVersion'), ' ', parameters('graphDataScienceVersion'), ' ', parameters('bloomVersion'), ' ', parameters('nodeCount'))]"
                     }
                   }
