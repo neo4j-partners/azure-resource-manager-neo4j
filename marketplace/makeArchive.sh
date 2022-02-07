@@ -6,10 +6,10 @@ mkdir tmp
 cd tmp
 
 mkdir scripts
-cp ../../scripts/node.sh ./scripts
+cp ../../scripts/node.sh ./scripts/node.sh
 cp ../mainTemplate.json ./
 cp ../createUiDefinition.json ./
 
-zip ../archive.zip *
+zip -r ../archive.zip *
 cd -
 rm -rf tmp
