@@ -63,7 +63,7 @@
               "name": "SSH",
               "properties": {
                 "description": "SSH",
-                "protocol": "TCP",
+                "protocol": "Tcp",
                 "sourcePortRange": "*",
                 "destinationPortRange": "22",
                 "sourceAddressPrefix": "Internet",
@@ -77,7 +77,7 @@
               "name": "HTTS",
               "properties": {
                 "description": "HTTPS",
-                "protocol": "TCP",
+                "protocol": "Tcp",
                 "sourcePortRange": "*",
                 "destinationPortRange": "7473",
                 "sourceAddressPrefix": "Internet",
@@ -91,7 +91,7 @@
               "name": "HTTP",
               "properties": {
                 "description": "HTTP",
-                "protocol": "TCP",
+                "protocol": "Tcp",
                 "sourcePortRange": "*",
                 "destinationPortRange": "7474",
                 "sourceAddressPrefix": "Internet",
@@ -105,7 +105,7 @@
               "name": "Bolt",
               "properties": {
                 "description": "Bolt",
-                "protocol": "TCP",
+                "protocol": "Tcp",
                 "sourcePortRange": "*",
                 "destinationPortRange": "7687",
                 "sourceAddressPrefix": "Internet",
@@ -235,7 +235,7 @@
                     "autoUpgradeMinorVersion": true,
                     "settings": {
                       "fileUris": [
-                        "[uri(parameters('_artifactsLocation'), concat('scripts/node.sh', parameters('_artifactsLocationSasToken')))]",
+                        "[uri(parameters('_artifactsLocation'), concat('scripts/node.sh', parameters('_artifactsLocationSasToken')))]"
                       ]
                     },
                     "protectedSettings": {
