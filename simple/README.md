@@ -30,7 +30,7 @@ Then you'll want to clone this repo.  You can do that with the command:
 
     ./deploy.sh <RESOURCE_GROUP_NAME>
 
-When complete the template prints the URLs to access Couchbase Server and Couchbase Sync Gateway.
+When complete the template prints the URLs to access Neo4j.
 
 ## Deleting a Deployment
 To delete your deployment you can either run the command below or use the GUI in the [Azure Portal](https://portal.azure.com).
