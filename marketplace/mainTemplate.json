@@ -233,8 +233,12 @@
                     "type": "CustomScript",
                     "typeHandlerVersion": "2.0",
                     "autoUpgradeMinorVersion": true,
+                    "settings": {
+                      "fileUris": [
+                        "[uri(parameters('_artifactsLocation'), concat('scripts/node.sh', parameters('_artifactsLocationSasToken')))]",
+                      ]
+                    },
                     "protectedSettings": {
-                      "fileUris": "[uri(parameters('_artifactsLocation'), concat('scripts/node.sh', parameters('_artifactsLocationSasToken')))]",
                       "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('licenseKey'), ' ', resourceGroup().location, ' ', parameters('graphDatabaseVersion'), ' ', parameters('graphDataScienceVersion'), ' ', parameters('bloomVersion'), ' ', parameters('nodeCount'))]"
                     }
                   }
