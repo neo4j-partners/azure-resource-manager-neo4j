@@ -28,6 +28,10 @@
       },
       "diskSize": {
         "type": "int"
+      },
+      "location": {
+        "type": "string",
+        "defaultValue": "[resourceGroup().location]"
       }
     },
     "variables": {
@@ -38,7 +42,7 @@
         "name": "networksecuritygroups",
         "type": "Microsoft.Network/networkSecurityGroups",
         "apiVersion": "2016-06-01",
-        "location": "[resourceGroup().location]",
+        "location": "[parameters('location')]",
         "properties": {
           "securityRules": [
             {
@@ -104,7 +108,7 @@
         "name": "vnet",
         "type": "Microsoft.Network/virtualNetworks",
         "apiVersion": "2015-06-15",
-        "location": "[resourceGroup().location]",
+        "location": "[parameters('location')]",
         "dependsOn": [
           "[resourceId('Microsoft.Network/networkSecurityGroups', 'networksecuritygroups')]"
         ],
@@ -130,7 +134,7 @@
       {
         "type": "Microsoft.Compute/virtualMachineScaleSets",
         "name": "nodes",
-        "location": "[resourceGroup().location]",
+        "location": "[parameters('location')]",
         "apiVersion": "2017-03-30",
         "dependsOn": [
           "[resourceId('Microsoft.Network/virtualNetworks', 'vnet')]"
@@ -216,7 +220,11 @@
                     "typeHandlerVersion": "2.0",
                     "autoUpgradeMinorVersion": true,
                     "settings": {
-                      "fileUris": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/master/scripts/node.sh",
+                      "fileUris": [
+                        "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/master/scripts/node.sh"
+                      ]
+                    },
+                    "protectedSettings": {
                       "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('licenseKey'), ' ', resourceGroup().location, ' ', parameters('graphDatabaseVersion'), ' ', parameters('graphDataScienceVersion'), ' ', parameters('bloomVersion'), ' ', parameters('nodeCount'))]"
                     }
                   }
@@ -230,7 +238,7 @@
     "outputs": {
       "adminURL": {
         "type": "string",
-        "value": "[concat('http://vm0.node-', variables('uniqueString'), '.', resourceGroup().location, '.cloudapp.azure.com:7474')]"
+        "value": "[concat('http://vm0.node-', variables('uniqueString'), '.', parameters('location'), '.cloudapp.azure.com:7474')]"
       }
     }
   }
