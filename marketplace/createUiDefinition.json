@@ -45,15 +45,12 @@
             "label": "Virtual Machine Size",
             "toolTip": "Size of VMs in the cluster",
             "recommendedSizes": [
-              "Standard_D2s_v3",
-              "Standard_D3s_v3"
+              "Standard_E2_v5",
+              "Standard_E4_v5",
+              "Standard_E8_v5",
+              "Standard_E16_v5",
+              "Standard_E32_v5"
             ],
-            "constraints": {
-              "allowedSizes": [
-                "Standard_D2s_v3",
-                "Standard_D3s_v3"  
-              ]
-            },
             "osPlatform": "Linux"
           },
           {
