@@ -115,13 +115,13 @@
             "name": "graphDatabaseVersion",
             "type": "Microsoft.Common.DropDown",
             "label": "Graph Database Version",
-            "defaultValue": "4.4.3",
+            "defaultValue": "4.4.4",
             "toolTip": "Graph Database Version",
             "constraints": {
               "allowedValues": [
                 {
-                  "label": "4.4.3",
-                  "value": "4.4.3"
+                  "label": "4.4.4",
+                  "value": "4.4.4"
                 },
                 {
                   "label": "4.3.10",
