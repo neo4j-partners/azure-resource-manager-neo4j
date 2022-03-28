@@ -20,10 +20,16 @@
   "graphDataScienceVersion": {
     "value": "None"
   },
+  "graphDataScienceLicenseKey": {
+    "value": "None"
+  },
   "bloomVersion": {
     "value": "None"
   },
-  "licenseKey": {
+  "bloomLicenseKey": {
     "value": "None"
+  },
+  "apocVersion": {
+    "value": "4.4.0.3"
   }
 }

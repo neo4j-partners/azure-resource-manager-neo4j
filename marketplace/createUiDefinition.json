@@ -147,10 +147,22 @@
                   "value": "None"
                 },
                 {
-                  "label": "1.8.0",
-                  "value": "1.8.0"
+                  "label": "2.0.0",
+                  "value": "2.0.0"
                 }
               ]
+            }
+          },
+          {
+            "name": "graphDataScienceLicenseKey",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Graph Data Science License Key",
+            "defaultValue": "None",
+            "toolTip": "License Key",
+            "constraints": {
+              "required": true,
+              "regex": "[a-zA-Z0-9_.-]*",
+              "validationMessage": "If you don't have a key enter None.  The license key is made up of letters, numbers and the characters -, _ and ."
             }
           },
           {
@@ -166,22 +178,41 @@
                   "value": "None"
                 },
                 {
-                  "label": "1.8.0",
-                  "value": "1.8.0"
+                  "label": "2.1.1",
+                  "value": "2.1.1"
                 }
               ]
             }
           },
           {
-            "name": "licenseKey",
+            "name": "bloomLicenseKey",
             "type": "Microsoft.Common.TextBox",
-            "label": "License Key",
+            "label": "Bloom License Key",
             "defaultValue": "None",
             "toolTip": "License Key",
             "constraints": {
               "required": true,
               "regex": "[a-zA-Z0-9_.-]*",
               "validationMessage": "If you don't have a key enter None.  The license key is made up of letters, numbers and the characters -, _ and ."
+            }
+          },
+          {
+            "name": "apocVersion",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Bloom Version",
+            "defaultValue": "4.4.0.3",
+            "toolTip": "APOC Version",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "None",
+                  "value": "None"
+                },
+                {
+                  "label": "4.4.0.3",
+                  "value": "4.4.0.3"
+                }
+              ]
             }
           }
         ]
@@ -195,8 +226,10 @@
       "diskSize": "[steps('neo4jConfig').diskSize]",
       "graphDatabaseVersion": "[steps('neo4jConfig').graphDatabaseVersion]",
       "graphDataScienceVersion": "[steps('neo4jConfig').graphDataScienceVersion]",
+      "graphDataScienceLicenseKey": "[steps('neo4jConfig').graphDataScienceLicenseKey]",
       "bloomVersion": "[steps('neo4jConfig').bloomVersion]",
-      "licenseKey": "[steps('neo4jConfig').licenseKey]",
+      "bloomLicenseKey": "[steps('neo4jConfig').bloomLicenseKey]",
+      "apocVersion": "[steps('neo4jConfig').apocVersion]",
       "location": "[location()]"
     }
   }
