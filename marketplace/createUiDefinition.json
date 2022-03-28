@@ -57,7 +57,7 @@
             "name": "nodeCount",
             "type": "Microsoft.Common.DropDown",
             "label": "Node Count",
-            "defaultValue": "3",
+            "defaultValue": "1",
             "toolTip": "Number of virtual machines to provision for Neo4j",
             "constraints": {
               "allowedValues": [
@@ -113,44 +113,26 @@
           },
           {
             "name": "graphDatabaseVersion",
-            "type": "Microsoft.Common.DropDown",
+            "type": "Microsoft.Common.TextBox",
             "label": "Graph Database Version",
             "defaultValue": "4.4.5",
             "toolTip": "Graph Database Version",
             "constraints": {
-              "allowedValues": [
-                {
-                  "label": "4.4.5",
-                  "value": "4.4.5"
-                },
-                {
-                  "label": "4.3.11",
-                  "value": "4.3.11"
-                },
-                {
-                  "label": "4.2.14",
-                  "value": "4.2.14"
-                }
-              ]
+              "required": true,
+              "regex": "[0-9.]*",
+              "validationMessage": "Enter a version of Graph Database, for instance 4.4.5"
             }
           },
           {
             "name": "graphDataScienceVersion",
-            "type": "Microsoft.Common.DropDown",
+            "type": "Microsoft.Common.TextBox",
             "label": "Graph Data Science Version",
-            "defaultValue": "None",
+            "defaultValue": "2.0.0",
             "toolTip": "Graph Data Science Version",
             "constraints": {
-              "allowedValues": [
-                {
-                  "label": "None",
-                  "value": "None"
-                },
-                {
-                  "label": "2.0.0",
-                  "value": "2.0.0"
-                }
-              ]
+              "required": true,
+              "regex": "[0-9.]*|None",
+              "validationMessage": "Enter a version of Graph Data Science, for instance 2.0.0 or None"
             }
           },
           {
@@ -158,7 +140,7 @@
             "type": "Microsoft.Common.TextBox",
             "label": "Graph Data Science License Key",
             "defaultValue": "None",
-            "toolTip": "License Key",
+            "toolTip": "Graph Data Science License Key",
             "constraints": {
               "required": true,
               "regex": "[a-zA-Z0-9_.-]*",
@@ -167,21 +149,14 @@
           },
           {
             "name": "bloomVersion",
-            "type": "Microsoft.Common.DropDown",
+            "type": "Microsoft.Common.TextBox",
             "label": "Bloom Version",
-            "defaultValue": "None",
+            "defaultValue": "2.1.1",
             "toolTip": "Bloom Version",
             "constraints": {
-              "allowedValues": [
-                {
-                  "label": "None",
-                  "value": "None"
-                },
-                {
-                  "label": "2.1.1",
-                  "value": "2.1.1"
-                }
-              ]
+              "required": true,
+              "regex": "[0-9.]*|None",
+              "validationMessage": "Enter a version of Bloom, for instance 2.1.1 or None"
             }
           },
           {
@@ -189,7 +164,7 @@
             "type": "Microsoft.Common.TextBox",
             "label": "Bloom License Key",
             "defaultValue": "None",
-            "toolTip": "License Key",
+            "toolTip": "Bloom License Key",
             "constraints": {
               "required": true,
               "regex": "[a-zA-Z0-9_.-]*",
@@ -198,21 +173,14 @@
           },
           {
             "name": "apocVersion",
-            "type": "Microsoft.Common.DropDown",
-            "label": "Bloom Version",
+            "type": "Microsoft.Common.TextBox",
+            "label": "APOC Version",
             "defaultValue": "4.4.0.3",
             "toolTip": "APOC Version",
             "constraints": {
-              "allowedValues": [
-                {
-                  "label": "None",
-                  "value": "None"
-                },
-                {
-                  "label": "4.4.0.3",
-                  "value": "4.4.0.3"
-                }
-              ]
+              "required": true,
+              "regex": "[0-9.]*|None",
+              "validationMessage": "Enter a version of APOC, for instance 2.1.1 or None"
             }
           }
         ]
