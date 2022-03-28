@@ -100,8 +100,8 @@ chmod -R 755 /var/lib/neo4j/certificates
 
 if [[ $graphDataScienceVersion != None ]]; then
   echo Installing Graph Data Science...
-  curl https://s3-eu-west-1.amazonaws.com/com.neo4j.graphalgorithms.dist/graph-data-science/neo4j-graph-data-science-${graphDataScienceVersion}-standalone.zip -o neo4j-graph-data-science-${graphDataScienceVersion}-standalone.zip
-  unzip neo4j-graph-data-science-${graphDataScienceVersion}-standalone.zip
+  curl https://graphdatascience.ninja/neo4j-graph-data-science-${graphDataScienceVersion}.zip -o neo4j-graph-data-science-${graphDataScienceVersion}.zip
+  unzip neo4j-graph-data-science-${graphDataScienceVersion}.zip
   mv neo4j-graph-data-science-${graphDataScienceVersion}.jar /var/lib/neo4j/plugins
 fi
 
