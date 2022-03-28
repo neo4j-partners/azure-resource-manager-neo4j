@@ -231,7 +231,7 @@
                       ]
                     },
                     "protectedSettings": {
-                      "commandToExecute": "[concat('bash adminUsername=', parameters('adminUsername'), '\nadminPassword=', parameters('adminPassword'), '\nuniqueString=', variables('uniqueString'), '\nlocation=', parameters('location'), '\ngraphDatabaseVersion=', parameters('graphDatabaseVersion'), '\ngraphDataScienceVersion=', parameters('graphDataScienceVersion'), '\ngraphDataScienceLicenseKey=', parameters('graphDataScienceLicenseKey'), '\nbloomVersion', parameters('bloomVersion'), '\nbloomLicenseKey=', parameters('bloomLicenseKey'), '\napocVersion=', parameters('apocVersion'), '\nnodeCount=', parameters('nodeCount'), '\nnode.sh')]"
+                      "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('graphDataScienceVersion'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('bloomVersion'), ' ', parameters('bloomLicenseKey'), ' ', parameters('apocVersion'), ' ', parameters('nodeCount'))]"
                     }
                   }
                 }

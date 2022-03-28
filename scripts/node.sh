@@ -2,6 +2,18 @@
 
 echo "Running node.sh"
 
+adminUsername=$1
+adminPassword=$2
+uniqueString=$3
+location=$4
+graphDatabaseVersion=$5
+graphDataScienceVersion=$6
+graphDataScienceLicenseKey=$7
+bloomVersion=$8
+bloomLicenseKey=$9
+apocVersion=${10}
+nodeCount=${11}
+
 echo "Using the settings:"
 echo adminUsername \'$adminUsername\'
 echo adminPassword \'$adminPassword\'
