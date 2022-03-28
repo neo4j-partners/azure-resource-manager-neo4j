@@ -180,7 +180,7 @@
             "constraints": {
               "required": true,
               "regex": "[0-9.]*|None",
-              "validationMessage": "Enter a version of APOC, for instance 2.1.1 or None"
+              "validationMessage": "Enter a version of APOC, for instance 4.4.0.3 or None"
             }
           }
         ]
