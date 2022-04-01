@@ -136,7 +136,6 @@ if [[ $apocVersion != None ]]; then
   mv apoc-${apocVersion}-all.jar /var/lib/neo4j/plugins
 fi
 
-#sed -i '$a ' /etc/neo4j/neo4j.conf
 sed -i '$a # Bloom and EDS license files' /etc/neo4j/neo4j.conf
 
 mkdir -p /etc/neo4j/licenses
@@ -159,7 +158,6 @@ if [[ $graphDataScienceLicenseKey != None ]]; then
   sed -i '$a gds.enterprise.license_file=/etc/neo4j/licenses/neo4j-gds.license' /etc/neo4j/neo4j.conf
 fi
 
-#sed -i '$a ' /etc/neo4j/neo4j.conf
 sed -i '$a # Bloom and EDS roles and permissions (updated in place)' /etc/neo4j/neo4j.conf
 
 # Bloom http whitelist
