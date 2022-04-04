@@ -6,10 +6,10 @@
     "value": "foo123!"
   },
   "vmSize": {
-    "value": "Standard_E2s_v5"
+    "value": "Standard_E8s_v5"
   },
   "nodeCount": {
-    "value": 3
+    "value": 1
   },
   "diskSize": {
      "value": 128
@@ -17,19 +17,16 @@
   "graphDatabaseVersion": {
     "value": "4.4.5"
   },
-  "graphDataScienceVersion": {
-    "value": "None"
+  "installGraphDataScience": {
+    "value": "True"
   },
   "graphDataScienceLicenseKey": {
     "value": "None"
   },
-  "bloomVersion": {
-    "value": "None"
+  "installBloom": {
+    "value": "True"
   },
   "bloomLicenseKey": {
     "value": "None"
-  },
-  "apocVersion": {
-    "value": "4.4.0.3"
   }
 }

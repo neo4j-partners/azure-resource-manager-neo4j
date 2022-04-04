@@ -14,19 +14,16 @@
       "graphDatabaseVersion": {
         "type": "string"
       },
-      "graphDataScienceVersion": {
+      "installGraphDataScience": {
         "type": "string"
       },
       "graphDataScienceLicenseKey": {
         "type": "string"
       },
-      "bloomVersion": {
+      "installBloom": {
         "type": "string"
       },
       "bloomLicenseKey": {
-        "type": "string"
-      },
-      "apocVersion": {
         "type": "string"
       },
       "nodeCount": {
@@ -245,7 +242,7 @@
                       ]
                     },
                     "protectedSettings": {
-                      "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('graphDataScienceVersion'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('bloomVersion'), ' ', parameters('bloomLicenseKey'), ' ', parameters('apocVersion'), ' ', parameters('nodeCount'))]"
+                      "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'))]"
                     }
                   }
                 }

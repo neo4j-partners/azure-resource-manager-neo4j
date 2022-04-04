@@ -124,15 +124,22 @@
             }
           },
           {
-            "name": "graphDataScienceVersion",
-            "type": "Microsoft.Common.TextBox",
-            "label": "Graph Data Science Version",
-            "defaultValue": "2.0.0",
-            "toolTip": "Graph Data Science Version",
+            "name": "installGraphDataScience",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Install Graph Data Science",
+            "defaultValue": "True",
+            "toolTip": "Set to true to install Graph Data Science.  Ignore if Node Count is not 1.",
             "constraints": {
-              "required": true,
-              "regex": "[0-9.]*|None",
-              "validationMessage": "Enter a version of Graph Data Science, for instance 2.0.0 or None"
+              "allowedValues": [
+                {
+                  "label": "True",
+                  "value": "True"
+                },
+                {
+                  "label": "False",
+                  "value": "False"
+                }
+              ]
             }
           },
           {
@@ -149,14 +156,21 @@
           },
           {
             "name": "bloomVersion",
-            "type": "Microsoft.Common.TextBox",
-            "label": "Bloom Version",
-            "defaultValue": "2.1.1",
-            "toolTip": "Bloom Version",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Install Bloom",
+            "defaultValue": "True",
+            "toolTip": "Set to true to install Bloom.",
             "constraints": {
-              "required": true,
-              "regex": "[0-9.]*|None",
-              "validationMessage": "Enter a version of Bloom, for instance 2.1.1 or None"
+              "allowedValues": [
+                {
+                  "label": "True",
+                  "value": "True"
+                },
+                {
+                  "label": "False",
+                  "value": "False"
+                }
+              ]
             }
           },
           {
@@ -170,18 +184,6 @@
               "regex": "[a-zA-Z0-9_.-]*",
               "validationMessage": "If you don't have a key enter None.  The license key is made up of letters, numbers and the characters -, _ and ."
             }
-          },
-          {
-            "name": "apocVersion",
-            "type": "Microsoft.Common.TextBox",
-            "label": "APOC Version",
-            "defaultValue": "4.4.0.3",
-            "toolTip": "APOC Version",
-            "constraints": {
-              "required": true,
-              "regex": "[0-9.]*|None",
-              "validationMessage": "Enter a version of APOC, for instance 4.4.0.3 or None"
-            }
           }
         ]
       }
@@ -193,11 +195,10 @@
       "nodeCount": "[steps('neo4jConfig').nodeCount]",
       "diskSize": "[steps('neo4jConfig').diskSize]",
       "graphDatabaseVersion": "[steps('neo4jConfig').graphDatabaseVersion]",
-      "graphDataScienceVersion": "[steps('neo4jConfig').graphDataScienceVersion]",
+      "installGraphDataScience": "[steps('neo4jConfig').installGraphDataScience]",
       "graphDataScienceLicenseKey": "[steps('neo4jConfig').graphDataScienceLicenseKey]",
-      "bloomVersion": "[steps('neo4jConfig').bloomVersion]",
+      "installBloom": "[steps('neo4jConfig').installBloom]",
       "bloomLicenseKey": "[steps('neo4jConfig').bloomLicenseKey]",
-      "apocVersion": "[steps('neo4jConfig').apocVersion]",
       "location": "[location()]"
     }
   }
