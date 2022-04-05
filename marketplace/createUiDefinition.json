@@ -112,16 +112,36 @@
           },
           {
             "name": "graphDatabaseVersion",
-            "type": "Microsoft.Common.TextBox",
+            "type": "Microsoft.Common.DropDown",
             "label": "Graph Database Version",
             "defaultValue": "4.4.5",
             "toolTip": "Graph Database Version",
             "constraints": {
-              "required": true,
-              "regex": "[0-9.]*",
-              "validationMessage": "Enter a version of Graph Database, for instance 4.4.5"
+              "allowedValues": [
+                {
+                  "label": "4.4.5",
+                  "value": "4.4.5"
+                },
+                {
+                  "label": "4.4.4",
+                  "value": "4.4.4"
+                },
+                {
+                  "label": "4.4.3",
+                  "value": "4.4.3"
+                },
+                {
+                  "label": "4.4.2",
+                  "value": "4.4.2"
+                },
+                {
+                  "label": "4.4.1",
+                  "value": "4.4.1"
+                },
+
+              ]
             }
-          },
+          },          
           {
             "name": "installGraphDataScience",
             "type": "Microsoft.Common.DropDown",
