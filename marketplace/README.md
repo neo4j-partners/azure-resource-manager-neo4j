@@ -1,13 +1,13 @@
 # marketplace
-This template is used by the Neo4j Azure Marketplace offer.  It is not intended to be used outside the marketplace. [makeArchive.sh](makeArchive.sh) will build a zip file that can be uploaded to the publish portal. 
+This template is used by the Neo4j Azure Marketplace offer.  It is not intended to be used outside the marketplace.
 
 Unless you are a Neo4j employee updating the Azure Marketplace listing, you probably want to be using either the Marketplace listing itself or [simple](../simple).
 
-# Test the template
+# Test the Template
 Documentation on how to do this is [here](https://docs.microsoft.com/en-us/azure/azure-resource-manager/templates/test-toolkit).  I haven't been able to get that working and have just used the portal.
 
-# Build the archive and upload
-To update the listing, run [makeArchive.sh](markArchive.sh).  Then upload the resulting archive.zip to the [Azure Marketplace publish portal](https://partner.microsoft.com/en-us/dashboard/commercial-marketplace/overview).
+# Build the Archive and Upload
+To update the listing, run [makeArchive.sh](markArchive.sh).  Then upload the resulting archive.zip to the [Partner Portal](https://partner.microsoft.com/en-us/dashboard/commercial-marketplace/overview).
 
 # Build VM Image
 This describes how we build the VM that the templates use.  Users should not need to do this.
@@ -71,4 +71,4 @@ Make sure it works by running:
 
     wget $uri
 
-Once you can successfully get the image, drop it into the publisher portal.
+Once you can successfully get the image, drop it into the Partner Portal.
