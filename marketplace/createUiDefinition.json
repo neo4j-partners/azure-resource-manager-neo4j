@@ -45,7 +45,6 @@
             "label": "Virtual Machine Size",
             "toolTip": "Size of VMs in the cluster",
             "recommendedSizes": [
-              "Standard_E2s_v5",
               "Standard_E4s_v5",
               "Standard_E8s_v5",
               "Standard_E16s_v5",
@@ -155,7 +154,7 @@
             }
           },
           {
-            "name": "bloomVersion",
+            "name": "installBloom",
             "type": "Microsoft.Common.DropDown",
             "label": "Install Bloom",
             "defaultValue": "True",
