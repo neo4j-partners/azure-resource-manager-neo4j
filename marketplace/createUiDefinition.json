@@ -114,12 +114,12 @@
             "name": "graphDatabaseVersion",
             "type": "Microsoft.Common.TextBox",
             "label": "Graph Database Version",
-            "defaultValue": "4.4.5",
+            "defaultValue": "4.4.6",
             "toolTip": "Graph Database Version",
             "constraints": {
               "required": true,
               "regex": "[0-9.]*",
-              "validationMessage": "Enter a version of Graph Database, for instance 4.4.5"
+              "validationMessage": "Enter a version of Graph Database, for instance 4.4.6"
             }
           },
           {
