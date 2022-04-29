@@ -39,6 +39,8 @@ mkdir $MOUNT_POINT
 
 DATA_DISK_UUID=$(blkid | grep sdc | awk {'print $2'} | sed s/\"//g)
 echo "$DATA_DISK_UUID $MOUNT_POINT xfs defaults 0 0" >> /etc/fstab
+
+systemctl daemon-reload
 mount -a
 
 echo Adding neo4j yum repo...
