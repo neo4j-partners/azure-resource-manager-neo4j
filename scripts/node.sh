@@ -29,6 +29,18 @@ echo "Turning off firewalld"
 systemctl stop firewalld
 systemctl disable firewalld
 
+#Format and mount the data disk to /var/lib/neo4j
+MOUNT_POINT="/var/lib/neo4j"
+
+sudo parted /dev/sdc --script mklabel gpt mkpart xfspart xfs 0% 100%
+sudo mkfs.xfs /dev/sdc1
+sudo partprobe /dev/sdc1
+mkdir $MOUNT_POINT
+
+DATA_DISK_UUID=$(blkid | grep sdc | awk {'print $2'} | sed s/\"//g)
+echo "$DATA_DISK_UUID $MOUNT_POINT xfs defaults 0 0" >> /etc/fstab
+mount -a
+
 echo Adding neo4j yum repo...
 rpm --import https://debian.neo4j.com/neotechnology.gpg.key
 echo "
