@@ -32,12 +32,14 @@ systemctl disable firewalld
 #Format and mount the data disk to /var/lib/neo4j
 MOUNT_POINT="/var/lib/neo4j"
 
-sudo parted /dev/sdc --script mklabel gpt mkpart xfspart xfs 0% 100%
-sudo mkfs.xfs /dev/sdc1
-sudo partprobe /dev/sdc1
+DATA_DISK_DEVICE=$(parted -l 2>&1 | grep Error | awk {'print $2'} | sed 's/\://')
+
+sudo parted $DATA_DISK_DEVICE --script mklabel gpt mkpart xfspart xfs 0% 100%
+sudo mkfs.xfs $DATA_DISK_DEVICE1
+sudo partprobe $DATA_DISK_DEVICE1
 mkdir $MOUNT_POINT
 
-DATA_DISK_UUID=$(blkid | grep sdc | awk {'print $2'} | sed s/\"//g)
+DATA_DISK_UUID=$(blkid | grep $DATA_DISK_DEVICE | awk {'print $2'} | sed s/\"//g)
 echo "$DATA_DISK_UUID $MOUNT_POINT xfs defaults 0 0" >> /etc/fstab
 
 systemctl daemon-reload
