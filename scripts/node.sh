@@ -35,11 +35,11 @@ MOUNT_POINT="/var/lib/neo4j"
 DATA_DISK_DEVICE=$(parted -l 2>&1 | grep Error | awk {'print $2'} | sed 's/\://')
 
 sudo parted $DATA_DISK_DEVICE --script mklabel gpt mkpart xfspart xfs 0% 100%
-sudo mkfs.xfs $DATA_DISK_DEVICE1
-sudo partprobe $DATA_DISK_DEVICE1
+sudo mkfs.xfs $DATA_DISK_DEVICE\1
+sudo partprobe $DATA_DISK_DEVICE\1
 mkdir $MOUNT_POINT
 
-DATA_DISK_UUID=$(blkid | grep $DATA_DISK_DEVICE1 | awk {'print $2'} | sed s/\"//g)
+DATA_DISK_UUID=$(blkid | grep $DATA_DISK_DEVICE\1 | awk {'print $2'} | sed s/\"//g)
 
 echo "$DATA_DISK_UUID $MOUNT_POINT xfs defaults 0 0" >> /etc/fstab
 
