@@ -32,6 +32,9 @@
       "diskSize": {
         "type": "int"
       },
+      "loggingDiskSize": {
+        "type": "int"
+      },
       "location": {
         "type": "string",
         "defaultValue": "[resourceGroup().location]"
@@ -41,7 +44,8 @@
           "metadata": {
               "description": "The base URI where artifacts required by this template are located including a trailing '/'"
           },
-          "defaultValue": "[deployment().properties.templateLink.uri]"
+//              "defaultValue": "[deployment().properties.templateLink.uri]"
+              "defaultValue": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/main/scripts/node.sh"
       },
       "_artifactsLocationSasToken": {
           "type": "securestring",
@@ -190,6 +194,15 @@
                   },
                   "caching": "None",
                   "diskSizeGB": "[parameters('diskSize')]"
+                },
+                {
+                  "lun": 1,
+                  "createOption": "Empty",
+                  "managedDisk": {
+                    "storageAccountType": "Premium_LRS"
+                  },
+                  "caching": "None",
+                  "diskSizeGB": "[parameters('loggingDiskSize')]"
                 }
               ]
             },
@@ -238,7 +251,8 @@
                     "autoUpgradeMinorVersion": true,
                     "settings": {
                       "fileUris": [
-                        "[uri(parameters('_artifactsLocation'), concat('scripts/node.sh', parameters('_artifactsLocationSasToken')))]"
+//                        "[uri(parameters('_artifactsLocation'), concat('scripts/node.sh', parameters('_artifactsLocationSasToken')))]"
+                        "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/main/scripts/node.sh"
                       ]
                     },
                     "protectedSettings": {

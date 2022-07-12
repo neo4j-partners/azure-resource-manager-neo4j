@@ -123,6 +123,29 @@
             }
           },
           {
+            "name": "loggingDiskSize",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Logging Disk Size",
+            "defaultValue": "1 TB",
+            "toolTip": "Size of logging disk on each node in the cluster",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "1 TB",
+                  "value": 1024
+                },
+                {
+                  "label": "2 TB",
+                  "value": 2048
+                },
+                {
+                  "label": "4 TB",
+                  "value": 4096
+                }
+              ]
+            }
+          },
+          {
             "name": "installGraphDataScience",
             "type": "Microsoft.Common.DropDown",
             "label": "Install Graph Data Science",
@@ -193,6 +216,7 @@
       "vmSize": "[steps('neo4jConfig').vmSize]",
       "nodeCount": "[steps('neo4jConfig').nodeCount]",
       "diskSize": "[steps('neo4jConfig').diskSize]",
+      "loggingDiskSize": "[steps('neo4jConfig').loggingDiskSize]",
       "graphDatabaseVersion": "[steps('neo4jConfig').graphDatabaseVersion]",
       "installGraphDataScience": "[steps('neo4jConfig').installGraphDataScience]",
       "graphDataScienceLicenseKey": "[steps('neo4jConfig').graphDataScienceLicenseKey]",

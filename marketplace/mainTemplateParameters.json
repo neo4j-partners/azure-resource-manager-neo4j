@@ -1,0 +1,36 @@
+{
+  "adminUsername": {
+    "value": "neo4j"
+  },
+  "adminPassword": {
+    "value": "Password123?"
+  },
+  "vmSize": {
+    "value": "Standard_E8s_v5"
+  },
+  "nodeCount": {
+    "value": 1
+  },
+  "diskSize": {
+     "value": 2048
+  },
+  "loggingDiskSize": {
+    "value": 1024
+  },
+  "graphDatabaseVersion": {
+    "value": "4.4.6"
+  },
+  "installGraphDataScience": {
+    "value": "False"
+  },
+  "graphDataScienceLicenseKey": {
+    "value": "None"
+  },
+  "installBloom": {
+    "value": "False"
+  },
+  "bloomLicenseKey": {
+    "value": "None"
+  }
+}
+

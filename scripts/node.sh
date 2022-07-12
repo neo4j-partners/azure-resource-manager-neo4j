@@ -13,6 +13,7 @@ installBloom=$8
 bloomLicenseKey=$9
 nodeCount=${10}
 
+
 echo "Using the settings:"
 echo adminUsername \'$adminUsername\'
 echo adminPassword \'$adminPassword\'
@@ -30,18 +31,32 @@ systemctl stop firewalld
 systemctl disable firewalld
 
 #Format and mount the data disk to /var/lib/neo4j
-MOUNT_POINT="/var/lib/neo4j"
+DATA_MOUNT_POINT="/var/lib/neo4j"
+LOGGING_MOUNT_POINT="/var/log"
 
-DATA_DISK_DEVICE=$(parted -l 2>&1 | grep Error | awk {'print $2'} | sed 's/\://')
+#DEVICES_CMD=$(parted -l 2>&1 | grep Error | awk {'print $2'} | sed 's/\://')
+#declare -a DEVICES
+#DEVICES=($DEVICES_CMD)
+#
+#for (( i=0; i<${#DEVICES[@]}; i++ ));
+#do
+#  DEVICE_NAME=${DEVICES[$i]}
 
+DATA_DISK_DEVICE="/dev/sdb"
 sudo parted $DATA_DISK_DEVICE --script mklabel gpt mkpart xfspart xfs 0% 100%
 sudo mkfs.xfs $DATA_DISK_DEVICE\1
 sudo partprobe $DATA_DISK_DEVICE\1
-mkdir $MOUNT_POINT
-
+mkdir $DATA_MOUNT_POINT
 DATA_DISK_UUID=$(blkid | grep $DATA_DISK_DEVICE\1 | awk {'print $2'} | sed s/\"//g)
+echo "$DATA_DISK_UUID $DATA_MOUNT_POINT xfs defaults 0 0" >> /etc/fstab
 
-echo "$DATA_DISK_UUID $MOUNT_POINT xfs defaults 0 0" >> /etc/fstab
+LOGGING_DISK_DEVICE="/dev/sdc"
+sudo parted $LOGGING_DISK_DEVICE --script mklabel gpt mkpart xfspart xfs 0% 100%
+sudo mkfs.xfs $LOGGING_DISK_DEVICE\1
+sudo partprobe $LOGGING_DISK_DEVICE\1
+mkdir $LOGGING_MOUNT_POINT
+LOGGING_DISK_UUID=$(blkid | grep $LOGGING_DISK_DEVICE\1 | awk {'print $2'} | sed s/\"//g)
+echo "$LOGGING_DISK_UUID $LOGGING_MOUNT_POINT xfs defaults 0 0" >> /etc/fstab
 
 systemctl daemon-reload
 mount -a
