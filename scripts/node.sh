@@ -47,16 +47,16 @@ sudo parted $DATA_DISK_DEVICE --script mklabel gpt mkpart xfspart xfs 0% 100%
 sudo mkfs.xfs $DATA_DISK_DEVICE\1
 sudo partprobe $DATA_DISK_DEVICE\1
 mkdir $DATA_MOUNT_POINT
-DATA_DISK_UUID=$(blkid | grep $DATA_DISK_DEVICE\1 | awk {'print $2'} | sed s/\"//g)
-echo "$DATA_DISK_UUID $DATA_MOUNT_POINT xfs defaults 0 0" >> /etc/fstab
+#DATA_DISK_UUID=$(blkid | grep $DATA_DISK_DEVICE\1 | awk {'print $2'} | sed s/\"//g)
+echo "$DATA_DISK_DEVICE $DATA_MOUNT_POINT xfs defaults 0 0" >> /etc/fstab
 
 LOGGING_DISK_DEVICE="/dev/sdc"
 sudo parted $LOGGING_DISK_DEVICE --script mklabel gpt mkpart xfspart xfs 0% 100%
 sudo mkfs.xfs $LOGGING_DISK_DEVICE\1
 sudo partprobe $LOGGING_DISK_DEVICE\1
 mkdir $LOGGING_MOUNT_POINT
-LOGGING_DISK_UUID=$(blkid | grep $LOGGING_DISK_DEVICE\1 | awk {'print $2'} | sed s/\"//g)
-echo "$LOGGING_DISK_UUID $LOGGING_MOUNT_POINT xfs defaults 0 0" >> /etc/fstab
+#LOGGING_DISK_UUID=$(blkid | grep $LOGGING_DISK_DEVICE\1 | awk {'print $2'} | sed s/\"//g)
+echo "$LOGGING_DISK_DEVICE $LOGGING_MOUNT_POINT xfs defaults 0 0" >> /etc/fstab
 
 systemctl daemon-reload
 mount -a

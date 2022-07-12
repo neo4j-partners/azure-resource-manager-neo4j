@@ -252,7 +252,7 @@
                     "settings": {
                       "fileUris": [
 //                        "[uri(parameters('_artifactsLocation'), concat('scripts/node.sh', parameters('_artifactsLocationSasToken')))]"
-                        "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/main/scripts/node.sh"
+                        "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/feature/logging/scripts/node.sh"
                       ]
                     },
                     "protectedSettings": {
