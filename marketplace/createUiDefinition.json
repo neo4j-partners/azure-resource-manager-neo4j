@@ -126,7 +126,7 @@
             "name": "installGraphDataScience",
             "type": "Microsoft.Common.DropDown",
             "label": "Install Graph Data Science",
-            "defaultValue": "True",
+            "defaultValue": "False",
             "toolTip": "Set to true to install Graph Data Science.  Ignore if Node Count is not 1.",
             "constraints": {
               "allowedValues": [
@@ -157,7 +157,7 @@
             "name": "installBloom",
             "type": "Microsoft.Common.DropDown",
             "label": "Install Bloom",
-            "defaultValue": "True",
+            "defaultValue": "False",
             "toolTip": "Set to true to install Bloom.",
             "constraints": {
               "allowedValues": [
