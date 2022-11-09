@@ -15,7 +15,7 @@
      "value": 128
   },
   "graphDatabaseVersion": {
-    "value": "4.4.10"
+    "value": "5.1.0"
   },
   "installGraphDataScience": {
     "value": "True"

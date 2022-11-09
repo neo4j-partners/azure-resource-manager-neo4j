@@ -51,7 +51,7 @@ rpm --import https://debian.neo4j.com/neotechnology.gpg.key
 echo "
 [neo4j]
 name=Neo4j Yum Repo
-baseurl=http://yum.neo4j.com/stable
+baseurl=http://yum.neo4j.com/stable/5
 enabled=1
 gpgcheck=1" > /etc/yum.repos.d/neo4j.repo
 
@@ -63,19 +63,19 @@ echo Installing APOC...
 mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins
 
 echo Configuring extensions and security in neo4j.conf...
-sed -i s~#dbms.unmanaged_extension_classes=org.neo4j.examples.server.unmanaged=/examples/unmanaged~dbms.unmanaged_extension_classes=com.neo4j.bloom.server=/bloom,semantics.extension=/rdf~g /etc/neo4j/neo4j.conf
+sed -i s~#server.unmanaged_extension_classes=org.neo4j.examples.server.unmanaged=/examples/unmanaged~dbms.unmanaged_extension_classes=com.neo4j.bloom.server=/bloom,semantics.extension=/rdf~g /etc/neo4j/neo4j.conf
 sed -i s/#dbms.security.procedures.unrestricted=my.extensions.example,my.procedures.*/dbms.security.procedures.unrestricted=gds.*,bloom.*/g /etc/neo4j/neo4j.conf
 sed -i '$a dbms.security.http_auth_allowlist=/,/browser.*,/bloom.*' /etc/neo4j/neo4j.conf
 sed -i '$a dbms.security.procedures.allowlist=apoc.*,gds.*,bloom.*' /etc/neo4j/neo4j.conf
 
 echo Configuring network in neo4j.conf...
-sed -i 's/#dbms.default_listen_address=0.0.0.0/dbms.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf
+sed -i 's/#server.default_listen_address=0.0.0.0/dbms.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf
 nodeIndex=`curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01" \
   | jq ".name" \
   | sed 's/.*_//' \
   | sed 's/"//'`
 publicHostname='vm'$nodeIndex'.node-'$uniqueString'.'$location'.cloudapp.azure.com'
-sed -i s/#dbms.default_advertised_address=localhost/dbms.default_advertised_address=${publicHostname}/g /etc/neo4j/neo4j.conf
+sed -i s/#server.default_advertised_address=localhost/server.default_advertised_address=${publicHostname}/g /etc/neo4j/neo4j.conf
 
 echo "Adding entries to /etc/hosts to route cluster traffic internally..."
 echo "
@@ -91,8 +91,6 @@ else
   echo Running on multiple nodes.  Configuring membership in neo4j.conf...
   coreMembers='vm0X,vm1X,vm2X'
   coreMembers=$(echo $coreMembers | sed 's/X/.node-'$uniqueString'.'$location'.cloudapp.azure.com:5000/g')
-  sed -i s/#causal_clustering.initial_discovery_members=localhost:5000,localhost:5001,localhost:5002/causal_clustering.initial_discovery_members=${coreMembers}/g /etc/neo4j/neo4j.conf
-  sed -i s/#dbms.mode=CORE/dbms.mode=CORE/g /etc/neo4j/neo4j.conf
 fi
 
 echo Turning on SSL...
