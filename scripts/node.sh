@@ -93,35 +93,35 @@ else
   coreMembers=$(echo $coreMembers | sed 's/X/.node-'$uniqueString'.'$location'.cloudapp.azure.com:5000/g')
 fi
 
-echo Turning on SSL...
-sed -i 's/dbms.connector.https.enabled=false/dbms.connector.https.enabled=true/g' /etc/neo4j/neo4j.conf
-
-#### Todo - Any reason we're not running this line?
-#sed -i 's/#dbms.connector.bolt.tls_level=DISABLED/dbms.connector.bolt.tls_level=OPTIONAL/g' /etc/neo4j/neo4j.conf
-
-answers() {
-echo --
-echo SomeState
-echo SomeCity
-echo SomeOrganization
-echo SomeOrganizationalUnit
-echo localhost.localdomain
-echo root@localhost.localdomain
-}
-answers | /usr/bin/openssl req -newkey rsa:2048 -keyout private.key -nodes -x509 -days 365 -out public.crt
-
-### Todo - turn on cluster and backup
-#for service in bolt https cluster backup; do
-for service in https; do
-  sed -i s/#dbms.ssl.policy.${service}/dbms.ssl.policy.${service}/g /etc/neo4j/neo4j.conf
-  mkdir -p /var/lib/neo4j/certificates/${service}/trusted
-  mkdir -p /var/lib/neo4j/certificates/${service}/revoked
-  cp private.key /var/lib/neo4j/certificates/${service}
-  cp public.crt /var/lib/neo4j/certificates/${service}
-done
-
-chown -R neo4j:neo4j /var/lib/neo4j/certificates
-chmod -R 755 /var/lib/neo4j/certificates
+#echo Turning on SSL...
+#sed -i 's/dbms.connector.https.enabled=false/dbms.connector.https.enabled=true/g' /etc/neo4j/neo4j.conf
+#
+##### Todo - Any reason we're not running this line?
+##sed -i 's/#dbms.connector.bolt.tls_level=DISABLED/dbms.connector.bolt.tls_level=OPTIONAL/g' /etc/neo4j/neo4j.conf
+#
+#answers() {
+#echo --
+#echo SomeState
+#echo SomeCity
+#echo SomeOrganization
+#echo SomeOrganizationalUnit
+#echo localhost.localdomain
+#echo root@localhost.localdomain
+#}
+#answers | /usr/bin/openssl req -newkey rsa:2048 -keyout private.key -nodes -x509 -days 365 -out public.crt
+#
+#### Todo - turn on cluster and backup
+##for service in bolt https cluster backup; do
+#for service in https; do
+#  sed -i s/#dbms.ssl.policy.${service}/dbms.ssl.policy.${service}/g /etc/neo4j/neo4j.conf
+#  mkdir -p /var/lib/neo4j/certificates/${service}/trusted
+#  mkdir -p /var/lib/neo4j/certificates/${service}/revoked
+#  cp private.key /var/lib/neo4j/certificates/${service}
+#  cp public.crt /var/lib/neo4j/certificates/${service}
+#done
+#
+#chown -R neo4j:neo4j /var/lib/neo4j/certificates
+#chmod -R 755 /var/lib/neo4j/certificates
 
 if [[ $installGraphDataScience == True && $nodeCount == 1 ]]; then
   echo Installing Graph Data Science...
