@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 echo "Running node.sh"
 
@@ -51,11 +52,11 @@ install_neo4j_from_yum() {
   echo "Adding neo4j yum repo..."
   rpm --import https://debian.neo4j.com/neotechnology.gpg.key
   echo "
-  [neo4j]
-  name=Neo4j Yum Repo
-  baseurl=http://yum.neo4j.com/stable/5
-  enabled=1
-  gpgcheck=1" > /etc/yum.repos.d/neo4j.repo
+[neo4j]
+name=Neo4j Yum Repo
+baseurl=http://yum.neo4j.com/stable/5
+enabled=1
+gpgcheck=1" > /etc/yum.repos.d/neo4j.repo
 
   echo "Installing Graph Database..."
   export NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
