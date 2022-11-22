@@ -4,7 +4,7 @@ location="westeurope"
 az group create -l $location -n $resourceGroup
 
 # perform the initial deployment
-deploymentName="MyDeployment7"
+deploymentName="MyDeployment11"
 az deployment group create -g $resourceGroup -n $deploymentName \
         --template-file mainTemplate.json \
         --parameters @parameters.json

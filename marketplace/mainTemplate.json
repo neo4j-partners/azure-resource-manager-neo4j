@@ -154,7 +154,8 @@
         "location": "[parameters('location')]",
         "apiVersion": "2017-03-30",
         "dependsOn": [
-          "[resourceId('Microsoft.Network/virtualNetworks', 'vnet')]"
+          "[resourceId('Microsoft.Network/virtualNetworks', 'vnet')]",
+          "[resourceId('Microsoft.Network/loadBalancers', 'lbneo4jnew')]"
         ],
         "plan": {
           "publisher": "neo4j",
@@ -221,6 +222,19 @@
                             }
                           }
                         }
+                      },
+                      {
+                        "name": "ipconfig2",
+                        "properties": {
+                          "subnet": {
+                            "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'vnet', 'subnet')]"
+                          },
+                          "loadBalancerBackendAddressPools": [
+                            {
+                              "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'lbneo4jnew', 'backend')]"
+                            }
+                          ]
+                        }
                       }
                     ]
                   }
@@ -249,6 +263,140 @@
               ]
             }
           }
+        }
+      },
+      {
+        "type": "Microsoft.Network/publicIPAddresses",
+        "apiVersion": "2022-05-01",
+        "name": "publicipnew",
+        "location": "[parameters('location')]",
+        "sku": {
+          "name": "Standard",
+          "tier": "Regional"
+        },
+        "zones": [
+          "2",
+          "3",
+          "1"
+        ],
+        "properties": {
+          "ipTags": [
+            {
+              "ipTagType": "RoutingPreference",
+              "tag": "Internet"
+            }
+          ],
+          "publicIPAddressVersion": "IPv4",
+          "publicIPAllocationMethod": "Static"
+        }
+      },
+      {
+        "type": "Microsoft.Network/loadBalancers",
+        "apiVersion": "2022-05-01",
+        "name": "lbneo4jnew",
+        "dependsOn": [
+          "[resourceId('Microsoft.Network/publicIPAddresses', 'publicipnew')]"
+        ],
+        "location": "[parameters('location')]",
+        "sku": {
+          "name": "Standard",
+          "tier": "Regional"
+        },
+        "properties": {
+          "backendAddressPools": [
+            {
+              "name": "backend"
+            }
+          ],
+          "frontendIPConfigurations": [
+            {
+              "name": "lbipnew",
+              "properties": {
+                "publicIPAddress": {
+                  "id": "[resourceId('Microsoft.Network/publicIPAddresses','publicipnew')]"
+                }
+              }
+            }
+          ],
+          "loadBalancingRules": [
+            {
+              "name": "inboundrule7474",
+              "properties": {
+                "frontendIPConfiguration": {
+                  "id": "[concat(resourceId('Microsoft.Network/loadBalancers','lbneo4jnew'), '/frontendIPConfigurations/lbipnew')]"
+                },
+                "frontendPort": 7474,
+                "backendPort": 7474,
+                "enableFloatingIP": false,
+                "idleTimeoutInMinutes": 4,
+                "protocol": "Tcp",
+                "enableTcpReset": false,
+                "loadDistribution": "Default",
+                "disableOutboundSnat": true,
+                "backendAddressPool": {
+                  "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'lbneo4jnew', 'backend')]"
+                },
+                "backendAddressPools": [
+                  {
+                    "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'lbneo4jnew', 'backend')]"
+                  }
+                ],
+                "probe": {
+                  "id": "[resourceId('Microsoft.Network/loadBalancers/probes', 'lbneo4jnew','httpprobe')]"
+                }
+              }
+            },
+            {
+              "name": "inbound7687",
+              "properties": {
+                "frontendIPConfiguration": {
+                  "id": "[concat(resourceId('Microsoft.Network/loadBalancers', 'lbneo4jnew'), '/frontendIPConfigurations/lbipnew')]"
+                },
+                "frontendPort": 7687,
+                "backendPort": 7687,
+                "enableFloatingIP": false,
+                "idleTimeoutInMinutes": 4,
+                "protocol": "Tcp",
+                "enableTcpReset": false,
+                "loadDistribution": "Default",
+                "disableOutboundSnat": true,
+                "backendAddressPool": {
+                  "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'lbneo4jnew', 'backend')]"
+                },
+                "backendAddressPools": [
+                  {
+                    "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'lbneo4jnew', 'backend')]"
+                  }
+                ],
+                "probe": {
+                  "id": "[resourceId('Microsoft.Network/loadBalancers/probes', 'lbneo4jnew','boltprobe')]"
+                }
+              }
+            }
+          ],
+          "probes": [
+            {
+              "name": "httpprobe",
+              "properties": {
+                "protocol": "Http",
+                "port": 7474,
+                "requestPath": "/",
+                "intervalInSeconds": 5,
+                "numberOfProbes": 1,
+                "probeThreshold": 1
+              }
+            },
+            {
+              "name": "boltprobe",
+              "properties": {
+                "protocol": "Tcp",
+                "port": 7687,
+                "intervalInSeconds": 5,
+                "numberOfProbes": 1,
+                "probeThreshold": 1
+              }
+            }
+          ]
         }
       }
     ],
