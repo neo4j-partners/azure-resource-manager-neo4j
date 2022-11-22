@@ -58,8 +58,6 @@ gpgcheck=1" > /etc/yum.repos.d/neo4j.repo
 echo Installing Graph Database...
 export NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
 yum -y install neo4j-enterprise-${graphDatabaseVersion}
-echo "Enabling systemctl"
-systemctl enable neo4j
 
 echo Installing APOC...
 mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins
@@ -121,4 +119,4 @@ fi
 
 echo Starting Neo4j...
 service neo4j start
-neo4j-admin set-initial-password ${adminPassword}
+neo4j-admin dbms set-initial-password ${adminPassword}
