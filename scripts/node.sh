@@ -64,7 +64,7 @@ install_neo4j_from_yum() {
 }
 
 install_apoc_plugin() {
-  echo \"Installing APOC...\"
+  echo "Installing APOC..."
   mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins
 }
 
