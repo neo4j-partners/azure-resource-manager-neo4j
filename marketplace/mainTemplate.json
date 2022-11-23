@@ -220,14 +220,6 @@
                                 "domainNameLabel": "[concat('node-', variables('uniqueString'))]"
                               }
                             }
-                          }
-                        }
-                      },
-                      {
-                        "name": "ipconfig2",
-                        "properties": {
-                          "subnet": {
-                            "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'vnet', 'subnet')]"
                           },
                           "loadBalancerBackendAddressPools": [
                             {
