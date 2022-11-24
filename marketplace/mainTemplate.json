@@ -47,6 +47,10 @@
         "type": "string",
         "defaultValue": "[resourceGroup().location]"
       },
+      "utcValue": {
+        "type": "string",
+        "defaultValue": "[utcNow()]"
+      },
       "_artifactsLocation": {
         "type": "string",
         "metadata": {
@@ -66,19 +70,18 @@
       "uniqueString": "[uniquestring(resourceGroup().id, deployment().name)]",
       "loadBalancerBackendAddressPools": [
         {
-          "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'lbneo4jnew', 'backend')]"
+          "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('loadBalancerName'), 'backend')]"
         }
       ],
-      "utcValue": "[utcNow()]",
-      "networkSGName": "[concat('nsg-neo4j-',parameters('location'),'-',variables('utcValue'))]",
-      "vnetName": "[concat('vnet-neo4j-',parameters('location'),'-',variables('utcValue'))]",
-      "loadBalancerName": "[concat('lb-neo4j-',parameters('location'),'-',variables('utcValue'))]",
-      "publicIpName": "[concat('ip-neo4j-',parameters('location'),'-',variables('utcValue'))]",
-      "vmScaleSetsName": "[concat('vmss-neo4j-',parameters('location'),'-',variables('utcValue'))]"
+      "networkSGName": "[concat('nsg-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
+      "vnetName": "[concat('vnet-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
+      "loadBalancerName": "[concat('lb-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
+      "publicIpName": "[concat('ip-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
+      "vmScaleSetsName": "[concat('vmss-neo4j-',parameters('location'),'-',parameters('utcValue'))]"
     },
     "resources": [
       {
-        "name": "networksecuritygroups",
+        "name": "[variables('networkSGName')]",
         "type": "Microsoft.Network/networkSecurityGroups",
         "apiVersion": "2016-06-01",
         "location": "[parameters('location')]",
@@ -144,12 +147,12 @@
         }
       },
       {
-        "name": "vnet",
+        "name": "[variables('vnetName')]",
         "type": "Microsoft.Network/virtualNetworks",
         "apiVersion": "2015-06-15",
         "location": "[parameters('location')]",
         "dependsOn": [
-          "[resourceId('Microsoft.Network/networkSecurityGroups', 'networksecuritygroups')]"
+          "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSGName'))]"
         ],
         "properties": {
           "addressSpace": {
@@ -163,7 +166,7 @@
               "properties": {
                 "addressPrefix": "10.0.0.0/16",
                 "networkSecurityGroup": {
-                  "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'networksecuritygroups')]"
+                  "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSGName'))]"
                 }
               }
             }
@@ -173,7 +176,7 @@
       {
         "type": "Microsoft.Network/publicIPAddresses",
         "apiVersion": "2022-05-01",
-        "name": "publicipnew",
+        "name": "[variables('publicIpName')]",
         "condition": "[equals(parameters('nodeCount'), 3)]",
         "location": "[parameters('location')]",
         "sku": {
@@ -199,11 +202,11 @@
       {
         "type": "Microsoft.Network/loadBalancers",
         "apiVersion": "2022-05-01",
-        "name": "lbneo4jnew",
+        "name": "[variables('loadBalancerName')]",
         "condition": "[equals(parameters('nodeCount'), 3)]",
         "dependsOn": [
-          "[resourceId('Microsoft.Network/publicIPAddresses', 'publicipnew')]",
-          "[resourceId('Microsoft.Network/virtualNetworks', 'vnet')]"
+          "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]",
+          "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
         ],
         "location": "[parameters('location')]",
         "sku": {
@@ -221,7 +224,7 @@
               "name": "lbipnew",
               "properties": {
                 "publicIPAddress": {
-                  "id": "[resourceId('Microsoft.Network/publicIPAddresses','publicipnew')]"
+                  "id": "[resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))]"
                 }
               }
             }
@@ -231,7 +234,7 @@
               "name": "inboundrule7474",
               "properties": {
                 "frontendIPConfiguration": {
-                  "id": "[concat(resourceId('Microsoft.Network/loadBalancers','lbneo4jnew'), '/frontendIPConfigurations/lbipnew')]"
+                  "id": "[concat(resourceId('Microsoft.Network/loadBalancers',variables('loadBalancerName')), '/frontendIPConfigurations/lbipnew')]"
                 },
                 "frontendPort": 7474,
                 "backendPort": 7474,
@@ -242,15 +245,15 @@
                 "loadDistribution": "Default",
                 "disableOutboundSnat": true,
                 "backendAddressPool": {
-                  "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'lbneo4jnew', 'backend')]"
+                  "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('loadBalancerName'), 'backend')]"
                 },
                 "backendAddressPools": [
                   {
-                    "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'lbneo4jnew', 'backend')]"
+                    "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('loadBalancerName'), 'backend')]"
                   }
                 ],
                 "probe": {
-                  "id": "[resourceId('Microsoft.Network/loadBalancers/probes', 'lbneo4jnew','httpprobe')]"
+                  "id": "[resourceId('Microsoft.Network/loadBalancers/probes', variables('loadBalancerName'),'httpprobe')]"
                 }
               }
             },
@@ -258,7 +261,7 @@
               "name": "inbound7687",
               "properties": {
                 "frontendIPConfiguration": {
-                  "id": "[concat(resourceId('Microsoft.Network/loadBalancers', 'lbneo4jnew'), '/frontendIPConfigurations/lbipnew')]"
+                  "id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName')), '/frontendIPConfigurations/lbipnew')]"
                 },
                 "frontendPort": 7687,
                 "backendPort": 7687,
@@ -269,15 +272,15 @@
                 "loadDistribution": "Default",
                 "disableOutboundSnat": true,
                 "backendAddressPool": {
-                  "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'lbneo4jnew', 'backend')]"
+                  "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('loadBalancerName'), 'backend')]"
                 },
                 "backendAddressPools": [
                   {
-                    "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'lbneo4jnew', 'backend')]"
+                    "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('loadBalancerName'), 'backend')]"
                   }
                 ],
                 "probe": {
-                  "id": "[resourceId('Microsoft.Network/loadBalancers/probes', 'lbneo4jnew','boltprobe')]"
+                  "id": "[resourceId('Microsoft.Network/loadBalancers/probes', variables('loadBalancerName'),'boltprobe')]"
                 }
               }
             }
@@ -309,11 +312,11 @@
       },
       {
         "type": "Microsoft.Compute/virtualMachineScaleSets",
-        "name": "nodes",
+        "name": "[variables('vmScaleSetsName')]",
         "location": "[parameters('location')]",
         "apiVersion": "2017-03-30",
         "dependsOn": [
-          "[if(equals(parameters('nodeCount'),3),resourceId('Microsoft.Network/loadBalancers','lbneo4jnew'),resourceId('Microsoft.Network/virtualNetworks', 'vnet'))]"
+          "[if(equals(parameters('nodeCount'),3),resourceId('Microsoft.Network/loadBalancers',variables('loadBalancerName')),resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')))]"
         ],
         "plan": {
           "publisher": "neo4j",
@@ -368,7 +371,7 @@
                         "name": "ipconfig-cluster",
                         "properties": {
                           "subnet": {
-                            "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'vnet', 'subnet')]"
+                            "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), 'subnet')]"
                           },
                           "publicipaddressconfiguration": {
                             "name": "public",
@@ -402,7 +405,7 @@
                       ]
                     },
                     "protectedSettings": {
-                      "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'), ' ', reference(resourceId('Microsoft.Network/publicIPAddresses','publicipnew')).ipAddress)]"
+                      "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'), ' ', reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))).ipAddress, ' ', string(reference(resourceId('Microsoft.Compute/virtualMachineScaleSets',variables('vmScaleSetsName'))).virtualMachineProfile.networkProfile))]"
                     }
                   }
                 }
@@ -421,7 +424,11 @@
       "browserURL": {
         "condition": "[equals(parameters('nodeCount'), 3)]",
         "type": "string",
-        "value": "[concat('http://',reference(resourceId('Microsoft.Network/publicIPAddresses','publicipnew')).ipAddress,':7474')]"
+        "value": "[concat('http://',reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))).ipAddress,':7474')]"
+      },
+      "outputVariables": {
+        "type": "string",
+        "value": "[concat(variables('networkSGName'),'-',variables('vnetName'))]"
       }
     }
   }

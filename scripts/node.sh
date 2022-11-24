@@ -14,6 +14,7 @@ installBloom=$8
 bloomLicenseKey=$9
 nodeCount=${10}
 loadBalancerDNSName=${11}
+demokey=${12}
 
 echo "Using the settings:"
 echo adminUsername \'$adminUsername\'
@@ -27,6 +28,7 @@ echo installBloom \'$installBloom\'
 echo bloomLicenseKey \'$bloomLicenseKey\'
 echo nodeCount \'$nodeCount\'
 echo loadBalancerDNSName \'$loadBalancerDNSName\'
+echo demokey \'demokey\'
 
 echo "Turning off firewalld"
 systemctl stop firewalld
