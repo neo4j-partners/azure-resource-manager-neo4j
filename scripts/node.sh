@@ -13,6 +13,7 @@ graphDataScienceLicenseKey=$7
 installBloom=$8
 bloomLicenseKey=$9
 nodeCount=${10}
+loadBalancerDNSName=${11}
 
 echo "Using the settings:"
 echo adminUsername \'$adminUsername\'
@@ -25,6 +26,7 @@ echo graphDataScienceLicenseKey \'$graphDataScienceLicenseKey\'
 echo installBloom \'$installBloom\'
 echo bloomLicenseKey \'$bloomLicenseKey\'
 echo nodeCount \'$nodeCount\'
+echo loadBalancerDNSName \'$loadBalancerDNSName\'
 
 echo "Turning off firewalld"
 systemctl stop firewalld
@@ -165,6 +167,7 @@ build_neo4j_conf_file() {
     echo "dbms.cluster.minimum_initial_system_primaries_count=${nodeCount}" >> /etc/neo4j/neo4j.conf
     #coreMembers='vm0X,vm1X,vm2X'
     #coreMembers=$(echo $coreMembers | sed 's/X/.node-'$uniqueString'.'$location'.cloudapp.azure.com:5000/g')
+    #az vmss nic list -g neo4j_test3 --vmss-name nodes | jq '.[] | .ipConfigurations[] | .privateIpAddress' | sed 's/"//g;s/$/:5000/g'
     coreMembers="10.0.0.4:5000,10.0.0.5:5000,10.0.0.6:5000"
     sed -i s/#dbms.cluster.discovery.endpoints=localhost:5000,localhost:5001,localhost:5002/dbms.cluster.discovery.endpoints="${coreMembers}"/g /etc/neo4j/neo4j.conf
   fi

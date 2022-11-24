@@ -27,7 +27,18 @@
         "type": "string"
       },
       "nodeCount": {
-        "type": "int"
+        "type": "int",
+        "allowedValues": [
+          1,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ]
       },
       "diskSize": {
         "type": "int"
@@ -58,10 +69,12 @@
           "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'lbneo4jnew', 'backend')]"
         }
       ],
-      "lbResourceId": "[resourceId('Microsoft.Network/loadBalancers', 'lbneo4jnew')]",
-      "vnetResourceId": "[resourceId('Microsoft.Network/virtualNetworks', 'vnet')]",
-      "nodesDependsOn": "[if(equals(parameters('nodeCount'),3),string(createArray(variables('lbResourceId'),variables('vnetResourceId'))),variables('vnetResourceId'))]",
-      "empty": ""
+      "utcValue": "[utcNow()]",
+      "networkSGName": "[concat('nsg-neo4j-',parameters('location'),'-',variables('utcValue'))]",
+      "vnetName": "[concat('vnet-neo4j-',parameters('location'),'-',variables('utcValue'))]",
+      "loadBalancerName": "[concat('lb-neo4j-',parameters('location'),'-',variables('utcValue'))]",
+      "publicIpName": "[concat('ip-neo4j-',parameters('location'),'-',variables('utcValue'))]",
+      "vmScaleSetsName": "[concat('vmss-neo4j-',parameters('location'),'-',variables('utcValue'))]"
     },
     "resources": [
       {
@@ -389,7 +402,7 @@
                       ]
                     },
                     "protectedSettings": {
-                      "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'))]"
+                      "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'), ' ', reference(resourceId('Microsoft.Network/publicIPAddresses','publicipnew')).ipAddress)]"
                     }
                   }
                 }
