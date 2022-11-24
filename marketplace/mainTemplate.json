@@ -405,7 +405,7 @@
                       ]
                     },
                     "protectedSettings": {
-                      "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'), ' ', reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))).ipAddress, ' ', string(reference(resourceId('Microsoft.Compute/virtualMachineScaleSets',variables('vmScaleSetsName'))).virtualMachineProfile.networkProfile))]"
+                      "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'), ' ', reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))).ipAddress, ' ', string(reference(resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName'))).backendAddressPools))]"
                     }
                   }
                 }

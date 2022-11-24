@@ -28,7 +28,7 @@ echo installBloom \'$installBloom\'
 echo bloomLicenseKey \'$bloomLicenseKey\'
 echo nodeCount \'$nodeCount\'
 echo loadBalancerDNSName \'$loadBalancerDNSName\'
-echo demokey \'demokey\'
+echo demokey \'$demokey\'
 
 echo "Turning off firewalld"
 systemctl stop firewalld
