@@ -52,7 +52,16 @@
       }
     },
     "variables": {
-      "uniqueString": "[uniquestring(resourceGroup().id, deployment().name)]"
+      "uniqueString": "[uniquestring(resourceGroup().id, deployment().name)]",
+      "loadBalancerBackendAddressPools": [
+        {
+          "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'lbneo4jnew', 'backend')]"
+        }
+      ],
+      "lbResourceId": "[resourceId('Microsoft.Network/loadBalancers', 'lbneo4jnew')]",
+      "vnetResourceId": "[resourceId('Microsoft.Network/virtualNetworks', 'vnet')]",
+      "nodesDependsOn": "[if(equals(parameters('nodeCount'),3),string(createArray(variables('lbResourceId'),variables('vnetResourceId'))),variables('vnetResourceId'))]",
+      "empty": ""
     },
     "resources": [
       {
@@ -149,118 +158,10 @@
         }
       },
       {
-        "type": "Microsoft.Compute/virtualMachineScaleSets",
-        "name": "nodes",
-        "location": "[parameters('location')]",
-        "apiVersion": "2017-03-30",
-        "dependsOn": [
-          "[resourceId('Microsoft.Network/virtualNetworks', 'vnet')]",
-          "[resourceId('Microsoft.Network/loadBalancers', 'lbneo4jnew')]"
-        ],
-        "plan": {
-          "publisher": "neo4j",
-          "product": "neo4j-ee-vm",
-          "name": "byol"
-        },
-        "sku": {
-          "name": "[parameters('vmSize')]",
-          "capacity": "[parameters('nodeCount')]"
-        },
-        "properties": {
-          "overprovision": false,
-          "upgradePolicy": {
-            "mode": "Manual"
-          },
-          "virtualMachineProfile": {
-            "storageProfile": {
-              "osDisk": {
-                "createOption": "FromImage"
-              },
-              "imageReference": {
-                "publisher": "Neo4j",
-                "offer": "neo4j-ee-vm",
-                "sku": "byol",
-                "version": "latest"
-              },
-              "dataDisks": [
-                {
-                  "lun": 0,
-                  "createOption": "Empty",
-                  "managedDisk": {
-                    "storageAccountType": "Premium_LRS"
-                  },
-                  "caching": "None",
-                  "diskSizeGB": "[parameters('diskSize')]"
-                }
-              ]
-            },
-            "osProfile": {
-              "computerNamePrefix": "node",
-              "adminUsername": "[parameters('adminUsername')]",
-              "adminPassword": "[parameters('adminPassword')]"
-            },
-            "networkProfile": {
-              "networkInterfaceConfigurations": [
-                {
-                  "name": "nic",
-                  "properties": {
-                    "primary": true,
-                    "ipConfigurations": [
-                      {
-                        "name": "ipconfig",
-                        "properties": {
-                          "subnet": {
-                            "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'vnet', 'subnet')]"
-                          },
-                          "publicipaddressconfiguration": {
-                            "name": "public",
-                            "properties": {
-                              "idleTimeoutInMinutes": 30,
-                              "dnsSettings": {
-                                "domainNameLabel": "[concat('node-', variables('uniqueString'))]"
-                              }
-                            }
-                          },
-                          "loadBalancerBackendAddressPools": [
-                            {
-                              "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'lbneo4jnew', 'backend')]"
-                            }
-                          ]
-                        }
-                      }
-                    ]
-                  }
-                }
-              ]
-            },
-            "extensionProfile": {
-              "extensions": [
-                {
-                  "name": "extension",
-                  "properties": {
-                    "publisher": "Microsoft.Azure.Extensions",
-                    "type": "CustomScript",
-                    "typeHandlerVersion": "2.0",
-                    "autoUpgradeMinorVersion": true,
-                    "settings": {
-                      "fileUris": [
-                        "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/Neo4j-5/scripts/node.sh"
-                      ]
-                    },
-                    "protectedSettings": {
-                      "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'))]"
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      {
         "type": "Microsoft.Network/publicIPAddresses",
         "apiVersion": "2022-05-01",
         "name": "publicipnew",
+        "condition": "[equals(parameters('nodeCount'), 3)]",
         "location": "[parameters('location')]",
         "sku": {
           "name": "Standard",
@@ -286,8 +187,10 @@
         "type": "Microsoft.Network/loadBalancers",
         "apiVersion": "2022-05-01",
         "name": "lbneo4jnew",
+        "condition": "[equals(parameters('nodeCount'), 3)]",
         "dependsOn": [
-          "[resourceId('Microsoft.Network/publicIPAddresses', 'publicipnew')]"
+          "[resourceId('Microsoft.Network/publicIPAddresses', 'publicipnew')]",
+          "[resourceId('Microsoft.Network/virtualNetworks', 'vnet')]"
         ],
         "location": "[parameters('location')]",
         "sku": {
@@ -390,12 +293,122 @@
             }
           ]
         }
+      },
+      {
+        "type": "Microsoft.Compute/virtualMachineScaleSets",
+        "name": "nodes",
+        "location": "[parameters('location')]",
+        "apiVersion": "2017-03-30",
+        "dependsOn": [
+          "[if(equals(parameters('nodeCount'),3),resourceId('Microsoft.Network/loadBalancers','lbneo4jnew'),resourceId('Microsoft.Network/virtualNetworks', 'vnet'))]"
+        ],
+        "plan": {
+          "publisher": "neo4j",
+          "product": "neo4j-ee-vm",
+          "name": "byol"
+        },
+        "sku": {
+          "name": "[parameters('vmSize')]",
+          "capacity": "[parameters('nodeCount')]"
+        },
+        "properties": {
+          "overprovision": false,
+          "upgradePolicy": {
+            "mode": "Manual"
+          },
+          "virtualMachineProfile": {
+            "storageProfile": {
+              "osDisk": {
+                "createOption": "FromImage"
+              },
+              "imageReference": {
+                "publisher": "Neo4j",
+                "offer": "neo4j-ee-vm",
+                "sku": "byol",
+                "version": "latest"
+              },
+              "dataDisks": [
+                {
+                  "lun": 0,
+                  "createOption": "Empty",
+                  "managedDisk": {
+                    "storageAccountType": "Premium_LRS"
+                  },
+                  "caching": "None",
+                  "diskSizeGB": "[parameters('diskSize')]"
+                }
+              ]
+            },
+            "osProfile": {
+              "computerNamePrefix": "node",
+              "adminUsername": "[parameters('adminUsername')]",
+              "adminPassword": "[parameters('adminPassword')]"
+            },
+            "networkProfile": {
+              "networkInterfaceConfigurations": [
+                {
+                  "name": "nic",
+                  "properties": {
+                    "primary": true,
+                    "ipConfigurations": [
+                      {
+                        "name": "ipconfig-cluster",
+                        "properties": {
+                          "subnet": {
+                            "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'vnet', 'subnet')]"
+                          },
+                          "publicipaddressconfiguration": {
+                            "name": "public",
+                            "properties": {
+                              "idleTimeoutInMinutes": 30,
+                              "dnsSettings": {
+                                "domainNameLabel": "[concat('node-', variables('uniqueString'))]"
+                              }
+                            }
+                          },
+                          "loadBalancerBackendAddressPools": "[if(equals(parameters('nodeCount'),3), variables('loadBalancerBackendAddressPools'), json('null'))]"
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "extensionProfile": {
+              "extensions": [
+                {
+                  "name": "extension",
+                  "properties": {
+                    "publisher": "Microsoft.Azure.Extensions",
+                    "type": "CustomScript",
+                    "typeHandlerVersion": "2.0",
+                    "autoUpgradeMinorVersion": true,
+                    "settings": {
+                      "fileUris": [
+                        "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/Neo4j-5/scripts/node.sh"
+                      ]
+                    },
+                    "protectedSettings": {
+                      "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'))]"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
       }
     ],
     "outputs": {
       "adminURL": {
+        "condition": "[equals(parameters('nodeCount'), 1)]",
         "type": "string",
         "value": "[concat('http://vm0.node-', variables('uniqueString'), '.', parameters('location'), '.cloudapp.azure.com:7474')]"
+      },
+      "browserURL": {
+        "condition": "[equals(parameters('nodeCount'), 3)]",
+        "type": "string",
+        "value": "[concat('http://',reference(resourceId('Microsoft.Network/publicIPAddresses','publicipnew')).ipAddress,':7474')]"
       }
     }
   }
