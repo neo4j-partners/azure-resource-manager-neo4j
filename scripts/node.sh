@@ -91,25 +91,25 @@ gpgcheck=1" > /etc/yum.repos.d/neo4j.repo
 
 }
 
-update_etc_hosts() {
-#  echo "Adding entries to /etc/hosts to route cluster traffic internally..."
-#      echo "
-#      # Route cluster traffic internally
-#      10.0.0.4 vm0.node-${uniqueString}.${location}.cloudapp.azure.com
-#      10.0.0.5 vm1.node-${uniqueString}.${location}.cloudapp.azure.com
-#      10.0.0.6 vm2.node-${uniqueString}.${location}.cloudapp.azure.com
-#      " >> /etc/hosts
-
-  privateIps=($(az vmss nic list -g neo4j_test81 --vmss-name vmss-neo4j-westeurope-20221125T121839Z | jq '.[] | .ipConfigurations[] | .privateIpAddress' | sed 's/"//g'))
-  COUNTER=0
-  echo "# Route cluster traffic internally" >> /etc/hosts
-  for ip in "${privateIps[@]}"
-  do
-    echo "${ip} vm${COUNTER}.node-${uniqueString}.${location}.cloudapp.azure.com" >> /etc/hosts
-    COUNTER=$(( COUNTER + 1 ))
-  done
-
-}
+#update_etc_hosts() {
+##  echo "Adding entries to /etc/hosts to route cluster traffic internally..."
+##      echo "
+##      # Route cluster traffic internally
+##      10.0.0.4 vm0.node-${uniqueString}.${location}.cloudapp.azure.com
+##      10.0.0.5 vm1.node-${uniqueString}.${location}.cloudapp.azure.com
+##      10.0.0.6 vm2.node-${uniqueString}.${location}.cloudapp.azure.com
+##      " >> /etc/hosts
+#
+#  privateIps=($(az vmss nic list -g neo4j_test81 --vmss-name vmss-neo4j-westeurope-20221125T121839Z | jq '.[] | .ipConfigurations[] | .privateIpAddress' | sed 's/"//g'))
+#  COUNTER=0
+#  echo "# Route cluster traffic internally" >> /etc/hosts
+#  for ip in "${privateIps[@]}"
+#  do
+#    echo "${ip} vm${COUNTER}.node-${uniqueString}.${location}.cloudapp.azure.com" >> /etc/hosts
+#    COUNTER=$(( COUNTER + 1 ))
+#  done
+#
+#}
 
 install_apoc_plugin() {
   echo "Installing APOC..."
@@ -197,9 +197,6 @@ build_neo4j_conf_file() {
     echo "Running on a single node."
   else
     echo "Running on multiple nodes.  Configuring membership in neo4j.conf..."
-
-    update_etc_hosts
-
     sed -i s/#initial.dbms.default_primaries_count=1/initial.dbms.default_primaries_count=3/g /etc/neo4j/neo4j.conf
     sed -i s/#initial.dbms.default_secondaries_count=0/initial.dbms.default_secondaries_count=$(expr ${nodeCount} - 3)/g /etc/neo4j/neo4j.conf
     sed -i s/#server.bolt.listen_address=:7687/server.bolt.listen_address="${privateIP}":7687/g /etc/neo4j/neo4j.conf
