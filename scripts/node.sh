@@ -70,8 +70,8 @@ sudo dnf install -y azure-cli
 }
 
 perform_az_login() {
+  echo "Performing az login"
   az login --identity -u "${azLoginIdentity}"
-  az vmss nic list -g "${resourceGroup}" --vmss-name "${vmScaleSetsName}" | jq '.[] | .ipConfigurations[] | .privateIpAddress' | sed 's/"//g;s/$/:5000/g'
 }
 
 install_neo4j_from_yum() {
@@ -88,6 +88,26 @@ gpgcheck=1" > /etc/yum.repos.d/neo4j.repo
   echo "Installing Graph Database..."
   export NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
   yum -y install neo4j-enterprise-"${graphDatabaseVersion}"
+
+}
+
+update_etc_hosts() {
+#  echo "Adding entries to /etc/hosts to route cluster traffic internally..."
+#      echo "
+#      # Route cluster traffic internally
+#      10.0.0.4 vm0.node-${uniqueString}.${location}.cloudapp.azure.com
+#      10.0.0.5 vm1.node-${uniqueString}.${location}.cloudapp.azure.com
+#      10.0.0.6 vm2.node-${uniqueString}.${location}.cloudapp.azure.com
+#      " >> /etc/hosts
+
+  privateIps=($(az vmss nic list -g neo4j_test81 --vmss-name vmss-neo4j-westeurope-20221125T121839Z | jq '.[] | .ipConfigurations[] | .privateIpAddress' | sed 's/"//g'))
+  COUNTER=0
+  echo "# Route cluster traffic internally" >> /etc/hosts
+  for ip in "${privateIps[@]}"
+  do
+    echo "${ip} vm${COUNTER}.node-${uniqueString}.${location}.cloudapp.azure.com" >> /etc/hosts
+    COUNTER=$(( COUNTER + 1 ))
+  done
 
 }
 
@@ -178,22 +198,13 @@ build_neo4j_conf_file() {
   else
     echo "Running on multiple nodes.  Configuring membership in neo4j.conf..."
 
-    echo "Adding entries to /etc/hosts to route cluster traffic internally..."
-    echo "
-    # Route cluster traffic internally
-    10.0.0.4 vm0.node-${uniqueString}.${location}.cloudapp.azure.com
-    10.0.0.5 vm1.node-${uniqueString}.${location}.cloudapp.azure.com
-    10.0.0.6 vm2.node-${uniqueString}.${location}.cloudapp.azure.com
-    " >> /etc/hosts
+    update_etc_hosts
 
     sed -i s/#initial.dbms.default_primaries_count=1/initial.dbms.default_primaries_count=3/g /etc/neo4j/neo4j.conf
     sed -i s/#initial.dbms.default_secondaries_count=0/initial.dbms.default_secondaries_count=$(expr ${nodeCount} - 3)/g /etc/neo4j/neo4j.conf
     sed -i s/#server.bolt.listen_address=:7687/server.bolt.listen_address="${privateIP}":7687/g /etc/neo4j/neo4j.conf
     echo "dbms.cluster.minimum_initial_system_primaries_count=${nodeCount}" >> /etc/neo4j/neo4j.conf
-    #coreMembers='vm0X,vm1X,vm2X'
-    #coreMembers=$(echo $coreMembers | sed 's/X/.node-'$uniqueString'.'$location'.cloudapp.azure.com:5000/g')
-    #az vmss nic list -g neo4j_test3 --vmss-name nodes | jq '.[] | .ipConfigurations[] | .privateIpAddress' | sed 's/"//g;s/$/:5000/g'
-    coreMembers="10.0.0.4:5000,10.0.0.5:5000,10.0.0.6:5000"
+    coreMembers=$(az vmss nic list -g "${resourceGroup}" --vmss-name "${vmScaleSetsName}" | jq '.[] | .ipConfigurations[] | .privateIpAddress' | sed 's/"//g;s/$/:5000/g' | tr '\n' ',' | sed 's/,$//g')
     sed -i s/#dbms.cluster.discovery.endpoints=localhost:5000,localhost:5001,localhost:5002/dbms.cluster.discovery.endpoints="${coreMembers}"/g /etc/neo4j/neo4j.conf
   fi
 }
