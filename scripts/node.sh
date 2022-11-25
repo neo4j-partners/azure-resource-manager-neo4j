@@ -14,21 +14,25 @@ installBloom=$8
 bloomLicenseKey=$9
 nodeCount=${10}
 loadBalancerDNSName=${11}
-demokey=${12}
+azLoginIdentity=${12}
+resourceGroup=${13}
+vmScaleSetsName=${14}
 
 echo "Using the settings:"
-echo adminUsername \'$adminUsername\'
-echo adminPassword \'$adminPassword\'
-echo uniqueString \'$uniqueString\'
-echo location \'$location\'
-echo graphDatabaseVersion \'$graphDatabaseVersion\'
-echo installGraphDataScience \'$installGraphDataScience\'
-echo graphDataScienceLicenseKey \'$graphDataScienceLicenseKey\'
-echo installBloom \'$installBloom\'
-echo bloomLicenseKey \'$bloomLicenseKey\'
-echo nodeCount \'$nodeCount\'
-echo loadBalancerDNSName \'$loadBalancerDNSName\'
-echo demokey \'$demokey\'
+echo adminUsername "$adminUsername"
+echo adminPassword "$adminPassword"
+echo uniqueString "$uniqueString"
+echo location "$location"
+echo graphDatabaseVersion "$graphDatabaseVersion"
+echo installGraphDataScience "$installGraphDataScience"
+echo graphDataScienceLicenseKey "$graphDataScienceLicenseKey"
+echo installBloom "$installBloom"
+echo bloomLicenseKey "$bloomLicenseKey"
+echo nodeCount "$nodeCount"
+echo loadBalancerDNSName "$loadBalancerDNSName"
+echo azLoginIdentity "$azLoginIdentity"
+echo resourceGroup "$resourceGroup"
+echo vmScaleSetsName "$vmScaleSetsName"
 
 echo "Turning off firewalld"
 systemctl stop firewalld
@@ -63,6 +67,11 @@ enabled=1
 gpgcheck=1
 gpgkey=https://packages.microsoft.com/keys/microsoft.asc" | sudo tee /etc/yum.repos.d/azure-cli.repo
 sudo dnf install -y azure-cli
+}
+
+perform_az_login() {
+  az login --identity -u "${azLoginIdentity}"
+  az vmss nic list -g "${resourceGroup}" --vmss-name "${vmScaleSetsName}" | jq '.[] | .ipConfigurations[] | .privateIpAddress' | sed 's/"//g;s/$/:5000/g'
 }
 
 install_neo4j_from_yum() {
@@ -190,6 +199,7 @@ build_neo4j_conf_file() {
 }
 
 install_azure_from_dnf
+perform_az_login
 install_neo4j_from_yum
 install_apoc_plugin
 extension_config
