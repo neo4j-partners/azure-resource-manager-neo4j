@@ -51,6 +51,20 @@ echo "$DATA_DISK_UUID $MOUNT_POINT xfs defaults 0 0" >> /etc/fstab
 systemctl daemon-reload
 mount -a
 
+
+install_azure_from_dnf() {
+
+  sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+  sudo dnf install -y https://packages.microsoft.com/config/rhel/8/packages-microsoft-prod.rpm
+echo -e "[azure-cli]
+name=Azure CLI
+baseurl=https://packages.microsoft.com/yumrepos/azure-cli
+enabled=1
+gpgcheck=1
+gpgkey=https://packages.microsoft.com/keys/microsoft.asc" | sudo tee /etc/yum.repos.d/azure-cli.repo
+sudo dnf install -y azure-cli
+}
+
 install_neo4j_from_yum() {
 
   echo "Adding neo4j yum repo..."
@@ -175,6 +189,7 @@ build_neo4j_conf_file() {
   fi
 }
 
+install_azure_from_dnf
 install_neo4j_from_yum
 install_apoc_plugin
 extension_config
