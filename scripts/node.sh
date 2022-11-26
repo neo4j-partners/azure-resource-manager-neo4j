@@ -91,26 +91,6 @@ gpgcheck=1" > /etc/yum.repos.d/neo4j.repo
 
 }
 
-#update_etc_hosts() {
-##  echo "Adding entries to /etc/hosts to route cluster traffic internally..."
-##      echo "
-##      # Route cluster traffic internally
-##      10.0.0.4 vm0.node-${uniqueString}.${location}.cloudapp.azure.com
-##      10.0.0.5 vm1.node-${uniqueString}.${location}.cloudapp.azure.com
-##      10.0.0.6 vm2.node-${uniqueString}.${location}.cloudapp.azure.com
-##      " >> /etc/hosts
-#
-#  privateIps=($(az vmss nic list -g neo4j_test81 --vmss-name vmss-neo4j-westeurope-20221125T121839Z | jq '.[] | .ipConfigurations[] | .privateIpAddress' | sed 's/"//g'))
-#  COUNTER=0
-#  echo "# Route cluster traffic internally" >> /etc/hosts
-#  for ip in "${privateIps[@]}"
-#  do
-#    echo "${ip} vm${COUNTER}.node-${uniqueString}.${location}.cloudapp.azure.com" >> /etc/hosts
-#    COUNTER=$(( COUNTER + 1 ))
-#  done
-#
-#}
-
 install_apoc_plugin() {
   echo "Installing APOC..."
   mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins
@@ -166,12 +146,17 @@ build_neo4j_conf_file() {
   local -r privateIP="$(hostname -i | awk '{print $NF}')"
   echo "Configuring network in neo4j.conf..."
 
-  sed -i 's/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf
   nodeIndex=`curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01" \
     | jq ".name" \
     | sed 's/.*_//' \
     | sed 's/"//'`
-  publicHostname='vm'$nodeIndex'.node-'$uniqueString'.'$location'.cloudapp.azure.com'
+
+  if [ "${nodeCount}" == 1 ]; then
+    publicHostname='vm'$nodeIndex'.node-'$uniqueString'.'$location'.cloudapp.azure.com'
+  else
+    publicHostname="${loadBalancerDNSName}"
+  fi
+
 
   sed -i s/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g /etc/neo4j/neo4j.conf
   sed -i s/#server.default_advertised_address=localhost/server.default_advertised_address="${publicHostname}"/g /etc/neo4j/neo4j.conf

@@ -77,7 +77,10 @@
       "vnetName": "[concat('vnet-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
       "loadBalancerName": "[concat('lb-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
       "publicIpName": "[concat('ip-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
-      "vmScaleSetsName": "[concat('vmss-neo4j-',parameters('location'),'-',parameters('utcValue'))]"
+      "vmScaleSetsName": "[concat('vmss-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
+      "userAssignedIdentityName": "[concat('usermanaged-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
+      "roleAssignmentName": "[guid(concat('roleassignment-neo4j-',parameters('location'),'-',parameters('utcValue')))]",
+      "azLoginIdentity": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.ManagedIdentity/userAssignedIdentities/',variables('userAssignedIdentityName'))]"
     },
     "resources": [
       {
@@ -177,7 +180,7 @@
         "type": "Microsoft.Network/publicIPAddresses",
         "apiVersion": "2022-05-01",
         "name": "[variables('publicIpName')]",
-        "condition": "[equals(parameters('nodeCount'), 3)]",
+        "condition": "[greaterOrEquals(parameters('nodeCount'),3)]",
         "location": "[parameters('location')]",
         "sku": {
           "name": "Standard",
@@ -203,10 +206,9 @@
         "type": "Microsoft.Network/loadBalancers",
         "apiVersion": "2022-05-01",
         "name": "[variables('loadBalancerName')]",
-        "condition": "[equals(parameters('nodeCount'), 3)]",
+        "condition": "[greaterOrEquals(parameters('nodeCount'),3)]",
         "dependsOn": [
-          "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]",
-          "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+          "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
         ],
         "location": "[parameters('location')]",
         "sku": {
@@ -311,13 +313,40 @@
         }
       },
       {
+        "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+        "name": "[variables('userAssignedIdentityName')]",
+        "apiVersion": "2018-11-30",
+        "location": "[resourceGroup().location]"
+      },
+      {
+        "type": "Microsoft.Authorization/roleAssignments",
+        "dependsOn" : [
+          "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities',variables('userAssignedIdentityName'))]"
+        ],
+        "apiVersion": "2022-04-01",
+        "name": "[variables('roleAssignmentName')]",
+        "properties": {
+          "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'acdd72a7-3385-48ef-bd42-f606fba81ae7')]",
+          "principalType": "ServicePrincipal",
+          "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('userAssignedIdentityName'))).principalId]"
+        }
+      },
+      {
         "type": "Microsoft.Compute/virtualMachineScaleSets",
         "name": "[variables('vmScaleSetsName')]",
         "location": "[parameters('location')]",
-        "apiVersion": "2017-03-30",
+        "apiVersion": "2018-06-01",
         "dependsOn": [
-          "[if(equals(parameters('nodeCount'),3),resourceId('Microsoft.Network/loadBalancers',variables('loadBalancerName')),resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')))]"
+          "[resourceId('Microsoft.Authorization/roleAssignments',variables('roleAssignmentName'))]",
+          "[resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))]",
+          "[if(greaterOrEquals(parameters('nodeCount'),3),resourceId('Microsoft.Network/loadBalancers',variables('loadBalancerName')),resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')))]"
         ],
+        "identity": {
+          "type": "userAssigned",
+          "userAssignedIdentities": {
+            "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities/',variables('userAssignedIdentityName'))]": {}
+          }
+        },
         "plan": {
           "publisher": "neo4j",
           "product": "neo4j-ee-vm",
@@ -382,7 +411,7 @@
                               }
                             }
                           },
-                          "loadBalancerBackendAddressPools": "[if(equals(parameters('nodeCount'),3), variables('loadBalancerBackendAddressPools'), json('null'))]"
+                          "loadBalancerBackendAddressPools": "[if(greaterOrEquals(parameters('nodeCount'),3), variables('loadBalancerBackendAddressPools'), json('null'))]"
                         }
                       }
                     ]
@@ -405,7 +434,7 @@
                       ]
                     },
                     "protectedSettings": {
-                      "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'), ' ', reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))).ipAddress, ' ', string(reference(resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName')),'2022-05-01','Full').properties.backendAddressPools[0].properties.loadBalancerBackendAddresses))]"
+                      "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'), ' ', if(greaterOrEquals(parameters('nodeCount'),3),reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName')),'2022-05-01').ipAddress,''), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmScaleSetsName'))]"
                     }
                   }
                 }
@@ -414,6 +443,7 @@
           }
         }
       }
+
     ],
     "outputs": {
       "adminURL": {
@@ -422,22 +452,13 @@
         "value": "[concat('http://vm0.node-', variables('uniqueString'), '.', parameters('location'), '.cloudapp.azure.com:7474')]"
       },
       "browserURL": {
-        "condition": "[equals(parameters('nodeCount'), 3)]",
+        "condition": "[greaterOrEquals(parameters('nodeCount'),3)]",
         "type": "string",
         "value": "[concat('http://',reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))).ipAddress,':7474')]"
       },
       "outputVariables": {
         "type": "string",
         "value": "[concat(variables('networkSGName'),'-',variables('vnetName'))]"
-      },
-      "privateIPs": {
-        "type": "array",
-        "copy": {
-          "count": "[parameters('nodeCount')]",
-          "input": "[reference(resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName')),'2022-05-01','Full').properties.backendAddressPools[0].properties.loadBalancerBackendAddresses[copyIndex()].properties.ipAddress]"
-
-
-        }
       }
     }
   }
