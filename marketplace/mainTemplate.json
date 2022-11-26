@@ -434,7 +434,7 @@
                       ]
                     },
                     "protectedSettings": {
-                      "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'), ' ', if(greaterOrEquals(parameters('nodeCount'),3),reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName')),'2022-05-01').ipAddress,''), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmScaleSetsName'))]"
+                      "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'), ' ', if(greaterOrEquals(parameters('nodeCount'),3),reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName')),'2022-05-01').ipAddress,'-'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmScaleSetsName'))]"
                     }
                   }
                 }
