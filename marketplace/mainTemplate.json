@@ -56,7 +56,7 @@
         "metadata": {
             "description": "The base URI where artifacts required by this template are located including a trailing '/'"
         },
-            "defaultValue": ""
+          "defaultValue": "[deployment().properties.templateLink.uri]"
       },
       "_artifactsLocationSasToken": {
         "type": "securestring",
@@ -430,7 +430,7 @@
                     "autoUpgradeMinorVersion": true,
                     "settings": {
                       "fileUris": [
-                        "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/Neo4j-5/scripts/node.sh"
+                        "[uri(parameters('_artifactsLocation'), concat('scripts/node.sh', parameters('_artifactsLocationSasToken')))]"
                       ]
                     },
                     "protectedSettings": {
