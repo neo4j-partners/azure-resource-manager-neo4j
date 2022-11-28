@@ -6,6 +6,55 @@ Unless you are a Neo4j employee updating the Azure Marketplace listing, you prob
 # Test the Template
 Documentation on how to do this is [here](https://docs.microsoft.com/en-us/azure/azure-resource-manager/templates/test-toolkit).  I haven't been able to get that working and have just used the portal.
 
+# Execute the marketplace template locally
+Update the _artifactsLocation defaultValue in marketplace/mainTemplate.json to empty string. It should look like this
+
+```
+      "_artifactsLocation": {
+        "type": "string",
+        "metadata": {
+            "description": "The base URI where artifacts required by this template are located including a trailing '/'"
+        },
+          "defaultValue": ""
+      },
+```
+
+Update the fileURIs under extensionProfile to point to the respective branch node.sh github raw url path. It should look like this
+
+
+```
+            "extensionProfile": {
+              "extensions": [
+                {
+                    ...... 
+                    "settings": {
+                      "fileUris": [    <----- HERE (Neo4j-5 is a custom branch , replace it with the branch name on which you want to test the template)
+                        "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/Neo4j-5/scripts/node.sh"
+                      ]
+                    },
+                   ......
+              ]
+            }
+```
+
+Update the marketplace/parameters.json to use the required params. Execute the below script under marketplace directory 
+
+#### Note: The resource group name provided will be created by the script automatically
+
+```
+cd marketplace
+./deploy.sh <resource-group-name>
+
+```
+
+After testing use the below script to delete the above resource group
+
+```
+cd marketplace
+./delete.sh <resource-group-name>
+
+```
+
 # Build the Archive and Upload
 To update the listing, run [makeArchive.sh](markArchive.sh).  Then upload the resulting archive.zip to the [Partner Portal](https://partner.microsoft.com/en-us/dashboard/commercial-marketplace/overview).
 

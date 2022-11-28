@@ -12,7 +12,8 @@
         "type": "string"
       },
       "graphDatabaseVersion": {
-        "type": "string"
+        "type": "string",
+        "defaultValue": "5.1.0"
       },
       "installGraphDataScience": {
         "type": "string"
@@ -105,7 +106,7 @@
               }
             },
             {
-              "name": "HTTS",
+              "name": "HTTPS",
               "properties": {
                 "description": "HTTPS",
                 "protocol": "Tcp",
@@ -446,19 +447,15 @@
 
     ],
     "outputs": {
-      "adminURL": {
+      "Neo4jBrowserURL": {
         "condition": "[equals(parameters('nodeCount'), 1)]",
         "type": "string",
         "value": "[concat('http://vm0.node-', variables('uniqueString'), '.', parameters('location'), '.cloudapp.azure.com:7474')]"
       },
-      "browserURL": {
+      "Neo4jClusterBrowserURL": {
         "condition": "[greaterOrEquals(parameters('nodeCount'),3)]",
         "type": "string",
         "value": "[concat('http://',reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))).ipAddress,':7474')]"
-      },
-      "outputVariables": {
-        "type": "string",
-        "value": "[concat(variables('networkSGName'),'-',variables('vnetName'))]"
       }
     }
   }
