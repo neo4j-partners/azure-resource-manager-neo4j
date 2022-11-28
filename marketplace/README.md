@@ -7,37 +7,19 @@ Unless you are a Neo4j employee updating the Azure Marketplace listing, you prob
 Documentation on how to do this is [here](https://docs.microsoft.com/en-us/azure/azure-resource-manager/templates/test-toolkit).  I haven't been able to get that working and have just used the portal.
 
 # Execute the marketplace template locally
-Update the _artifactsLocation defaultValue in marketplace/mainTemplate.json to empty string. It should look like this
+Update the marketplace/parameters.json to use the required params. 
 
+#### Note: Update the _artifactsLocation under parameters.json to the required path
 ```
-      "_artifactsLocation": {
-        "type": "string",
-        "metadata": {
-            "description": "The base URI where artifacts required by this template are located including a trailing '/'"
-        },
-          "defaultValue": ""
-      },
-```
-
-Update the fileURIs under extensionProfile to point to the respective branch node.sh github raw url path. It should look like this
-
-
-```
-            "extensionProfile": {
-              "extensions": [
-                {
-                    ...... 
-                    "settings": {
-                      "fileUris": [    <----- HERE (Neo4j-5 is a custom branch , replace it with the branch name on which you want to test the template)
-                        "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/Neo4j-5/scripts/node.sh"
-                      ]
-                    },
-                   ......
-              ]
-            }
+  "_artifactsLocation": {
+    "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/Neo4j-5/"
+  }
+  
+  # Here Neo4j-5 is a branch name , replace it with the required branch name on which testing needs to be done.
+  # This path is used in the fileUris parameter in mainTemplate.json
 ```
 
-Update the marketplace/parameters.json to use the required params. Execute the below script under marketplace directory 
+Execute the below script under marketplace directory 
 
 #### Note: The resource group name provided will be created by the script automatically
 
