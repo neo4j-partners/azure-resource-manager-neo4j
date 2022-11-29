@@ -151,7 +151,7 @@ build_neo4j_conf_file() {
 
   publicHostname='vm'$nodeIndex'.node-'$uniqueString'.'$location'.cloudapp.azure.com'
 
-  sed -i s/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g /etc/neo4j/neo4j.conf
+  sed -i s/#dbms.default_listen_address=0.0.0.0/dbms.default_listen_address=0.0.0.0/g /etc/neo4j/neo4j.conf
   echo "Configuring memory settings in neo4j.conf..."
   neo4j-admin memrec >> /etc/neo4j/neo4j.conf
 
