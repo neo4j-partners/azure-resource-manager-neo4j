@@ -15,7 +15,7 @@
     "value": 128
   },
   "graphDatabaseVersion": {
-    "value": "5.1.0"
+    "value": "4.4.15"
   },
   "installGraphDataScience": {
     "value": "False"
@@ -30,6 +30,6 @@
     "value": "None"
   },
   "_artifactsLocation": {
-    "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/Neo4j-5/"
+    "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/feature/neo4j4_cluster/"
   }
 }
