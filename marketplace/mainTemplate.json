@@ -431,7 +431,7 @@
                     "autoUpgradeMinorVersion": true,
                     "settings": {
                       "fileUris": [
-                        "[uri(parameters('_artifactsLocation'), concat('scripts/node.sh', parameters('_artifactsLocationSasToken')))]"
+                        "[uri(parameters('_artifactsLocation'), concat('scripts/node4.sh', parameters('_artifactsLocationSasToken')))]"
                       ]
                     },
                     "protectedSettings": {
