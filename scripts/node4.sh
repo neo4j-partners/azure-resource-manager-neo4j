@@ -65,7 +65,7 @@ install_neo4j_from_yum() {
   echo "
 [neo4j]
 name=Neo4j Yum Repo
-baseurl=http://yum.neo4j.com/stable/5
+baseurl=http://yum.neo4j.com/stable/4.4
 enabled=1
 gpgcheck=1" > /etc/yum.repos.d/neo4j.repo
 
