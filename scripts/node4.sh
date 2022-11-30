@@ -83,7 +83,8 @@ install_apoc_plugin() {
 }
 
 get_latest_neo4j_version() {
-  neo4j_version=$(curl -s -fail http://versions.neo4j-templates.com/target.json | jq -r '.azure."4.4"')
+  echo "Getting latest neo4j version"
+  neo4j_version=$(curl -s --fail http://versions.neo4j-templates.com/target.json | jq -r '.azure."4.4"')
 }
 
 configure_graph_data_science() {
