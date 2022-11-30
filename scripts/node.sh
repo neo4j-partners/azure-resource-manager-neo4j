@@ -72,6 +72,7 @@ gpgcheck=1" > /etc/yum.repos.d/neo4j.repo
   echo "Installing Graph Database..."
   export NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
   get_latest_neo4j_version
+  echo "printing neo4j version ${neo4j_version}"
   yum -y install neo4j-enterprise-"${neo4j_version}"
   systemctl enable neo4j
 }
