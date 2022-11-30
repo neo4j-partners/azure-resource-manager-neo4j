@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "Running node.sh"
+echo "Running node4.sh"
 
 adminUsername=$1
 adminPassword=$2
@@ -71,13 +71,18 @@ gpgcheck=1" > /etc/yum.repos.d/neo4j.repo
 
   echo "Installing Graph Database..."
   export NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
-  yum -y install neo4j-enterprise-"${graphDatabaseVersion}"
+  get_latest_neo4j_version
+  yum -y install neo4j-enterprise-"${neo4j_version}"
   systemctl enable neo4j
 }
 
 install_apoc_plugin() {
   echo "Installing APOC..."
   mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins
+}
+
+get_latest_neo4j_version() {
+  neo4j_version=$(curl -s -fail http://versions.neo4j-templates.com/target.json | jq -r '.azure."4.4"')
 }
 
 configure_graph_data_science() {
