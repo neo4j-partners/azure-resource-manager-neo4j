@@ -99,7 +99,7 @@ get_latest_neo4j_version() {
 }
 
 get_vmss_tags() {
-  taggedNeo4jVersion=$(az vmss list --resource-group ${resourceGroup} | jq --arg vmssName "${vmScaleSetsName}" '.[] | select(.name == ${vmssName}).tags.Neo4jVersion')
+  taggedNeo4jVersion=$(az vmss list --resource-group ${resourceGroup} | jq --arg vmssName "${vmScaleSetsName}" '.[] | select(.name==$vmssName).tags.Neo4jVersion')
   echo "Tagged Neo4j Version ${taggedNeo4jVersion}"
 }
 
