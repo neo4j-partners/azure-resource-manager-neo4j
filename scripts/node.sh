@@ -74,7 +74,7 @@ gpgcheck=1" > /etc/yum.repos.d/neo4j.repo
 
   get_vmss_tags
   yumPkg="neo4j-enterprise"
-  if [[ -z "${taggedNeo4jVersion}" ]]; then
+  if [[ -z "${taggedNeo4jVersion}" || "${taggedNeo4jVersion}" == "null" ]]; then
     get_latest_neo4j_version
     if [[ ! -z "${latest_neo4j_version}" ]]; then
       yumPkg="neo4j-enterprise-${latest_neo4j_version}"
