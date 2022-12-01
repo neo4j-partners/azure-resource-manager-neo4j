@@ -215,4 +215,4 @@ build_neo4j_conf_file
 configure_graph_data_science
 configure_bloom
 start_neo4j
-set_vmss_tags
+#set_vmss_tags
