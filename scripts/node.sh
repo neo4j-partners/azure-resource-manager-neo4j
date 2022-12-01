@@ -77,11 +77,13 @@ gpgcheck=1" > /etc/yum.repos.d/neo4j.repo
   if [[ -z "${taggedNeo4jVersion}" || "${taggedNeo4jVersion}" == "null" ]]; then
     get_latest_neo4j_version
     if [[ ! -z "${latest_neo4j_version}" ]]; then
+      echo "inside if latest neo4j version found ${latest_neo4j_version}"
       yumPkg="neo4j-enterprise-${latest_neo4j_version}"
     fi
   else
     yumPkg="neo4j-enterprise-${taggedNeo4jVersion}"
   fi
+  echo "Installing the yumpkg ${yumPkg}"
   yum -y install "${yumPkg}"
   systemctl enable neo4j
 
@@ -94,7 +96,7 @@ install_apoc_plugin() {
 
 get_latest_neo4j_version() {
   echo "Getting latest neo4j version"
-  latest_neo4j_version=$(curl -s --fail http://versions.neo4j-templates.com/target.json | jq -r '.azure."5"')
+  latest_neo4j_version=$(curl -s --fail http://versions.neo4j-templates.com/target.json | jq -r '.azure."5"' || echo "")
   echo "Latest Neo4j Version is ${latest_neo4j_version}"
 }
 
