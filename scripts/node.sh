@@ -108,7 +108,8 @@ get_vmss_tags() {
 set_vmss_tags() {
   installed_neo4j_version=$(/usr/bin/neo4j --version)
   echo "Installed neo4j version is ${installed_neo4j_version}. Trying to set vmss tags"
-  az resource tag --tags Neo4jVersion="${installed_neo4j_version}" --resource-group "${resourceGroup}" --name "${vmScaleSetsName}" --resource-type "Microsoft.Compute/virtualMachineScaleSets"
+  resourceId=$(az vmss list --resource-group "${resourceGroup}" | jq -r '.[] | .id')
+  az tag create --tags Neo4jVersion="${installed_neo4j_version}" --resource-id "${resourceId}"
   echo "Added tag Neo4jVersion=${installed_neo4j_version}"
 }
 
