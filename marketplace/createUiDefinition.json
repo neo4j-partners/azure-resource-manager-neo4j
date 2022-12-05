@@ -67,6 +67,34 @@
                 {
                   "label": "3",
                   "value": 3
+                },
+                {
+                  "label": "4",
+                  "value": 4
+                },
+                {
+                  "label": "5",
+                  "value": 5
+                },
+                {
+                  "label": "6",
+                  "value": 6
+                },
+                {
+                  "label": "7",
+                  "value": 7
+                },
+                {
+                  "label": "8",
+                  "value": 8
+                },
+                {
+                  "label": "9",
+                  "value": 9
+                },
+                {
+                  "label": "10",
+                  "value": 10
                 }
               ]
             }
@@ -114,12 +142,12 @@
             "name": "graphDatabaseVersion",
             "type": "Microsoft.Common.TextBox",
             "label": "Graph Database Version",
-            "defaultValue": "4.4.10",
+            "defaultValue": "5.1.0",
             "toolTip": "Graph Database Version",
             "constraints": {
               "required": true,
               "regex": "[0-9.]*",
-              "validationMessage": "Enter a version of Graph Database, for instance 4.4.10"
+              "validationMessage": "Enter a version of Graph Database, for instance 5.1.0"
             }
           },
           {
