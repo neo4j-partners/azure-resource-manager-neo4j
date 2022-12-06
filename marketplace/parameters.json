@@ -9,13 +9,13 @@
     "value": "Standard_E8s_v5"
   },
   "nodeCount": {
-    "value": 3
+    "value": 1
   },
   "diskSize": {
     "value": 128
   },
   "graphDatabaseVersion": {
-    "value": "4.4.x"
+    "value": "4.4"
   },
   "installGraphDataScience": {
     "value": "False"

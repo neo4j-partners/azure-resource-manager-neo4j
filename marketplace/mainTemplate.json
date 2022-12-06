@@ -14,8 +14,8 @@
       "graphDatabaseVersion": {
         "type": "string",
         "allowedValues": [
-          "5.x",
-          "4.4.x"
+          "5",
+          "4.4"
         ]
       },
       "installGraphDataScience": {
@@ -85,8 +85,8 @@
       "userAssignedIdentityName": "[concat('usermanaged-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
       "roleAssignmentName": "[guid(concat('roleassignment-neo4j-',parameters('location'),'-',parameters('utcValue')))]",
       "azLoginIdentity": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.ManagedIdentity/userAssignedIdentities/',variables('userAssignedIdentityName'))]",
-      "scriptName": "[if(equals(parameters('graphDatabaseVersion'),'5.x'),'scripts/node.sh','scripts/node4.sh')]",
-      "bashCommand": "[if(equals(parameters('graphDatabaseVersion'),'5.x'),'bash node.sh ','bash node4.sh ')]",
+      "scriptName": "[if(equals(parameters('graphDatabaseVersion'),'5'),'scripts/node.sh','scripts/node4.sh')]",
+      "bashCommand": "[if(equals(parameters('graphDatabaseVersion'),'5'),'bash node.sh ','bash node4.sh ')]",
       "roleDefName": "[guid(concat('customRoleDef-',parameters('location'),'-',parameters('utcValue')))]",
       "roleName": "[concat('customRole-',parameters('location'),'-',parameters('utcValue'))]"
     },
@@ -338,7 +338,7 @@
             {
               "actions": [
                 "Microsoft.Compute/virtualMachineScaleSets/read",
-                "Microsoft.Network/networkInterfaces/read",
+                "Microsoft.Compute/virtualMachineScaleSets/*/read",
                 "Microsoft.Resources/tags/write",
                 "Microsoft.Resources/tags/read",
                 "Microsoft.Resources/tags/delete"
