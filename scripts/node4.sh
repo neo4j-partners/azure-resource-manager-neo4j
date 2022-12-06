@@ -71,9 +71,8 @@ gpgcheck=1" > /etc/yum.repos.d/neo4j.repo
 
   echo "Installing Graph Database..."
   export NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
-  get_latest_neo4j_version
-  echo "printing neo4j version ${neo4j_version}"
-  yum -y install neo4j-enterprise-"${neo4j_version}"
+  set_yum_pkg
+  yum -y install "${yumPkg}"
   systemctl enable neo4j
 }
 
@@ -84,7 +83,35 @@ install_apoc_plugin() {
 
 get_latest_neo4j_version() {
   echo "Getting latest neo4j version"
-  neo4j_version=$(curl -s --fail http://versions.neo4j-templates.com/target.json | jq -r '.azure."4.4"')
+  latest_neo4j_version=$(curl -s --fail http://versions.neo4j-templates.com/target.json | jq -r '.azure."4.4"' || echo "")
+  echo "Latest Neo4j Version is ${latest_neo4j_version}"
+}
+
+get_vmss_tags() {
+  taggedNeo4jVersion=$(az vmss list --resource-group ${resourceGroup} | jq --arg vmssName "${vmScaleSetsName}" '.[] | select(.name==$vmssName).tags.Neo4jVersion')
+  echo "Tagged Neo4j Version ${taggedNeo4jVersion}"
+}
+
+set_vmss_tags() {
+  installed_neo4j_version=$(/usr/bin/neo4j --version)
+  echo "Installed neo4j version is ${installed_neo4j_version}. Trying to set vmss tags"
+  resourceId=$(az vmss list --resource-group "${resourceGroup}" | jq -r '.[] | .id')
+  az tag create --tags Neo4jVersion="${installed_neo4j_version}" --resource-id "${resourceId}"
+  echo "Added tag Neo4jVersion=${installed_neo4j_version}"
+}
+
+set_yum_pkg() {
+    yumPkg="neo4j-enterprise"
+    get_vmss_tags
+    if [[ -z "${taggedNeo4jVersion}" || "${taggedNeo4jVersion}" == "null" ]]; then
+      get_latest_neo4j_version
+      if [[ ! -z "${latest_neo4j_version}" ]]; then
+        yumPkg="neo4j-enterprise-${latest_neo4j_version}"
+      fi
+    else
+      yumPkg="neo4j-enterprise-${taggedNeo4jVersion}"
+    fi
+    echo "Installing the yumpkg ${yumPkg}"
 }
 
 configure_graph_data_science() {
@@ -183,3 +210,4 @@ build_neo4j_conf_file
 configure_graph_data_science
 configure_bloom
 start_neo4j
+set_vmss_tags
