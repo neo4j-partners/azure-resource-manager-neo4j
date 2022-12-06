@@ -338,6 +338,7 @@
             {
               "actions": [
                 "Microsoft.Compute/virtualMachineScaleSets/read",
+                "Microsoft.Network/networkInterfaces/read",
                 "Microsoft.Resources/tags/write",
                 "Microsoft.Resources/tags/read",
                 "Microsoft.Resources/tags/delete"
