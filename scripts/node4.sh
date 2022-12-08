@@ -22,35 +22,40 @@ echo "Turning off firewalld"
 systemctl stop firewalld
 systemctl disable firewalld
 
-#Format and mount the data disk to /var/lib/neo4j
-MOUNT_POINT="/var/lib/neo4j"
+mount_data_disk() {
+  #Format and mount the data disk to /var/lib/neo4j
+  local -r MOUNT_POINT="/var/lib/neo4j"
 
-DATA_DISK_DEVICE=$(parted -l 2>&1 | grep Error | awk {'print $2'} | sed 's/\://')
+  local -r DATA_DISK_DEVICE=$(parted -l 2>&1 | grep Error | awk {'print $2'} | sed 's/\://')
 
-sudo parted $DATA_DISK_DEVICE --script mklabel gpt mkpart xfspart xfs 0% 100%
-sudo mkfs.xfs $DATA_DISK_DEVICE\1
-sudo partprobe $DATA_DISK_DEVICE\1
-mkdir $MOUNT_POINT
+  sudo parted $DATA_DISK_DEVICE --script mklabel gpt mkpart xfspart xfs 0% 100%
+  sudo mkfs.xfs $DATA_DISK_DEVICE\1
+  sudo partprobe $DATA_DISK_DEVICE\1
+  mkdir $MOUNT_POINT
 
-DATA_DISK_UUID=$(blkid | grep $DATA_DISK_DEVICE\1 | awk {'print $2'} | sed s/\"//g)
+  local -r DATA_DISK_UUID=$(blkid | grep $DATA_DISK_DEVICE\1 | awk {'print $2'} | sed s/\"//g)
 
-echo "$DATA_DISK_UUID $MOUNT_POINT xfs defaults 0 0" >> /etc/fstab
+  echo "$DATA_DISK_UUID $MOUNT_POINT xfs defaults 0 0" >> /etc/fstab
 
-systemctl daemon-reload
-mount -a
+  systemctl daemon-reload
+  mount -a
+}
 
 
 install_azure_from_dnf() {
 
   sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
   sudo dnf install -y https://packages.microsoft.com/config/rhel/8/packages-microsoft-prod.rpm
-echo -e "[azure-cli]
+  cat <<EOF >/etc/yum.repos.d/azure-cli.repo
+[azure-cli]
 name=Azure CLI
 baseurl=https://packages.microsoft.com/yumrepos/azure-cli
 enabled=1
 gpgcheck=1
-gpgkey=https://packages.microsoft.com/keys/microsoft.asc" | sudo tee /etc/yum.repos.d/azure-cli.repo
-sudo dnf install -y azure-cli
+gpgkey=https://packages.microsoft.com/keys/microsoft.asc
+EOF
+
+  sudo dnf install -y azure-cli
 }
 
 perform_az_login() {
@@ -62,12 +67,14 @@ install_neo4j_from_yum() {
 
   echo "Adding neo4j yum repo..."
   rpm --import https://debian.neo4j.com/neotechnology.gpg.key
-  echo "
+
+  cat <<EOF >/etc/yum.repos.d/neo4j.repo
 [neo4j]
 name=Neo4j Yum Repo
 baseurl=http://yum.neo4j.com/stable/4.4
 enabled=1
-gpgcheck=1" > /etc/yum.repos.d/neo4j.repo
+gpgcheck=1
+EOF
 
   echo "Installing Graph Database..."
   export NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
@@ -178,7 +185,7 @@ set_cluster_configs() {
 build_neo4j_conf_file() {
   echo "Configuring network in neo4j.conf..."
 
-  nodeIndex=`curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01" \
+  local -r nodeIndex=`curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01" \
     | jq ".name" \
     | sed 's/.*_//' \
     | sed 's/"//'`
@@ -201,6 +208,7 @@ build_neo4j_conf_file() {
   fi
 }
 
+mount_data_disk
 install_azure_from_dnf
 perform_az_login
 install_neo4j_from_yum
