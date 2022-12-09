@@ -5,13 +5,6 @@
   "parameters": {
     "basics": [
       {
-        "name": "adminUsername",
-        "type": "Microsoft.Compute.UserNameTextBox",
-        "label": "Admin Username",
-        "toolTip": "Admin username on all VMs",
-        "osPlatform": "Linux"
-      },
-      {
         "name": "adminPassword",
         "type": "Microsoft.Common.PasswordBox",
         "label": {
@@ -148,11 +141,11 @@
               "allowedValues": [
                 {
                   "label": "5",
-                  "value": 5
+                  "value": "5"
                 },
                 {
                   "label": "4.4",
-                  "value": 4
+                  "value": "4.4"
                 }
               ]
             }
@@ -223,7 +216,6 @@
       }
     ],
     "outputs": {
-      "adminUsername": "[basics('adminUsername')]",
       "adminPassword": "[basics('adminPassword')]",
       "vmSize": "[steps('neo4jConfig').vmSize]",
       "nodeCount": "[steps('neo4jConfig').nodeCount]",

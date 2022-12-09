@@ -2,9 +2,6 @@
     "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-      "adminUsername": {
-        "type": "string"
-      },
       "adminPassword": {
         "type": "securestring"
       },
@@ -88,7 +85,8 @@
       "scriptName": "[if(equals(parameters('graphDatabaseVersion'),'5'),'scripts/node.sh','scripts/node4.sh')]",
       "bashCommand": "[if(equals(parameters('graphDatabaseVersion'),'5'),'bash node.sh ','bash node4.sh ')]",
       "roleDefName": "[guid(concat('customRoleDef-',parameters('location'),'-',parameters('utcValue')))]",
-      "roleName": "[concat('customRole-',parameters('location'),'-',parameters('utcValue'))]"
+      "roleName": "[concat('customRole-',parameters('location'),'-',parameters('utcValue'))]",
+      "adminUsername": "neo4j"
     },
     "resources": [
       {
@@ -420,7 +418,7 @@
             },
             "osProfile": {
               "computerNamePrefix": "node",
-              "adminUsername": "[parameters('adminUsername')]",
+              "adminUsername": "[variables('adminUsername')]",
               "adminPassword": "[parameters('adminPassword')]"
             },
             "networkProfile": {
@@ -468,7 +466,7 @@
                       ]
                     },
                     "protectedSettings": {
-                      "commandToExecute": "[concat(variables('bashCommand'), parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'), ' ', if(greaterOrEquals(parameters('nodeCount'),3),reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName')),'2022-05-01').ipAddress,'-'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmScaleSetsName'))]"
+                      "commandToExecute": "[concat(variables('bashCommand'), variables('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'), ' ', if(greaterOrEquals(parameters('nodeCount'),3),reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName')),'2022-05-01').ipAddress,'-'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmScaleSetsName'))]"
                     }
                   }
                 }
@@ -489,6 +487,10 @@
         "condition": "[greaterOrEquals(parameters('nodeCount'),3)]",
         "type": "string",
         "value": "[concat('http://',reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))).ipAddress,':7474')]"
+      },
+      "Username": {
+        "type": "string",
+        "value": "neo4j"
       }
     }
   }
