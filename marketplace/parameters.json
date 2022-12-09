@@ -1,7 +1,4 @@
 {
-  "adminUsername": {
-    "value": "neo4j"
-  },
   "adminPassword": {
     "value": "foo123!"
   },
@@ -30,6 +27,6 @@
     "value": "None"
   },
   "_artifactsLocation": {
-    "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/feature/neo4j4_cluster/"
+    "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/main/"
   }
 }
