@@ -140,14 +140,21 @@
           },
           {
             "name": "graphDatabaseVersion",
-            "type": "Microsoft.Common.TextBox",
+            "type": "Microsoft.Common.DropDown",
             "label": "Graph Database Version",
-            "defaultValue": "5.1.0",
+            "defaultValue": "5",
             "toolTip": "Graph Database Version",
             "constraints": {
-              "required": true,
-              "regex": "[0-9.]*",
-              "validationMessage": "Enter a version of Graph Database, for instance 5.1.0"
+              "allowedValues": [
+                {
+                  "label": "5",
+                  "value": 5
+                },
+                {
+                  "label": "4.4",
+                  "value": 4
+                }
+              ]
             }
           },
           {
