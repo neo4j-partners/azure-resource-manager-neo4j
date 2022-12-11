@@ -101,7 +101,7 @@
       "loadBalancerName": "[concat('lb-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
       "publicIpName": "[concat('ip-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
       "vmScaleSetsName": "[concat('vmss-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
-      "readReplicaVmScaleSetsName": "[concat('rr-vmss-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
+      "readReplicaVmScaleSetsName": "[concat('readreplica-vmss-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
       "userAssignedIdentityName": "[concat('usermanaged-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
       "roleAssignmentName": "[guid(concat('roleassignment-neo4j-',parameters('location'),'-',parameters('utcValue')))]",
       "azLoginIdentity": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.ManagedIdentity/userAssignedIdentities/',variables('userAssignedIdentityName'))]",
@@ -601,7 +601,7 @@
                       ]
                     },
                     "protectedSettings": {
-                      "commandToExecute": "[concat('bash readreplica4.sh', ' ',parameters('adminPassword'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('readReplicaVmScaleSetsName'))]"
+                      "commandToExecute": "[concat('bash readreplica4.sh', ' ',parameters('adminPassword'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmScaleSetsName'))]"
                     }
                   }
                 }
