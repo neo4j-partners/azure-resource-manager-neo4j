@@ -8,6 +8,9 @@
       "vmSize": {
         "type": "string"
       },
+      "readReplicaVmSize": {
+        "type": "string"
+      },
       "graphDatabaseVersion": {
         "type": "string",
         "allowedValues": [
@@ -41,7 +44,26 @@
           10
         ]
       },
+      "readReplicaCount": {
+        "type": "int",
+        "allowedValues": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ]
+      },
       "diskSize": {
+        "type": "int"
+      },
+      "readReplicaDiskSize": {
         "type": "int"
       },
       "location": {
@@ -79,6 +101,7 @@
       "loadBalancerName": "[concat('lb-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
       "publicIpName": "[concat('ip-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
       "vmScaleSetsName": "[concat('vmss-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
+      "readReplicaVmScaleSetsName": "[concat('rr-vmss-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
       "userAssignedIdentityName": "[concat('usermanaged-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
       "roleAssignmentName": "[guid(concat('roleassignment-neo4j-',parameters('location'),'-',parameters('utcValue')))]",
       "azLoginIdentity": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.ManagedIdentity/userAssignedIdentities/',variables('userAssignedIdentityName'))]",
@@ -466,7 +489,118 @@
                       ]
                     },
                     "protectedSettings": {
-                      "commandToExecute": "[concat(variables('bashCommand'), variables('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'), ' ', if(greaterOrEquals(parameters('nodeCount'),3),reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName')),'2022-05-01').ipAddress,'-'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmScaleSetsName'))]"
+                      "commandToExecute": "[concat(variables('bashCommand'), variables('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'), ' ', parameters('readReplicaCount'), ' ', if(greaterOrEquals(parameters('nodeCount'),3),reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName')),'2022-05-01').ipAddress,'-'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmScaleSetsName'))]"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "type": "Microsoft.Compute/virtualMachineScaleSets",
+        "name": "[variables('readReplicaVmScaleSetsName')]",
+        "location": "[parameters('location')]",
+        "apiVersion": "2018-06-01",
+        "condition": "[and(equals(parameters('graphDatabaseVersion'),'4.4'),greater(parameters('readReplicaCount'),0))]",
+        "dependsOn": [
+          "[resourceId('Microsoft.Compute/virtualMachineScaleSets',variables('vmScaleSetsName'))]"
+        ],
+        "identity": {
+          "type": "userAssigned",
+          "userAssignedIdentities": {
+            "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities/',variables('userAssignedIdentityName'))]": {}
+          }
+        },
+        "plan": {
+          "publisher": "neo4j",
+          "product": "neo4j-ee-vm",
+          "name": "byol"
+        },
+        "sku": {
+          "name": "[parameters('readReplicaVmSize')]",
+          "capacity": "[parameters('readReplicaCount')]"
+        },
+        "properties": {
+          "overprovision": false,
+          "upgradePolicy": {
+            "mode": "Manual"
+          },
+          "virtualMachineProfile": {
+            "storageProfile": {
+              "osDisk": {
+                "createOption": "FromImage"
+              },
+              "imageReference": {
+                "publisher": "Neo4j",
+                "offer": "neo4j-ee-vm",
+                "sku": "byol",
+                "version": "latest"
+              },
+              "dataDisks": [
+                {
+                  "lun": 0,
+                  "createOption": "Empty",
+                  "managedDisk": {
+                    "storageAccountType": "Premium_LRS"
+                  },
+                  "caching": "None",
+                  "diskSizeGB": "[parameters('readReplicaDiskSize')]"
+                }
+              ]
+            },
+            "osProfile": {
+              "computerNamePrefix": "node",
+              "adminUsername": "[variables('adminUsername')]",
+              "adminPassword": "[parameters('adminPassword')]"
+            },
+            "networkProfile": {
+              "networkInterfaceConfigurations": [
+                {
+                  "name": "nic-read-replica",
+                  "properties": {
+                    "primary": true,
+                    "ipConfigurations": [
+                      {
+                        "name": "ipconfig-read-replica",
+                        "properties": {
+                          "subnet": {
+                            "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), 'subnet')]"
+                          },
+                          "publicipaddressconfiguration": {
+                            "name": "public-read-replica",
+                            "properties": {
+                              "idleTimeoutInMinutes": 30,
+                              "dnsSettings": {
+                                "domainNameLabel": "[concat('node-', variables('uniqueString'))]"
+                              }
+                            }
+                          },
+                          "loadBalancerBackendAddressPools": "[variables('loadBalancerBackendAddressPools')]"
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "extensionProfile": {
+              "extensions": [
+                {
+                  "name": "extension",
+                  "properties": {
+                    "publisher": "Microsoft.Azure.Extensions",
+                    "type": "CustomScript",
+                    "typeHandlerVersion": "2.0",
+                    "autoUpgradeMinorVersion": true,
+                    "settings": {
+                      "fileUris": [
+                        "[uri(parameters('_artifactsLocation'), concat(variables('scriptName'), parameters('_artifactsLocationSasToken')))]"
+                      ]
+                    },
+                    "protectedSettings": {
+                      "commandToExecute": "[concat('bash readreplica4.sh', ' ',parameters('adminPassword'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmScaleSetsName'))]"
                     }
                   }
                 }

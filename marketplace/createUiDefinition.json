@@ -43,6 +43,32 @@
               "Standard_E16s_v5",
               "Standard_E32s_v5"
             ],
+            "constraints": {
+              "excludedSizes": [
+                "Standard_B1s",
+                "Standard_B1ls"
+              ]
+            },
+            "osPlatform": "Linux"
+          },
+          {
+            "name": "readReplicaVmSize",
+            "type": "Microsoft.Compute.SizeSelector",
+            "label": "Virtual Machine Size For Read Replicas",
+            "toolTip": "Size of VMs in the cluster",
+            "visible": "[equals(steps('neo4jConfig').graphDatabaseVersion,'4.4')]",
+            "recommendedSizes": [
+              "Standard_E4s_v5",
+              "Standard_E8s_v5",
+              "Standard_E16s_v5",
+              "Standard_E32s_v5"
+            ],
+            "constraints": {
+              "excludedSizes": [
+                "Standard_B1s",
+                "Standard_B1ls"
+              ]
+            },
             "osPlatform": "Linux"
           },
           {
@@ -132,6 +158,46 @@
             }
           },
           {
+            "name": "readReplicaDiskSize",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Read Replica Disk Size",
+            "defaultValue": "32 GB",
+            "visible": "[equals(steps('neo4jConfig').graphDatabaseVersion,'4.4')]",
+            "toolTip": "Size of disk on each read replica node in the cluster",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "32 GB",
+                  "value": 32
+                },
+                {
+                  "label": "64 GB",
+                  "value": 64
+                },
+                {
+                  "label": "128 GB",
+                  "value": 128
+                },
+                {
+                  "label": "512 GB",
+                  "value": 512
+                },
+                {
+                  "label": "1 TB",
+                  "value": 1024
+                },
+                {
+                  "label": "2 TB",
+                  "value": 2048
+                },
+                {
+                  "label": "4 TB",
+                  "value": 4095
+                }
+              ]
+            }
+          },
+          {
             "name": "graphDatabaseVersion",
             "type": "Microsoft.Common.DropDown",
             "label": "Graph Database Version",
@@ -165,6 +231,62 @@
                 {
                   "label": "False",
                   "value": "False"
+                }
+              ]
+            }
+          },
+          {
+            "name": "readReplicaCount",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Read Replica Count",
+            "defaultValue": "0",
+            "toolTip": "Number of virtual machines to provision for Neo4j Read Replicas",
+            "visible": "[equals(steps('neo4jConfig').graphDatabaseVersion,'4.4')]",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "0",
+                  "value": 0
+                },
+                {
+                  "label": "1",
+                  "value": 1
+                },
+                {
+                  "label": "2",
+                  "value": 2
+                },
+                {
+                  "label": "3",
+                  "value": 3
+                },
+                {
+                  "label": "4",
+                  "value": 4
+                },
+                {
+                  "label": "5",
+                  "value": 5
+                },
+                {
+                  "label": "6",
+                  "value": 6
+                },
+                {
+                  "label": "7",
+                  "value": 7
+                },
+                {
+                  "label": "8",
+                  "value": 8
+                },
+                {
+                  "label": "9",
+                  "value": 9
+                },
+                {
+                  "label": "10",
+                  "value": 10
                 }
               ]
             }
@@ -218,14 +340,17 @@
     "outputs": {
       "adminPassword": "[basics('adminPassword')]",
       "vmSize": "[steps('neo4jConfig').vmSize]",
+      "readReplicaVmSize": "[steps('neo4jConfig').readReplicaVmSize]",
       "nodeCount": "[steps('neo4jConfig').nodeCount]",
       "diskSize": "[steps('neo4jConfig').diskSize]",
+      "readReplicaDiskSize": "[steps('neo4jConfig').readReplicaDiskSize]",
       "graphDatabaseVersion": "[steps('neo4jConfig').graphDatabaseVersion]",
       "installGraphDataScience": "[steps('neo4jConfig').installGraphDataScience]",
       "graphDataScienceLicenseKey": "[steps('neo4jConfig').graphDataScienceLicenseKey]",
       "installBloom": "[steps('neo4jConfig').installBloom]",
       "bloomLicenseKey": "[steps('neo4jConfig').bloomLicenseKey]",
-      "location": "[location()]"
+      "location": "[location()]",
+      "readReplicaCount": "[steps('neo4jConfig').readReplicaCount]"
     }
   }
 }

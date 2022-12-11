@@ -1,23 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "Running node4.sh"
+echo "Running readreplica4.sh"
 
-adminUsername=$1
-adminPassword=$2
-uniqueString=$3
-location=$4
-graphDatabaseVersion=$5
-installGraphDataScience=$6
-graphDataScienceLicenseKey=$7
-installBloom=$8
-bloomLicenseKey=$9
-nodeCount=${10}
-readReplicaCount=${11}
-loadBalancerDNSName=${12}
-azLoginIdentity=${13}
-resourceGroup=${14}
-vmScaleSetsName=${15}
+adminPassword=$1
+graphDatabaseVersion=$2
+azLoginIdentity=$3
+resourceGroup=$4
+vmScaleSetsName=$5
 
 echo "Turning off firewalld"
 systemctl stop firewalld
@@ -122,34 +112,6 @@ set_yum_pkg() {
     echo "Installing the yumpkg ${yumPkg}"
 }
 
-configure_graph_data_science() {
-
-  if [[ "${installGraphDataScience}" == True && "${nodeCount}" == 1 ]]; then
-    echo "Installing Graph Data Science..."
-    cp /var/lib/neo4j/products/neo4j-graph-data-science-*.jar /var/lib/neo4j/plugins
-  fi
-
-  if [[ $graphDataScienceLicenseKey != None ]]; then
-    echo "Writing GDS license key..."
-    mkdir -p /etc/neo4j/licenses
-    echo "${graphDataScienceLicenseKey}" > /etc/neo4j/licenses/neo4j-gds.license
-    sed -i '$a gds.enterprise.license_file=/etc/neo4j/licenses/neo4j-gds.license' /etc/neo4j/neo4j.conf
-  fi
-}
-
-configure_bloom() {
-  if [[ ${installBloom} == True ]]; then
-    echo "Installing Bloom..."
-    cp /var/lib/neo4j/products/bloom-plugin-*.jar /var/lib/neo4j/plugins
-  fi
-  if [[ $bloomLicenseKey != None ]]; then
-    echo "Writing Bloom license key..."
-    mkdir -p /etc/neo4j/licenses
-    echo "${bloomLicenseKey}" > /etc/neo4j/licenses/neo4j-bloom.license
-    sed -i '$a neo4j.bloom.license_file=/etc/neo4j/licenses/neo4j-bloom.license' /etc/neo4j/neo4j.conf
-  fi
-}
-
 extension_config() {
   echo Configuring extensions and security in neo4j.conf...
   sed -i s~#dbms.unmanaged_extension_classes=org.neo4j.examples.server.unmanaged=/examples/unmanaged~dbms.unmanaged_extension_classes=com.neo4j.bloom.server=/bloom,semantics.extension=/rdf~g /etc/neo4j/neo4j.conf
@@ -168,51 +130,24 @@ start_neo4j() {
   done
 }
 
-set_cluster_configs() {
-  local -r privateIP="$(hostname -i | awk '{print $NF}')"  
-  sed -i s/#dbms.default_advertised_address=localhost/dbms.default_advertised_address=${privateIP}/g /etc/neo4j/neo4j.conf
-  sed -i s/#causal_clustering.discovery_listen_address=:5000/causal_clustering.discovery_listen_address=${privateIP}:5000/g /etc/neo4j/neo4j.conf
-  sed -i s/#causal_clustering.transaction_listen_address=:6000/causal_clustering.transaction_listen_address=${privateIP}:6000/g /etc/neo4j/neo4j.conf
-  sed -i s/#causal_clustering.raft_listen_address=:7000/causal_clustering.raft_listen_address=${privateIP}:7000/g /etc/neo4j/neo4j.conf
-  sed -i s/#dbms.connector.bolt.listen_address=:7687/dbms.connector.bolt.listen_address=${privateIP}:7687/g /etc/neo4j/neo4j.conf
-  sed -i s/#dbms.connector.http.advertised_address=:7474/dbms.connector.http.advertised_address=${privateIP}:7474/g /etc/neo4j/neo4j.conf
-  sed -i s/#dbms.connector.https.advertised_address=:7473/dbms.connector.https.advertised_address=${privateIP}:7473/g /etc/neo4j/neo4j.conf
-  sed -i s/#dbms.routing.enabled=false/dbms.routing.enabled=true/g /etc/neo4j/neo4j.conf
-  sed -i s/#dbms.routing.advertised_address=:7688/dbms.routing.advertised_address=${privateIP}:7688/g /etc/neo4j/neo4j.conf
-  sed -i s/#dbms.routing.listen_address=0.0.0.0:7688/dbms.routing.listen_address=${privateIP}:7688/g /etc/neo4j/neo4j.conf
-  echo dbms.routing.default_router=SERVER >> /etc/neo4j/neo4j.conf
-}
-
 build_neo4j_conf_file() {
   echo "Configuring network in neo4j.conf..."
 
-  local -r nodeIndex=`curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01" \
-    | jq ".name" \
-    | sed 's/.*_//' \
-    | sed 's/"//'`
-
-  publicHostname='vm'$nodeIndex'.node-'$uniqueString'.'$location'.cloudapp.azure.com'
+  local -r privateIP="$(hostname -i | awk '{print $NF}')"
 
   sed -i s/#dbms.default_listen_address=0.0.0.0/dbms.default_listen_address=0.0.0.0/g /etc/neo4j/neo4j.conf
   echo "Configuring memory settings in neo4j.conf..."
   neo4j-admin memrec >> /etc/neo4j/neo4j.conf
 
-  if [[ ${nodeCount} == 1 ]]; then
-    echo "Running on a single node."
-    if [[ ${readReplicaCount} == 0 ]]; then
-      sed -i s/#dbms.default_advertised_address=localhost/dbms.default_advertised_address="${publicHostname}"/g /etc/neo4j/neo4j.conf
-    else
-      sed -i s/#dbms.mode=CORE/dbms.mode=SINGLE/g /etc/neo4j/neo4j.conf
-      echo "dbms.clustering.enable=true" >> /etc/neo4j/neo4j.conf
-      set_cluster_configs
-    fi
-  else
-    echo "Running on multiple nodes.  Configuring membership in neo4j.conf..."
-    sed -i s/#dbms.mode=CORE/dbms.mode=CORE/g /etc/neo4j/neo4j.conf
+    sed -i s/#dbms.default_advertised_address=localhost/dbms.default_advertised_address="${privateIP}"/g /etc/neo4j/neo4j.conf
+    echo "Configuring read replica membership in neo4j.conf..."
+    sed -i s/#dbms.mode=CORE/dbms.mode=READ_REPLICA/g /etc/neo4j/neo4j.conf
     coreMembers=$(az vmss nic list -g "${resourceGroup}" --vmss-name "${vmScaleSetsName}" | jq '.[] | .ipConfigurations[] | .privateIpAddress' | sed 's/"//g;s/$/:5000/g' | tr '\n' ',' | sed 's/,$//g')
     sed -i s/#causal_clustering.initial_discovery_members=localhost:5000,localhost:5001,localhost:5002/causal_clustering.initial_discovery_members=${coreMembers}/g /etc/neo4j/neo4j.conf
-    set_cluster_configs
-  fi
+    sed -i s/#dbms.routing.enabled=false/dbms.routing.enabled=true/g /etc/neo4j/neo4j.conf
+    sed -i s/#dbms.routing.advertised_address=:7688/dbms.routing.advertised_address=${privateIP}:7688/g /etc/neo4j/neo4j.conf
+    sed -i s/#dbms.routing.listen_address=0.0.0.0:7688/dbms.routing.listen_address=${privateIP}:7688/g /etc/neo4j/neo4j.conf
+    echo "dbms.routing.default_router=SERVER" >> /etc/neo4j/neo4j.conf
 }
 
 mount_data_disk
@@ -222,7 +157,5 @@ install_neo4j_from_yum
 install_apoc_plugin
 extension_config
 build_neo4j_conf_file
-configure_graph_data_science
-configure_bloom
 start_neo4j
 set_vmss_tags
