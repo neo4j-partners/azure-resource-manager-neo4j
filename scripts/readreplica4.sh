@@ -4,10 +4,9 @@ set -euo pipefail
 echo "Running readreplica4.sh"
 
 adminPassword=$1
-graphDatabaseVersion=$2
-azLoginIdentity=$3
-resourceGroup=$4
-vmScaleSetsName=$5
+azLoginIdentity=$2
+resourceGroup=$3
+vmScaleSetsName=$4
 
 echo "Turning off firewalld"
 systemctl stop firewalld
