@@ -101,7 +101,7 @@
       "loadBalancerName": "[concat('lb-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
       "publicIpName": "[concat('ip-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
       "vmScaleSetsName": "[concat('vmss-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
-      "readReplicaVmScaleSetsName": "[concat('readreplica-vmss-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
+      "readReplicaVmScaleSetsName": "[concat('read-replica-vmss-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
       "userAssignedIdentityName": "[concat('usermanaged-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
       "roleAssignmentName": "[guid(concat('roleassignment-neo4j-',parameters('location'),'-',parameters('utcValue')))]",
       "azLoginIdentity": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.ManagedIdentity/userAssignedIdentities/',variables('userAssignedIdentityName'))]",
@@ -210,7 +210,7 @@
         "type": "Microsoft.Network/publicIPAddresses",
         "apiVersion": "2022-05-01",
         "name": "[variables('publicIpName')]",
-        "condition": "[greaterOrEquals(parameters('nodeCount'),3)]",
+        "condition": "[or(greaterOrEquals(parameters('nodeCount'),3),greaterOrEquals(parameters('readReplicaCount'),1))]",
         "location": "[parameters('location')]",
         "sku": {
           "name": "Standard",
@@ -236,7 +236,7 @@
         "type": "Microsoft.Network/loadBalancers",
         "apiVersion": "2022-05-01",
         "name": "[variables('loadBalancerName')]",
-        "condition": "[greaterOrEquals(parameters('nodeCount'),3)]",
+        "condition": "[or(greaterOrEquals(parameters('nodeCount'),3),greaterOrEquals(parameters('readReplicaCount'),1))]",
         "dependsOn": [
           "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
         ],
@@ -395,7 +395,7 @@
         "dependsOn": [
           "[resourceId('Microsoft.Authorization/roleAssignments',variables('roleAssignmentName'))]",
           "[resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))]",
-          "[if(greaterOrEquals(parameters('nodeCount'),3),resourceId('Microsoft.Network/loadBalancers',variables('loadBalancerName')),resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')))]"
+          "[if(or(greaterOrEquals(parameters('nodeCount'),3),greaterOrEquals(parameters('readReplicaCount'),1)),resourceId('Microsoft.Network/loadBalancers',variables('loadBalancerName')),resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')))]"
         ],
         "identity": {
           "type": "userAssigned",
@@ -467,7 +467,7 @@
                               }
                             }
                           },
-                          "loadBalancerBackendAddressPools": "[if(greaterOrEquals(parameters('nodeCount'),3), variables('loadBalancerBackendAddressPools'), json('null'))]"
+                          "loadBalancerBackendAddressPools": "[if(or(greaterOrEquals(parameters('nodeCount'),3),greaterOrEquals(parameters('readReplicaCount'),1)), variables('loadBalancerBackendAddressPools'), json('null'))]"
                         }
                       }
                     ]
@@ -504,7 +504,7 @@
         "name": "[variables('readReplicaVmScaleSetsName')]",
         "location": "[parameters('location')]",
         "apiVersion": "2018-06-01",
-        "condition": "[and(equals(parameters('graphDatabaseVersion'),'4.4'),greater(parameters('readReplicaCount'),0))]",
+        "condition": "[and(equals(parameters('graphDatabaseVersion'),'4.4'),greaterOrEquals(parameters('readReplicaCount'),1))]",
         "dependsOn": [
           "[resourceId('Microsoft.Compute/virtualMachineScaleSets',variables('vmScaleSetsName'))]"
         ],
@@ -614,12 +614,12 @@
     ],
     "outputs": {
       "Neo4jBrowserURL": {
-        "condition": "[equals(parameters('nodeCount'), 1)]",
+        "condition": "[and(equals(parameters('nodeCount'), 1),equals(parameters('readReplicaCount'), 0))]",
         "type": "string",
         "value": "[concat('http://vm0.node-', variables('uniqueString'), '.', parameters('location'), '.cloudapp.azure.com:7474')]"
       },
       "Neo4jClusterBrowserURL": {
-        "condition": "[greaterOrEquals(parameters('nodeCount'),3)]",
+        "condition": "[or(greaterOrEquals(parameters('nodeCount'),3),greaterOrEquals(parameters('readReplicaCount'),1))]",
         "type": "string",
         "value": "[concat('http://',reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))).ipAddress,':7474')]"
       },

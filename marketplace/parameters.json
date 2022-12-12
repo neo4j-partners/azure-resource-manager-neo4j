@@ -9,7 +9,7 @@
     "value": "Standard_E8s_v5"
   },
   "nodeCount": {
-    "value": 3
+    "value": 1
   },
   "readReplicaCount": {
     "value": 3
@@ -21,7 +21,7 @@
     "value": 32
   },
   "graphDatabaseVersion": {
-    "value": "4.4"
+    "value": "5"
   },
   "installGraphDataScience": {
     "value": "False"
