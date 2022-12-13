@@ -110,13 +110,14 @@
       "bashCommand": "[if(equals(parameters('graphDatabaseVersion'),'5'),'bash node.sh ','bash node4.sh ')]",
       "roleDefName": "[guid(concat('customRoleDef-',parameters('location'),'-',parameters('utcValue')))]",
       "roleName": "[concat('customRole-',parameters('location'),'-',parameters('utcValue'))]",
-      "adminUsername": "neo4j"
+      "adminUsername": "[string('neo4j')]",
+      "vmScaleSetsDependsOn": "[if(greaterOrEquals(parameters('nodeCount'),3),resourceId('Microsoft.Network/loadBalancers',variables('loadBalancerName')),resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')))]"
     },
     "resources": [
       {
         "name": "[variables('networkSGName')]",
         "type": "Microsoft.Network/networkSecurityGroups",
-        "apiVersion": "2016-06-01",
+        "apiVersion": "2022-07-01",
         "location": "[parameters('location')]",
         "properties": {
           "securityRules": [
@@ -182,7 +183,7 @@
       {
         "name": "[variables('vnetName')]",
         "type": "Microsoft.Network/virtualNetworks",
-        "apiVersion": "2015-06-15",
+        "apiVersion": "2022-07-01",
         "location": "[parameters('location')]",
         "dependsOn": [
           "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSGName'))]"
@@ -266,7 +267,7 @@
               "name": "inboundrule7474",
               "properties": {
                 "frontendIPConfiguration": {
-                  "id": "[concat(resourceId('Microsoft.Network/loadBalancers',variables('loadBalancerName')), '/frontendIPConfigurations/lbipnew')]"
+                  "id": "[resourceId('Microsoft.Network/loadBalancers/frontendIpConfigurations', variables('loadBalancerName'), 'lbipnew')]"
                 },
                 "frontendPort": 7474,
                 "backendPort": 7474,
@@ -293,7 +294,7 @@
               "name": "inbound7687",
               "properties": {
                 "frontendIPConfiguration": {
-                  "id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName')), '/frontendIPConfigurations/lbipnew')]"
+                  "id": "[resourceId('Microsoft.Network/loadBalancers/frontendIpConfigurations', variables('loadBalancerName'), 'lbipnew')]"
                 },
                 "frontendPort": 7687,
                 "backendPort": 7687,
@@ -346,7 +347,7 @@
         "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
         "name": "[variables('userAssignedIdentityName')]",
         "apiVersion": "2018-11-30",
-        "location": "[resourceGroup().location]"
+        "location": "[parameters('location')]"
       },
       {
         "type": "Microsoft.Authorization/roleDefinitions",
@@ -364,8 +365,7 @@
                 "Microsoft.Resources/tags/write",
                 "Microsoft.Resources/tags/read",
                 "Microsoft.Resources/tags/delete"
-              ],
-              "notActions": []
+              ]
             }
           ],
           "assignableScopes": [
@@ -395,7 +395,7 @@
         "dependsOn": [
           "[resourceId('Microsoft.Authorization/roleAssignments',variables('roleAssignmentName'))]",
           "[resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))]",
-          "[if(or(greaterOrEquals(parameters('nodeCount'),3),greaterOrEquals(parameters('readReplicaCount'),1)),resourceId('Microsoft.Network/loadBalancers',variables('loadBalancerName')),resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')))]"
+          "[variables('vmScaleSetsDependsOn')]"
         ],
         "identity": {
           "type": "userAssigned",
@@ -616,13 +616,24 @@
       "Neo4jBrowserURL": {
         "condition": "[and(equals(parameters('nodeCount'), 1),equals(parameters('readReplicaCount'), 0))]",
         "type": "string",
-        "value": "[concat('http://vm0.node-', variables('uniqueString'), '.', parameters('location'), '.cloudapp.azure.com:7474')]"
+        "value": "[uri(concat('http://vm0.node-', variables('uniqueString'), '.', parameters('location'),'.cloudapp.azure.com:7474'),'')]"
       },
       "Neo4jClusterBrowserURL": {
         "condition": "[or(greaterOrEquals(parameters('nodeCount'),3),greaterOrEquals(parameters('readReplicaCount'),1))]",
         "type": "string",
-        "value": "[concat('http://',reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))).ipAddress,':7474')]"
+        "value": "[uri(concat('http://',reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))).ipAddress,':7474'),'')]"
       },
+      "Neo4jClusterBloomURL": {
+        "condition": "[and(equals(parameters('installBloom'),'True'),greaterOrEquals(parameters('nodeCount'),3))]",
+        "type": "string",
+        "value": "[uri(concat('http://',reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))).ipAddress,':7474'),'bloom')]"
+      },
+      "Neo4jBloomURL": {
+        "condition": "[and(equals(parameters('installBloom'),'True'),equals(parameters('nodeCount'),1))]",
+        "type": "string",
+        "value": "[uri(concat('http://vm0.node-', variables('uniqueString'), '.', parameters('location'),'.cloudapp.azure.com:7474'),'bloom')]"
+      },
+
       "Username": {
         "type": "string",
         "value": "neo4j"
