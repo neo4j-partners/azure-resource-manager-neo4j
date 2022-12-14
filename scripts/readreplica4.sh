@@ -7,6 +7,10 @@ adminPassword=$1
 azLoginIdentity=$2
 resourceGroup=$3
 vmScaleSetsName=$4
+installGraphDataScience=$5
+graphDataScienceLicenseKey=$6
+installBloom=$7
+bloomLicenseKey=$8
 
 echo "Turning off firewalld"
 systemctl stop firewalld
