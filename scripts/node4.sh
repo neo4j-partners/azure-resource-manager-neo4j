@@ -141,7 +141,7 @@ configure_bloom() {
   if [[ ${installBloom} == True ]]; then
     echo "Installing Bloom..."
     cp /var/lib/neo4j/products/bloom-plugin-*.jar /var/lib/neo4j/plugins
-    chown neo4j:neo4j bloom-plugin-*.jar
+    chown neo4j:neo4j /var/lib/neo4j/plugins/bloom-plugin-*.jar
   fi
   if [[ $bloomLicenseKey != None ]]; then
     echo "Writing Bloom license key..."
