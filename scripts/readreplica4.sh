@@ -73,6 +73,8 @@ EOF
   systemctl enable neo4j
 }
 
+
+
 install_apoc_plugin() {
   echo "Installing APOC..."
   mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins
@@ -109,6 +111,36 @@ set_yum_pkg() {
       yumPkg="neo4j-enterprise-${taggedNeo4jVersion}"
     fi
     echo "Installing the yumpkg ${yumPkg}"
+}
+
+configure_graph_data_science() {
+
+  if [[ "${installGraphDataScience}" == True && "${nodeCount}" == 1 ]]; then
+    echo "Installing Graph Data Science..."
+    cp /var/lib/neo4j/products/neo4j-graph-data-science-*.jar /var/lib/neo4j/plugins
+  fi
+
+  if [[ $graphDataScienceLicenseKey != None ]]; then
+    echo "Writing GDS license key..."
+    mkdir -p /etc/neo4j/licenses
+    echo "${graphDataScienceLicenseKey}" > /etc/neo4j/licenses/neo4j-gds.license
+    sed -i '$a gds.enterprise.license_file=/etc/neo4j/licenses/neo4j-gds.license' /etc/neo4j/neo4j.conf
+  fi
+}
+
+configure_bloom() {
+  if [[ ${installBloom} == True ]]; then
+    echo "Installing Bloom..."
+    cp /var/lib/neo4j/products/bloom-plugin-*.jar /var/lib/neo4j/plugins
+    chown neo4j:neo4j bloom-plugin-*.jar
+  fi
+  if [[ $bloomLicenseKey != None ]]; then
+    echo "Writing Bloom license key..."
+    mkdir -p /etc/neo4j/licenses
+    echo "${bloomLicenseKey}" > /etc/neo4j/licenses/neo4j-bloom.license
+    sed -i '$a neo4j.bloom.license_file=/etc/neo4j/licenses/neo4j-bloom.license' /etc/neo4j/neo4j.conf
+    chown -R neo4j:neo4j /etc/neo4j/licenses
+  fi
 }
 
 extension_config() {
@@ -156,5 +188,7 @@ install_neo4j_from_yum
 install_apoc_plugin
 extension_config
 build_neo4j_conf_file
+configure_graph_data_science
+configure_bloom
 start_neo4j
 set_vmss_tags

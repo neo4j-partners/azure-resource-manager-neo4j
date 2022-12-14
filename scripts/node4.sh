@@ -141,12 +141,14 @@ configure_bloom() {
   if [[ ${installBloom} == True ]]; then
     echo "Installing Bloom..."
     cp /var/lib/neo4j/products/bloom-plugin-*.jar /var/lib/neo4j/plugins
+    chown neo4j:neo4j bloom-plugin-*.jar
   fi
   if [[ $bloomLicenseKey != None ]]; then
     echo "Writing Bloom license key..."
     mkdir -p /etc/neo4j/licenses
     echo "${bloomLicenseKey}" > /etc/neo4j/licenses/neo4j-bloom.license
     sed -i '$a neo4j.bloom.license_file=/etc/neo4j/licenses/neo4j-bloom.license' /etc/neo4j/neo4j.conf
+    chown -R neo4j:neo4j /etc/neo4j/licenses
   fi
 }
 

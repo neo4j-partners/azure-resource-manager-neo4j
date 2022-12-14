@@ -106,12 +106,13 @@
       "roleAssignmentName": "[guid(concat('roleassignment-neo4j-',parameters('location'),'-',parameters('utcValue')))]",
       "azLoginIdentity": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.ManagedIdentity/userAssignedIdentities/',variables('userAssignedIdentityName'))]",
       "scriptName": "[if(equals(parameters('graphDatabaseVersion'),'5'),'scripts/node.sh','scripts/node4.sh')]",
-      "readReplicaScriptName": "scripts/readreplica4.sh",
       "bashCommand": "[if(equals(parameters('graphDatabaseVersion'),'5'),'bash node.sh ','bash node4.sh ')]",
       "roleDefName": "[guid(concat('customRoleDef-',parameters('location'),'-',parameters('utcValue')))]",
       "roleName": "[concat('customRole-',parameters('location'),'-',parameters('utcValue'))]",
       "adminUsername": "[string('neo4j')]",
-      "vmScaleSetsDependsOn": "[if(greaterOrEquals(parameters('nodeCount'),3),resourceId('Microsoft.Network/loadBalancers',variables('loadBalancerName')),resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')))]"
+      "readReplicaEnabledCondition": "[and(greaterOrEquals(parameters('readReplicaCount'),1),equals(parameters('graphDatabaseVersion'),'4.4'))]",
+      "loadBalancerCondition": "[or(greaterOrEquals(parameters('nodeCount'),3),variables('readReplicaEnabledCondition'))]",
+      "vmScaleSetsDependsOn": "[if(variables('loadBalancerCondition'),resourceId('Microsoft.Network/loadBalancers',variables('loadBalancerName')),resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')))]"
     },
     "resources": [
       {
@@ -211,7 +212,7 @@
         "type": "Microsoft.Network/publicIPAddresses",
         "apiVersion": "2022-05-01",
         "name": "[variables('publicIpName')]",
-        "condition": "[or(greaterOrEquals(parameters('nodeCount'),3),greaterOrEquals(parameters('readReplicaCount'),1))]",
+        "condition": "[variables('loadBalancerCondition')]",
         "location": "[parameters('location')]",
         "sku": {
           "name": "Standard",
@@ -237,7 +238,7 @@
         "type": "Microsoft.Network/loadBalancers",
         "apiVersion": "2022-05-01",
         "name": "[variables('loadBalancerName')]",
-        "condition": "[or(greaterOrEquals(parameters('nodeCount'),3),greaterOrEquals(parameters('readReplicaCount'),1))]",
+        "condition": "[variables('loadBalancerCondition')]",
         "dependsOn": [
           "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
         ],
@@ -394,7 +395,6 @@
         "apiVersion": "2018-06-01",
         "dependsOn": [
           "[resourceId('Microsoft.Authorization/roleAssignments',variables('roleAssignmentName'))]",
-          "[resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))]",
           "[variables('vmScaleSetsDependsOn')]"
         ],
         "identity": {
@@ -467,7 +467,7 @@
                               }
                             }
                           },
-                          "loadBalancerBackendAddressPools": "[if(or(greaterOrEquals(parameters('nodeCount'),3),greaterOrEquals(parameters('readReplicaCount'),1)), variables('loadBalancerBackendAddressPools'), json('null'))]"
+                          "loadBalancerBackendAddressPools": "[if(variables('loadBalancerCondition'), variables('loadBalancerBackendAddressPools'), json('null'))]"
                         }
                       }
                     ]
@@ -490,7 +490,7 @@
                       ]
                     },
                     "protectedSettings": {
-                      "commandToExecute": "[concat(variables('bashCommand'), variables('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'), ' ',if(equals(parameters('graphDatabaseVersion'),'4.4'),concat(parameters('readReplicaCount'),' '),''), if(greaterOrEquals(parameters('nodeCount'),3),reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName')),'2022-05-01').ipAddress,'-'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmScaleSetsName'))]"
+                      "commandToExecute": "[concat(variables('bashCommand'), variables('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'), ' ',if(equals(parameters('graphDatabaseVersion'),'4.4'),concat(parameters('readReplicaCount'),' '),''), if(variables('loadBalancerCondition'),reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName')),'2022-05-01').ipAddress,'-'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmScaleSetsName'))]"
                     }
                   }
                 }
@@ -504,7 +504,7 @@
         "name": "[variables('readReplicaVmScaleSetsName')]",
         "location": "[parameters('location')]",
         "apiVersion": "2018-06-01",
-        "condition": "[and(equals(parameters('graphDatabaseVersion'),'4.4'),greaterOrEquals(parameters('readReplicaCount'),1))]",
+        "condition": "[variables('readReplicaEnabledCondition')]",
         "dependsOn": [
           "[resourceId('Microsoft.Compute/virtualMachineScaleSets',variables('vmScaleSetsName'))]"
         ],
@@ -597,7 +597,7 @@
                     "autoUpgradeMinorVersion": true,
                     "settings": {
                       "fileUris": [
-                        "[uri(parameters('_artifactsLocation'), concat(variables('readReplicaScriptName'), parameters('_artifactsLocationSasToken')))]"
+                        "[uri(parameters('_artifactsLocation'), concat('scripts/readreplica4.sh', parameters('_artifactsLocationSasToken')))]"
                       ]
                     },
                     "protectedSettings": {
@@ -614,22 +614,22 @@
     ],
     "outputs": {
       "Neo4jBrowserURL": {
-        "condition": "[and(equals(parameters('nodeCount'), 1),equals(parameters('readReplicaCount'), 0))]",
+        "condition": "[not(variables('loadBalancerCondition'))]",
         "type": "string",
         "value": "[uri(concat('http://vm0.node-', variables('uniqueString'), '.', parameters('location'),'.cloudapp.azure.com:7474'),'')]"
       },
       "Neo4jClusterBrowserURL": {
-        "condition": "[or(greaterOrEquals(parameters('nodeCount'),3),greaterOrEquals(parameters('readReplicaCount'),1))]",
+        "condition": "[variables('loadBalancerCondition')]",
         "type": "string",
-        "value": "[uri(concat('http://',reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))).ipAddress,':7474'),'')]"
+        "value": "[uri(concat('http://',reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName')),'2022-05-01').ipAddress,':7474'),'')]"
       },
       "Neo4jClusterBloomURL": {
-        "condition": "[and(equals(parameters('installBloom'),'True'),greaterOrEquals(parameters('nodeCount'),3))]",
+        "condition": "[and(equals(parameters('installBloom'),'True'),variables('loadBalancerCondition'))]",
         "type": "string",
-        "value": "[uri(concat('http://',reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))).ipAddress,':7474'),'bloom')]"
+        "value": "[uri(concat('http://',reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName')),'2022-05-01').ipAddress,':7474'),'bloom')]"
       },
       "Neo4jBloomURL": {
-        "condition": "[and(equals(parameters('installBloom'),'True'),equals(parameters('nodeCount'),1))]",
+        "condition": "[and(equals(parameters('installBloom'),'True'),not(variables('loadBalancerCondition')))]",
         "type": "string",
         "value": "[uri(concat('http://vm0.node-', variables('uniqueString'), '.', parameters('location'),'.cloudapp.azure.com:7474'),'bloom')]"
       },
