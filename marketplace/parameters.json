@@ -5,14 +5,23 @@
   "vmSize": {
     "value": "Standard_E8s_v5"
   },
+  "readReplicaVmSize": {
+    "value": "Standard_E8s_v5"
+  },
   "nodeCount": {
+    "value": 1
+  },
+  "readReplicaCount": {
     "value": 3
   },
   "diskSize": {
-    "value": 128
+    "value": 32
+  },
+  "readReplicaDiskSize": {
+    "value": 32
   },
   "graphDatabaseVersion": {
-    "value": "4.4"
+    "value": "5"
   },
   "installGraphDataScience": {
     "value": "False"
@@ -27,6 +36,6 @@
     "value": "None"
   },
   "_artifactsLocation": {
-    "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/main/"
+    "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/feature/read_replica4.4/"
   }
 }
