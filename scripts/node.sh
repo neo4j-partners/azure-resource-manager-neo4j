@@ -18,6 +18,21 @@ azLoginIdentity=${12}
 resourceGroup=${13}
 vmScaleSetsName=${14}
 
+echo "adminUsername := ${adminUsername}"
+echo "adminPassword := ${adminPassword}"
+echo "uniqueString := ${uniqueString}"
+echo "location := ${location}"
+echo "graphDatabaseVersion := ${graphDatabaseVersion}"
+echo "installGraphDataScience := ${installGraphDataScience}"
+echo "graphDataScienceLicenseKey := ${graphDataScienceLicenseKey}"
+echo "installBloom := ${installBloom}"
+echo "bloomLicenseKey := ${bloomLicenseKey}"
+echo "nodeCount := ${nodeCount}"
+echo "loadBalancerDNSName := ${loadBalancerDNSName}"
+echo "azLoginIdentity := ${azLoginIdentity}"
+echo "resourceGroup := ${resourceGroup}"
+echo "vmScaleSetsName := ${vmScaleSetsName}"
+
 echo "Turning off firewalld"
 systemctl stop firewalld
 systemctl disable firewalld
