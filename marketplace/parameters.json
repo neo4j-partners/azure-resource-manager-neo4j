@@ -9,7 +9,7 @@
     "value": "Standard_E8s_v5"
   },
   "nodeCount": {
-    "value": 3
+    "value": 1
   },
   "readReplicaCount": {
     "value": 3
@@ -21,7 +21,7 @@
     "value": 32
   },
   "graphDatabaseVersion": {
-    "value": "4.4"
+    "value": "5"
   },
   "installGraphDataScience": {
     "value": "False"
@@ -30,10 +30,10 @@
     "value": "None"
   },
   "installBloom": {
-    "value": "True"
+    "value": "False"
   },
   "bloomLicenseKey": {
-    "value": "eyJhbGciOiJQUzI1NiIsInR5cCI6IkpXVCJ9.eyJhbm4iOiIiLCJlbWFpbCI6ImxpY2Vuc2luZ0BuZW80ai5jb20iLCJleHAiOjE2ODgwOTc2MDAsIm9yZyI6Ik5lbzRqIiwicHViIjoiTmVvNGogSW5jIiwicmVnIjoiTmVvNGogRW1wbG95ZWUiLCJzY29wZSI6IkludGVybmFsIFVzZSIsInNvdXJjZV9pZHMiOiIiLCJzdWIiOiJuZW80ai1ibG9vbS1zZXJ2ZXIiLCJ2ZXIiOiIqIiwiaXNzIjoibmVvNGouY29tIiwibmJmIjoxNjUzOTI2NTAyLCJpYXQiOjE2NTM5MjY1MDIsImp0aSI6InFad2QyVHpjZCJ9.m4BzG-4_-4u9bImlqllCjamf3rcEBnDc42ipWsu1xxS1HmTu2Pv6xDE2fYkxcAtXtji77ozAF-LyeG8saf4lXB5lk1Le6XiycFwWvlzU8TNZekwrhn7E1Sk8hrK-A1KPPhnDwkGt1Q_XbtELg5ZkR0oTR-6zvSdWiLib1E5OeaIloB_lWuglvK4LLPcrqmzrIqEZBrw2UQmhuI5mzbvWc3kaduzD1l1S5spDXrPj8ZtkObvd6281HbSP43IfrgHhFWi_0p9n3gj2zmHinr6MYWsFMAL6jI88E09fVMiJ8rGmHuIVQk_pvFFkrscdrAXgIIg6fmQF7Ay8BpyrWa1s3A"
+    "value": ""
   },
   "_artifactsLocation": {
     "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/feature/read_replica4.4/"

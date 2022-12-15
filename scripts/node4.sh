@@ -123,10 +123,10 @@ set_yum_pkg() {
 }
 
 configure_graph_data_science() {
-
   if [[ "${installGraphDataScience}" == True && "${nodeCount}" == 1 ]]; then
     echo "Installing Graph Data Science..."
     cp /var/lib/neo4j/products/neo4j-graph-data-science-*.jar /var/lib/neo4j/plugins
+    chown neo4j:neo4j /var/lib/neo4j/plugins/neo4j-graph-data-science-*.jar
   fi
 
   if [[ $graphDataScienceLicenseKey != None ]]; then
@@ -134,6 +134,7 @@ configure_graph_data_science() {
     mkdir -p /etc/neo4j/licenses
     echo "${graphDataScienceLicenseKey}" > /etc/neo4j/licenses/neo4j-gds.license
     sed -i '$a gds.enterprise.license_file=/etc/neo4j/licenses/neo4j-gds.license' /etc/neo4j/neo4j.conf
+    chown -R neo4j:neo4j /etc/neo4j/licenses
   fi
 }
 

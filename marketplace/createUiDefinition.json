@@ -158,6 +158,62 @@
             }
           },
           {
+            "name": "readReplicaCount",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Read Replica Count",
+            "defaultValue": "0",
+            "toolTip": "Number of virtual machines to provision for Neo4j Read Replicas",
+            "visible": "[equals(steps('neo4jConfig').graphDatabaseVersion,'4.4')]",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "0",
+                  "value": 0
+                },
+                {
+                  "label": "1",
+                  "value": 1
+                },
+                {
+                  "label": "2",
+                  "value": 2
+                },
+                {
+                  "label": "3",
+                  "value": 3
+                },
+                {
+                  "label": "4",
+                  "value": 4
+                },
+                {
+                  "label": "5",
+                  "value": 5
+                },
+                {
+                  "label": "6",
+                  "value": 6
+                },
+                {
+                  "label": "7",
+                  "value": 7
+                },
+                {
+                  "label": "8",
+                  "value": 8
+                },
+                {
+                  "label": "9",
+                  "value": 9
+                },
+                {
+                  "label": "10",
+                  "value": 10
+                }
+              ]
+            }
+          },
+          {
             "name": "readReplicaDiskSize",
             "type": "Microsoft.Common.DropDown",
             "label": "Read Replica Disk Size",
@@ -221,6 +277,7 @@
             "type": "Microsoft.Common.DropDown",
             "label": "Install Graph Data Science",
             "defaultValue": "False",
+            "visible": "[not(and(equals(steps('neo4jConfig').graphDatabaseVersion,'4.4'),greaterOrEquals(steps('neo4jConfig').nodeCount,3)))]",
             "toolTip": "Set to true to install Graph Data Science.  Ignore if Node Count is not 1.",
             "constraints": {
               "allowedValues": [
@@ -236,66 +293,11 @@
             }
           },
           {
-            "name": "readReplicaCount",
-            "type": "Microsoft.Common.DropDown",
-            "label": "Read Replica Count",
-            "defaultValue": "0",
-            "toolTip": "Number of virtual machines to provision for Neo4j Read Replicas",
-            "visible": "[equals(steps('neo4jConfig').graphDatabaseVersion,'4.4')]",
-            "constraints": {
-              "allowedValues": [
-                {
-                  "label": "0",
-                  "value": 0
-                },
-                {
-                  "label": "1",
-                  "value": 1
-                },
-                {
-                  "label": "2",
-                  "value": 2
-                },
-                {
-                  "label": "3",
-                  "value": 3
-                },
-                {
-                  "label": "4",
-                  "value": 4
-                },
-                {
-                  "label": "5",
-                  "value": 5
-                },
-                {
-                  "label": "6",
-                  "value": 6
-                },
-                {
-                  "label": "7",
-                  "value": 7
-                },
-                {
-                  "label": "8",
-                  "value": 8
-                },
-                {
-                  "label": "9",
-                  "value": 9
-                },
-                {
-                  "label": "10",
-                  "value": 10
-                }
-              ]
-            }
-          },
-          {
             "name": "graphDataScienceLicenseKey",
             "type": "Microsoft.Common.TextBox",
             "label": "Graph Data Science License Key",
             "defaultValue": "None",
+            "visible": "[not(and(equals(steps('neo4jConfig').graphDatabaseVersion,'4.4'),greaterOrEquals(steps('neo4jConfig').nodeCount,3)))]",
             "toolTip": "Graph Data Science License Key",
             "constraints": {
               "required": true,
