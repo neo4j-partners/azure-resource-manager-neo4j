@@ -3,6 +3,9 @@ set -euo pipefail
 
 echo "Running node.sh"
 
+echo "Printing all arguments"
+echo $@
+
 adminUsername=$1
 adminPassword=$2
 uniqueString=$3
