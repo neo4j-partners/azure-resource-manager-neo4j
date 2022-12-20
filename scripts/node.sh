@@ -3,20 +3,20 @@ set -euo pipefail
 
 echo "Running node.sh"
 
-adminUsername=$1
-adminPassword=$2
-uniqueString=$3
-location=$4
-graphDatabaseVersion=$5
-installGraphDataScience=$6
-graphDataScienceLicenseKey=$7
-installBloom=$8
-bloomLicenseKey=$9
-nodeCount=${10}
-loadBalancerDNSName=${11}
-azLoginIdentity=${12}
-resourceGroup=${13}
-vmScaleSetsName=${14}
+adminUsername="$1"
+adminPassword="$2"
+uniqueString="$3"
+location="$4"
+graphDatabaseVersion="$5"
+installGraphDataScience="$6"
+graphDataScienceLicenseKey="$7"
+installBloom="$8"
+bloomLicenseKey="$9"
+nodeCount="${10}"
+loadBalancerDNSName="${11}"
+azLoginIdentity="${12}"
+resourceGroup="${13}"
+vmScaleSetsName="${14}"
 
 echo "Turning off firewalld"
 systemctl stop firewalld
