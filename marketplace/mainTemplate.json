@@ -115,6 +115,7 @@
       "roleDefName": "[guid(concat('customRoleDef-',parameters('location'),'-',parameters('utcValue')))]",
       "roleName": "[concat('customRole-',parameters('location'),'-',parameters('utcValue'))]",
       "adminUsername": "[string('neo4j')]",
+      "doubleQuote": "\"",
       "readReplicaEnabledCondition": "[and(greaterOrEquals(parameters('readReplicaCount'),1),equals(parameters('graphDatabaseVersion'),'4.4'))]",
       "loadBalancerCondition": "[or(greaterOrEquals(parameters('nodeCount'),3),variables('readReplicaEnabledCondition'))]",
       "vmScaleSetsDependsOn": "[if(variables('loadBalancerCondition'),resourceId('Microsoft.Network/loadBalancers',variables('loadBalancerName')),resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')))]"
@@ -495,7 +496,7 @@
                       ]
                     },
                     "protectedSettings": {
-                      "commandToExecute": "[concat(variables('bashCommand'), variables('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'), ' ',if(equals(parameters('graphDatabaseVersion'),'4.4'),concat(parameters('readReplicaCount'),' '),''), if(variables('loadBalancerCondition'),reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName')),'2022-05-01').ipAddress,'-'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmScaleSetsName'))]"
+                      "commandToExecute": "[concat(variables('bashCommand'), variables('adminUsername'), ' ',variables('doubleQuote'),parameters('adminPassword'),variables('doubleQuote'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'), ' ',if(equals(parameters('graphDatabaseVersion'),'4.4'),concat(parameters('readReplicaCount'),' '),''), if(variables('loadBalancerCondition'),reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName')),'2022-05-01').ipAddress,'-'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmScaleSetsName'))]"
                     }
                   }
                 }
@@ -606,7 +607,7 @@
                       ]
                     },
                     "protectedSettings": {
-                      "commandToExecute": "[concat('bash readreplica4.sh', ' ',parameters('adminPassword'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmScaleSetsName'),' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'))]"
+                      "commandToExecute": "[concat('bash readreplica4.sh', ' ',variables('doubleQuote'),parameters('adminPassword'),variables('doubleQuote'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmScaleSetsName'),' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'))]"
                     }
                   }
                 }
