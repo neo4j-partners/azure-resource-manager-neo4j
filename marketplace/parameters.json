@@ -1,6 +1,6 @@
 {
   "adminPassword": {
-    "value": "foo123!"
+    "value": "Neo4jNeo4j123'"
   },
   "vmSize": {
     "value": "Standard_E8s_v5"
@@ -21,7 +21,7 @@
     "value": 32
   },
   "graphDatabaseVersion": {
-    "value": "5"
+    "value": "4.4"
   },
   "installGraphDataScience": {
     "value": "False"
