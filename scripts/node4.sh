@@ -200,6 +200,11 @@ build_neo4j_conf_file() {
   echo "Configuring memory settings in neo4j.conf..."
   neo4j-admin memrec >> /etc/neo4j/neo4j.conf
 
+  #this is to prevent SSRF attacks
+  #Read more here https://neo4j.com/developer/kb/protecting-against-ssrf/
+  echo "unsupported.dbms.cypher_ip_blocklist=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.169.0/24,fc00::/7,fe80::/10,ff00::/8" >> /etc/neo4j/neo4j.conf
+
+
   if [[ ${nodeCount} == 1 ]]; then
     echo "Running on a single node."
     if [[ ${readReplicaCount} == 0 ]]; then
