@@ -217,7 +217,7 @@ build_neo4j_conf_file() {
   else
     echo "Running on multiple nodes.  Configuring membership in neo4j.conf..."
     sed -i s/#dbms.mode=CORE/dbms.mode=CORE/g /etc/neo4j/neo4j.conf
-    coreMembers=$(az vmss nic list -g "${resourceGroup}" --vmss-name "${vmScaleSetsName}" | jq '.[] | .ipConfigurations[] | .privateIpAddress' | sed 's/"//g;s/$/:5000/g' | tr '\n' ',' | sed 's/,$//g')
+    coreMembers=$(az vmss nic list -g "${resourceGroup}" --vmss-name "${vmScaleSetsName}" | jq '.[] | .ipConfigurations[] | .privateIPAddress' | sed 's/"//g;s/$/:5000/g' | tr '\n' ',' | sed 's/,$//g')
     sed -i s/#causal_clustering.initial_discovery_members=localhost:5000,localhost:5001,localhost:5002/causal_clustering.initial_discovery_members=${coreMembers}/g /etc/neo4j/neo4j.conf
     set_cluster_configs
   fi

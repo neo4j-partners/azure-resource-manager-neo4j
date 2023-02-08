@@ -178,7 +178,7 @@ build_neo4j_conf_file() {
     sed -i s/#dbms.default_advertised_address=localhost/dbms.default_advertised_address="${privateIP}"/g /etc/neo4j/neo4j.conf
     echo "Configuring read replica membership in neo4j.conf..."
     sed -i s/#dbms.mode=CORE/dbms.mode=READ_REPLICA/g /etc/neo4j/neo4j.conf
-    coreMembers=$(az vmss nic list -g "${resourceGroup}" --vmss-name "${vmScaleSetsName}" | jq '.[] | .ipConfigurations[] | .privateIpAddress' | sed 's/"//g;s/$/:5000/g' | tr '\n' ',' | sed 's/,$//g')
+    coreMembers=$(az vmss nic list -g "${resourceGroup}" --vmss-name "${vmScaleSetsName}" | jq '.[] | .ipConfigurations[] | .privateIPAddress' | sed 's/"//g;s/$/:5000/g' | tr '\n' ',' | sed 's/,$//g')
     sed -i s/#causal_clustering.initial_discovery_members=localhost:5000,localhost:5001,localhost:5002/causal_clustering.initial_discovery_members=${coreMembers}/g /etc/neo4j/neo4j.conf
     sed -i s/#dbms.routing.enabled=false/dbms.routing.enabled=true/g /etc/neo4j/neo4j.conf
     sed -i s/#dbms.routing.advertised_address=:7688/dbms.routing.advertised_address=${privateIP}:7688/g /etc/neo4j/neo4j.conf
