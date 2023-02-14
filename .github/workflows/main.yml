@@ -13,6 +13,8 @@ jobs:
   test-template:
     name: Test ARM (Neo4j Cluster)
     runs-on: ubuntu-latest
+    env:
+      ResourceGroupLocation: westeurope
     steps:
     - name: Checkout
       uses: actions/checkout@v2
@@ -23,23 +25,20 @@ jobs:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
     - name: Configure Resource Group
-      id: rg-name
+      id: rgName
       run: |
         RGNAME=`echo ghactions-rg-$(date '+%Y%m%d-%S')`
-        echo "Stack name: $RGNAME"
-        echo "::set-output name=rg-name::$STACKNAME"
+        echo "Resource Group name: $RGNAME"
+        echo "::set-output name=rgName::$RGNAME"
 
     - name: Create Resource Group
       uses: Azure/CLI@v1
       id: rgCreate
       with:
         inlineScript: |
-          #!/bin/bash
-          RGNAME=`echo ghactions-rg-$(date '+%Y%m%d-%S')`
-          echo "Resource Group Name: $RGNAME"          
-          az group create --name ${{ env.ResourceGroupName }} --location ${{ env.ResourceGroupLocation }}
+          #!/bin/bash   
+          az group create --name ${{ steps.rgName.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
           echo "Azure resource group created"
-          echo "::set-output name=rg-name::$STACKNAME"
 
 #    - uses: azure/arm-deploy@v1
 #      with:
