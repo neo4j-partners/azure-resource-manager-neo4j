@@ -1,0 +1,78 @@
+name: Test ARM
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:    
+      - main
+
+
+jobs:
+  test-template:
+    name: Test ARM (Neo4j Cluster)
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Configure Resource Group
+      id: rg-name
+      run: |
+        RGNAME=`echo ghactions-rg-$(date '+%Y%m%d-%S')`
+        echo "Stack name: $RGNAME"
+        echo "::set-output name=rg-name::$STACKNAME"
+
+    - name: Create Resource Group
+      uses: Azure/CLI@v1
+      id: rgCreate
+      with:
+        inlineScript: |
+          #!/bin/bash
+          RGNAME=`echo ghactions-rg-$(date '+%Y%m%d-%S')`
+          echo "Resource Group Name: $RGNAME"          
+          az group create --name ${{ env.ResourceGroupName }} --location ${{ env.ResourceGroupLocation }}
+          echo "Azure resource group created"
+          echo "::set-output name=rg-name::$STACKNAME"
+
+#    - uses: azure/arm-deploy@v1
+#      with:
+#        resourceGroupName: github-action-arm-rg
+#        template: ./azuredeploy.json
+#        parameters: examples/template/parameters.json storageAccountType=Standard_LRS sqlServerPassword=${{ secrets.SQL_SERVER }}
+#        additionalArguments: "--what-if --rollback-on-error --what-if-exclude-change-types Create Ignore"
+#
+#    - name: Retrieve Neo4j URI
+#      id: uri
+#      run: |
+#        URI=`aws cloudformation describe-stacks --region ${AWS_REGION} --query "Stacks[?StackName=='${{ steps.stack-name.outputs.stackname }}'][].Outputs[?OutputKey=='Neo4jURI'].OutputValue" --output text`
+#        echo "Neo4j URI: $URI"
+#        echo "::set-output name=uri::$URI"
+#
+#    - name: Execute tests
+#      run: |
+#        ./marketplace/neo4jtester_linux "${{ steps.uri.outputs.uri }}" "neo4j" "foobar123%"
+#
+#    - name: Delete CloudFormation Stack
+#      if: always()
+#      run: |
+#        aws cloudformation delete-stack --stack-name ${{ steps.stack-name.outputs.stackname }}
+#        while true
+#        do
+#          STACK_STATUS=`aws cloudformation describe-stacks --region us-east-1 --query "Stacks[?StackName=='${{ steps.stack-name.outputs.stackname }}'].StackStatus" --output text`
+#          echo "Printing stack status := ${STACK_STATUS}"
+#          if [[ ${STACK_STATUS} == "DELETE_IN_PROGRESS" ]]; then
+#            echo "Sleeping for a minute...be right back !!"
+#            sleep 60
+#            continue
+#          else
+#            echo "Cloudformation stack is deleted !!"
+#            break
+#          fi
+#        done
