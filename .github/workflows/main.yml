@@ -31,8 +31,8 @@ jobs:
         RGNAME=`echo ghactions-rg-$DATE`
         DEPNAME=`echo ghactions-dep-$DATE`
         echo "Resource Group name: $RGNAME"
-        echo "::set-output name=rgName::$RGNAME"
-        echo "::set-output name=depName::$DEPNAME"
+        echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
+        echo "depName=$DEPNAME" >> $GITHUB_OUTPUT
 
     - name: Create Resource Group
       uses: Azure/CLI@v1
@@ -45,7 +45,7 @@ jobs:
 
     - uses: azure/arm-deploy@v1
       with:
-        resourceGroupName: ${{ steps.rgName.outputs.rgName }}
+        resourceGroupName: ${{ steps.variables.outputs.rgName }}
         template: ./marketplace/mainTemplate.json
         parameters: ./marketplace/parameters.json
         deploymentName: ${{ steps.variables.outputs.depName }}
