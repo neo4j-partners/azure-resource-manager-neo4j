@@ -52,15 +52,11 @@ jobs:
         parameters: ./marketplace/parameters.json
         deploymentName: ${{ steps.variables.outputs.depName }}
 
-    - name: Retrieve Neo4j URI
-      id: uri
-      run: |      
-        URI=`echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g'`        
-        echo "uri=$URI" >> $GITHUB_OUTPUT
-
     - name: Execute tests
       run: |
-        ./marketplace/neo4jtester_linux "${{ steps.uri.outputs.uri }}" "neo4j" "foobar123%"
+        URI=`echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g'`        
+        PASSWORD=`cat parameters.json | jq .adminPassword.value`
+        ./marketplace/neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
 
     - name: Delete Resource Group
       if: always()
@@ -68,5 +64,5 @@ jobs:
       with:
         inlineScript: |
           #!/bin/bash   
-          az group delete --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }} --yes
+          az group delete --name ${{ steps.variables.outputs.rgName }} --yes
           echo "Azure resource group deleted !!"
