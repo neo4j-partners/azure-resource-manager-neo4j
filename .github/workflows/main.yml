@@ -39,6 +39,7 @@ jobs:
           #!/bin/bash
           az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
           echo "Azure resource group created"
+          echo "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
 
     - name: Deploy ARM Template (Neo4j Cluster)
       id: deployARM
@@ -46,7 +47,7 @@ jobs:
       with:
         resourceGroupName: ${{ steps.variables.outputs.rgName }}
         template: ./marketplace/mainTemplate.json
-        parameters: ./marketplace/parameters.json _artifactsLocation="https://raw.githubusercontent.com/harshitsinghvi22/azure-resource-manager-neo4j/${{ github.head_ref }}"
+        parameters: ./marketplace/parameters.json _artifactsLocation="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
         deploymentName: ${{ steps.variables.outputs.depName }}
 
     - name: Execute tests
