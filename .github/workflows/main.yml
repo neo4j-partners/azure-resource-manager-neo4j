@@ -54,7 +54,7 @@ jobs:
 
     - name: Execute tests
       run: |
-        URI=`echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g'`        
+        URI=`echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g';s/"//g`        
         PASSWORD=`cat ./marketplace/parameters.json | jq .adminPassword.value`
         echo "PAssword and uri are ${URI} , ${PASSWORD}"
         ./marketplace/neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
