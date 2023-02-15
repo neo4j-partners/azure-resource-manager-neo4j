@@ -23,7 +23,7 @@ jobs:
     - name: Configure Resource Group and Deployment variables
       id: variables
       run: |
-        DATE=`echo $(date '+%Y%m%d-%S')`
+        DATE=`echo $(date '+%Y%m%d-%S-%2N')`
         RGNAME=`echo ghactions-rg-$DATE`
         DEPNAME=`echo ghactions-dep-$DATE`
         echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
@@ -84,7 +84,7 @@ jobs:
       - name: Configure Resource Group and Deployment variables
         id: variables
         run: |
-          DATE=`echo $(date '+%Y%m%d-%S')`
+          DATE=`echo $(date '+%Y%m%d-%S-%2N')`
           RGNAME=`echo ghactions-rg-$DATE`
           DEPNAME=`echo ghactions-dep-$DATE`
           echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
@@ -145,7 +145,7 @@ jobs:
       - name: Configure Resource Group and Deployment variables
         id: variables
         run: |
-          DATE=`echo $(date '+%Y%m%d-%S')`
+          DATE=`echo $(date '+%Y%m%d-%S-%2N')`
           RGNAME=`echo ghactions-rg-$DATE`
           DEPNAME=`echo ghactions-dep-$DATE`
           echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
@@ -206,7 +206,7 @@ jobs:
       - name: Configure Resource Group and Deployment variables
         id: variables
         run: |
-          DATE=`echo $(date '+%Y%m%d-%S')`
+          DATE=`echo $(date '+%Y%m%d-%S-%2N')`
           RGNAME=`echo ghactions-rg-$DATE`
           DEPNAME=`echo ghactions-dep-$DATE`
           echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
