@@ -52,7 +52,7 @@ jobs:
 
     - name: Execute tests
       run: |
-        URI=$(echo "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g')
+        URI=$(echo "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g') 
         PASSWORD=$(cat ./marketplace/parameters.json | jq .adminPassword.value | sed 's/"//g')
         curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
         chmod +x ./neo4jtester_linux
