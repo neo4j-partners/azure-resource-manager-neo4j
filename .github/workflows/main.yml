@@ -128,7 +128,7 @@ jobs:
             az group delete --name ${{ steps.variables.outputs.rgName }} --yes
             echo "Azure resource group deleted !!"
 
-  test-template-cluster-v4.4:
+  test-template-cluster-v44:
     name: Test ARM (Neo4j Cluster v4.4)
     runs-on: ubuntu-latest
     env:
@@ -189,7 +189,7 @@ jobs:
             az group delete --name ${{ steps.variables.outputs.rgName }} --yes
             echo "Azure resource group deleted !!"
 
-  test-template-standalone-v4.4:
+  test-template-standalone-v44:
     name: Test ARM (Neo4j Standalone v4.4)
     runs-on: ubuntu-latest
     env:
