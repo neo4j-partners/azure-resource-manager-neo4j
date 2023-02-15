@@ -43,38 +43,30 @@ jobs:
           az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
           echo "Azure resource group created"
 
-    - uses: azure/arm-deploy@v1
+    - name: Deploy ARM Template (Neo4j Cluster)
+      id: deployARM
+      uses: azure/arm-deploy@v1
       with:
         resourceGroupName: ${{ steps.variables.outputs.rgName }}
         template: ./marketplace/mainTemplate.json
         parameters: ./marketplace/parameters.json
         deploymentName: ${{ steps.variables.outputs.depName }}
 
-#    - name: Retrieve Neo4j URI
-#      id: uri
-#      run: |
-#        URI=`aws cloudformation describe-stacks --region ${AWS_REGION} --query "Stacks[?StackName=='${{ steps.stack-name.outputs.stackname }}'][].Outputs[?OutputKey=='Neo4jURI'].OutputValue" --output text`
-#        echo "Neo4j URI: $URI"
-#        echo "::set-output name=uri::$URI"
-#
-#    - name: Execute tests
-#      run: |
-#        ./marketplace/neo4jtester_linux "${{ steps.uri.outputs.uri }}" "neo4j" "foobar123%"
-#
-#    - name: Delete CloudFormation Stack
-#      if: always()
-#      run: |
-#        aws cloudformation delete-stack --stack-name ${{ steps.stack-name.outputs.stackname }}
-#        while true
-#        do
-#          STACK_STATUS=`aws cloudformation describe-stacks --region us-east-1 --query "Stacks[?StackName=='${{ steps.stack-name.outputs.stackname }}'].StackStatus" --output text`
-#          echo "Printing stack status := ${STACK_STATUS}"
-#          if [[ ${STACK_STATUS} == "DELETE_IN_PROGRESS" ]]; then
-#            echo "Sleeping for a minute...be right back !!"
-#            sleep 60
-#            continue
-#          else
-#            echo "Cloudformation stack is deleted !!"
-#            break
-#          fi
-#        done
+    - name: Retrieve Neo4j URI
+      id: uri
+      run: |      
+        URI=`echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g'`        
+        echo "uri=$URI" >> $GITHUB_OUTPUT
+
+    - name: Execute tests
+      run: |
+        ./marketplace/neo4jtester_linux "${{ steps.uri.outputs.uri }}" "neo4j" "foobar123%"
+
+    - name: Delete Resource Group
+      if: always()
+      uses: Azure/CLI@v1
+      with:
+        inlineScript: |
+          #!/bin/bash   
+          az group delete --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }} --yes
+          echo "Azure resource group deleted !!"
