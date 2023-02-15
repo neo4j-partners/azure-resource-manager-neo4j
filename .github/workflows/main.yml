@@ -55,7 +55,7 @@ jobs:
     - name: Execute tests
       run: |
         URI=`echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g'`        
-        PASSWORD=`cat parameters.json | jq .adminPassword.value`
+        PASSWORD=`cat ./marketplace/parameters.json | jq .adminPassword.value`
         ./marketplace/neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
 
     - name: Delete Resource Group
