@@ -1,4 +1,4 @@
-name: Test ARM
+name: Test ARM Template
 
 on:
   push:
@@ -59,7 +59,7 @@ jobs:
         curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
         chmod +x ./neo4jtester_linux
         ./marketplace/neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
-        
+
     - name: Delete Resource Group
       if: always()
       uses: Azure/CLI@v1
