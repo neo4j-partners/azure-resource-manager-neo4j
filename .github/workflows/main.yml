@@ -34,6 +34,12 @@ jobs:
         echo "Resource Group name: $RGNAME"
         echo "Deployment name: $DEPNAME"
 
+    - name: Execute tests
+      run: |
+        curl -o ./neo4jtester_linux "https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux"
+        chmod +x ./neo4jtester_linux
+        ls -lat
+        ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
 #    - name: Create Resource Group
 #      uses: Azure/CLI@v1
 #      id: rgCreate
@@ -52,15 +58,15 @@ jobs:
 #        parameters: ./marketplace/parameters.json
 #        deploymentName: ${{ steps.variables.outputs.depName }}
 
-    - name: Execute tests
-      run: |
+#    - name: Execute tests
+#      run: |
+#        curl -o ./neo4jtester_linux "https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux"
+#        chmod +x ./neo4jtester_linux
+#        ls -lat
+#        ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
 #        URI=$(echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g')
 #        PASSWORD=$(cat ./marketplace/parameters.json | jq .adminPassword.value | sed 's/"//g')
 #        echo "PAssword and uri are ${URI} , ${PASSWORD}"
-        curl -o ./neo4jtester_linux "https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux"
-        chmod +x ./neo4jtester_linux
-        ls -lat
-        ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
 
 #    - name: Delete Resource Group
 #      if: always()
