@@ -56,10 +56,10 @@ jobs:
       run: |
         URI=$(echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g')
         PASSWORD=$(cat ./marketplace/parameters.json | jq .adminPassword.value | sed 's/"//g')
-        curl -o ./neo4jtester_linux "https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux"
-        chmod +x ./neo4jtester_linux
-        ls -lat
-        ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
+#        curl -o ./neo4jtester_linux "https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux"
+#        chmod +x ./neo4jtester_linux
+#        ls -lat
+        ./marketplace/neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
 
     - name: Delete Resource Group
       if: always()
