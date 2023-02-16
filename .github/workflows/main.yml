@@ -1,15 +1,12 @@
 name: Test ARM Template
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:    
       - main
 
 jobs:
-  test-template:
+  test-template-cluster-v5:
     name: Test ARM (Neo4j Cluster)
     runs-on: ubuntu-latest
     env:
@@ -26,7 +23,7 @@ jobs:
     - name: Configure Resource Group and Deployment variables
       id: variables
       run: |
-        DATE=`echo $(date '+%Y%m%d-%S')`
+        DATE=`echo $(date '+%Y%m%d-%S-%2N')`
         RGNAME=`echo ghactions-rg-$DATE`
         DEPNAME=`echo ghactions-dep-$DATE`
         echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
@@ -42,19 +39,20 @@ jobs:
           #!/bin/bash
           az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
           echo "Azure resource group created"
+          echo "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
 
-    - name: Deploy ARM Template (Neo4j Cluster)
+    - name: Deploy ARM Template (Neo4j Cluster v5)
       id: deployARM
       uses: azure/arm-deploy@v1
       with:
         resourceGroupName: ${{ steps.variables.outputs.rgName }}
         template: ./marketplace/mainTemplate.json
-        parameters: ./marketplace/parameters.json
+        parameters: ./marketplace/parameters.json nodeCount="3" graphDatabaseVersion="5" _artifactsLocation="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
         deploymentName: ${{ steps.variables.outputs.depName }}
 
     - name: Execute tests
       run: |
-        URI=$(echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g')
+        URI=$(echo "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g') 
         PASSWORD=$(cat ./marketplace/parameters.json | jq .adminPassword.value | sed 's/"//g')
         curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
         chmod +x ./neo4jtester_linux
@@ -68,3 +66,186 @@ jobs:
           #!/bin/bash
           az group delete --name ${{ steps.variables.outputs.rgName }} --yes
           echo "Azure resource group deleted !!"
+
+  test-template-standalone-v5:
+    name: Test ARM (Neo4j Standalone)
+    runs-on: ubuntu-latest
+    env:
+      ResourceGroupLocation: westeurope
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Configure Resource Group and Deployment variables
+        id: variables
+        run: |
+          DATE=`echo $(date '+%Y%m%d-%S-%2N')`
+          RGNAME=`echo ghactions-rg-$DATE`
+          DEPNAME=`echo ghactions-dep-$DATE`
+          echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
+          echo "depName=$DEPNAME" >> $GITHUB_OUTPUT
+          echo "Resource Group name: $RGNAME"
+          echo "Deployment name: $DEPNAME"
+
+      - name: Create Resource Group
+        uses: Azure/CLI@v1
+        id: rgCreate
+        with:
+          inlineScript: |
+            #!/bin/bash
+            az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
+            echo "Azure resource group created"
+            echo "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
+
+      - name: Deploy ARM Template (Neo4j Standalone v5)
+        id: deployARM
+        uses: azure/arm-deploy@v1
+        with:
+          resourceGroupName: ${{ steps.variables.outputs.rgName }}
+          template: ./marketplace/mainTemplate.json
+          parameters: ./marketplace/parameters.json nodeCount="1" graphDatabaseVersion="5" _artifactsLocation="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
+          deploymentName: ${{ steps.variables.outputs.depName }}
+
+      - name: Execute tests
+        run: |
+          URI=$(echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g') 
+          PASSWORD=$(cat ./marketplace/parameters.json | jq .adminPassword.value | sed 's/"//g')
+          curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
+          chmod +x ./neo4jtester_linux
+          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
+
+      - name: Delete Resource Group
+        if: always()
+        uses: Azure/CLI@v1
+        with:
+          inlineScript: |
+            #!/bin/bash
+            az group delete --name ${{ steps.variables.outputs.rgName }} --yes
+            echo "Azure resource group deleted !!"
+
+  test-template-cluster-v44:
+    name: Test ARM (Neo4j Cluster v4.4)
+    runs-on: ubuntu-latest
+    env:
+      ResourceGroupLocation: westeurope
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Configure Resource Group and Deployment variables
+        id: variables
+        run: |
+          DATE=`echo $(date '+%Y%m%d-%S-%2N')`
+          RGNAME=`echo ghactions-rg-$DATE`
+          DEPNAME=`echo ghactions-dep-$DATE`
+          echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
+          echo "depName=$DEPNAME" >> $GITHUB_OUTPUT
+          echo "Resource Group name: $RGNAME"
+          echo "Deployment name: $DEPNAME"
+
+      - name: Create Resource Group
+        uses: Azure/CLI@v1
+        id: rgCreate
+        with:
+          inlineScript: |
+            #!/bin/bash
+            az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
+            echo "Azure resource group created"
+            echo "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
+
+      - name: Deploy ARM Template (Neo4j Cluster v4.4)
+        id: deployARM
+        uses: azure/arm-deploy@v1
+        with:
+          resourceGroupName: ${{ steps.variables.outputs.rgName }}
+          template: ./marketplace/mainTemplate.json
+          parameters: ./marketplace/parameters.json nodeCount="3" graphDatabaseVersion="4.4" _artifactsLocation="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
+          deploymentName: ${{ steps.variables.outputs.depName }}
+
+      - name: Execute tests
+        run: |
+          URI=$(echo "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g') 
+          PASSWORD=$(cat ./marketplace/parameters.json | jq .adminPassword.value | sed 's/"//g')
+          curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
+          chmod +x ./neo4jtester_linux
+          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
+
+      - name: Delete Resource Group
+        if: always()
+        uses: Azure/CLI@v1
+        with:
+          inlineScript: |
+            #!/bin/bash
+            az group delete --name ${{ steps.variables.outputs.rgName }} --yes
+            echo "Azure resource group deleted !!"
+
+  test-template-standalone-v44:
+    name: Test ARM (Neo4j Standalone v4.4)
+    runs-on: ubuntu-latest
+    env:
+      ResourceGroupLocation: westeurope
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Configure Resource Group and Deployment variables
+        id: variables
+        run: |
+          DATE=`echo $(date '+%Y%m%d-%S-%2N')`
+          RGNAME=`echo ghactions-rg-$DATE`
+          DEPNAME=`echo ghactions-dep-$DATE`
+          echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
+          echo "depName=$DEPNAME" >> $GITHUB_OUTPUT
+          echo "Resource Group name: $RGNAME"
+          echo "Deployment name: $DEPNAME"
+
+      - name: Create Resource Group
+        uses: Azure/CLI@v1
+        id: rgCreate
+        with:
+          inlineScript: |
+            #!/bin/bash
+            az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
+            echo "Azure resource group created"
+            echo "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
+
+      - name: Deploy ARM Template (Neo4j Standalone v4.4)
+        id: deployARM
+        uses: azure/arm-deploy@v1
+        with:
+          resourceGroupName: ${{ steps.variables.outputs.rgName }}
+          template: ./marketplace/mainTemplate.json
+          parameters: ./marketplace/parameters.json nodeCount="1" graphDatabaseVersion="4.4" _artifactsLocation="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
+          deploymentName: ${{ steps.variables.outputs.depName }}
+
+      - name: Execute tests
+        run: |
+          URI=$(echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g') 
+          PASSWORD=$(cat ./marketplace/parameters.json | jq .adminPassword.value | sed 's/"//g')
+          curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
+          chmod +x ./neo4jtester_linux
+          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
+
+      - name: Delete Resource Group
+        if: always()
+        uses: Azure/CLI@v1
+        with:
+          inlineScript: |
+            #!/bin/bash
+            az group delete --name ${{ steps.variables.outputs.rgName }} --yes
+            echo "Azure resource group deleted !!"

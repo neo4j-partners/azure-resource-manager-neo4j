@@ -9,7 +9,7 @@
     "value": "Standard_E8s_v5"
   },
   "nodeCount": {
-    "value": 1
+    "value": 3
   },
   "readReplicaCount": {
     "value": 0
