@@ -222,6 +222,17 @@ build_neo4j_conf_file() {
     sed -i s/#server.bolt.listen_address=:7687/server.bolt.listen_address="${privateIP}":7687/g /etc/neo4j/neo4j.conf
     echo "dbms.cluster.minimum_initial_system_primaries_count=${nodeCount}" >> /etc/neo4j/neo4j.conf
     coreMembers=$(az vmss nic list -g "${resourceGroup}" --vmss-name "${vmScaleSetsName}" | jq '.[] | .ipConfigurations[] | .privateIPAddress' | sed 's/"//g;s/$/:5000/g' | tr '\n' ',' | sed 's/,$//g')
+    echo "coreMembers ${coreMembers}, length ${#coreMembers}"
+    while [ true ]; do
+        if [ ${#coreMembers} == 0  || ${coreMembers} == "null" ]; then
+          echo "Continuing"
+          continue
+        else
+          echo "Breaking coreMembers ${coreMembers}, length ${#coreMembers}"
+          break
+        fi
+    done
+    echo "outside while coreMembers ${coreMembers}, length ${#coreMembers}"
     sed -i s/#dbms.cluster.discovery.endpoints=localhost:5000,localhost:5001,localhost:5002/dbms.cluster.discovery.endpoints="${coreMembers}"/g /etc/neo4j/neo4j.conf
   fi
 }
