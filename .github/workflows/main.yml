@@ -241,11 +241,11 @@ jobs:
           chmod +x ./neo4jtester_linux
           ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
 
-#      - name: Delete Resource Group
-#        if: always()
-#        uses: Azure/CLI@v1
-#        with:
-#          inlineScript: |
-#            #!/bin/bash
-#            az group delete --name ${{ steps.variables.outputs.rgName }} --yes
-#            echo "Azure resource group deleted !!"
+      - name: Delete Resource Group
+        if: always()
+        uses: Azure/CLI@v1
+        with:
+          inlineScript: |
+            #!/bin/bash
+            az group delete --name ${{ steps.variables.outputs.rgName }} --yes
+            echo "Azure resource group deleted !!"
