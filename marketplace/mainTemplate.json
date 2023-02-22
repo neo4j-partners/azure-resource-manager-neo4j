@@ -21,14 +21,15 @@
       },
       "installGraphDataScience": {
         "type": "string",
-        "defaultValue": "False"
+        "defaultValue": "No"
       },
       "graphDataScienceLicenseKey": {
         "type": "string",
         "defaultValue": "None"
       },
       "installBloom": {
-        "type": "string"
+        "type": "string",
+        "defaultValue": "No"
       },
       "bloomLicenseKey": {
         "type": "string"
@@ -630,12 +631,12 @@
         "value": "[uri(concat('http://',reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName')),'2022-05-01').ipAddress,':7474'),'')]"
       },
       "Neo4jClusterBloomURL": {
-        "condition": "[and(equals(parameters('installBloom'),'True'),variables('loadBalancerCondition'))]",
+        "condition": "[and(equals(parameters('installBloom'),'Yes'),variables('loadBalancerCondition'))]",
         "type": "string",
         "value": "[uri(concat('http://',reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName')),'2022-05-01').ipAddress,':7474'),'bloom')]"
       },
       "Neo4jBloomURL": {
-        "condition": "[and(equals(parameters('installBloom'),'True'),not(variables('loadBalancerCondition')))]",
+        "condition": "[and(equals(parameters('installBloom'),'Yes'),not(variables('loadBalancerCondition')))]",
         "type": "string",
         "value": "[uri(concat('http://vm0.node-', variables('uniqueString'), '.', parameters('location'),'.cloudapp.azure.com:7474'),'bloom')]"
       },

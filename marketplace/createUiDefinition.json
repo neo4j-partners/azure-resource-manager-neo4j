@@ -276,18 +276,18 @@
             "name": "installGraphDataScience",
             "type": "Microsoft.Common.DropDown",
             "label": "Install Graph Data Science",
-            "defaultValue": "False",
+            "defaultValue": "No",
             "visible": "[not(and(equals(steps('neo4jConfig').graphDatabaseVersion,'4.4'),greaterOrEquals(steps('neo4jConfig').nodeCount,3)))]",
             "toolTip": "Set to true to install Graph Data Science.  Ignore if Node Count is not 1.",
             "constraints": {
               "allowedValues": [
                 {
-                  "label": "True",
-                  "value": "True"
+                  "label": "Yes",
+                  "value": "Yes"
                 },
                 {
-                  "label": "False",
-                  "value": "False"
+                  "label": "No",
+                  "value": "No"
                 }
               ]
             }
@@ -309,17 +309,17 @@
             "name": "installBloom",
             "type": "Microsoft.Common.DropDown",
             "label": "Install Bloom",
-            "defaultValue": "False",
+            "defaultValue": "No",
             "toolTip": "Set to true to install Bloom.",
             "constraints": {
               "allowedValues": [
                 {
-                  "label": "True",
-                  "value": "True"
+                  "label": "Yes",
+                  "value": "Yes"
                 },
                 {
-                  "label": "False",
-                  "value": "False"
+                  "label": "No",
+                  "value": "No"
                 }
               ]
             }

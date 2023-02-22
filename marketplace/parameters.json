@@ -24,13 +24,13 @@
     "value": "5"
   },
   "installGraphDataScience": {
-    "value": "False"
+    "value": "No"
   },
   "graphDataScienceLicenseKey": {
     "value": "None"
   },
   "installBloom": {
-    "value": "False"
+    "value": "No"
   },
   "bloomLicenseKey": {
     "value": "None"
