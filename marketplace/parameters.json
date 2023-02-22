@@ -24,18 +24,18 @@
     "value": "5"
   },
   "installGraphDataScience": {
-    "value": "False"
+    "value": "No"
   },
   "graphDataScienceLicenseKey": {
     "value": "None"
   },
   "installBloom": {
-    "value": "False"
+    "value": "No"
   },
   "bloomLicenseKey": {
     "value": "None"
   },
   "_artifactsLocation": {
-    "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/main/"
+    "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/feature/yes_no/"
   }
 }
