@@ -163,7 +163,8 @@ extension_config() {
 
 start_neo4j() {
   echo "Starting Neo4j..."
-  service neo4j start
+  #service neo4j start
+  systemctl start neo4j
   neo4j-admin set-initial-password "${adminPassword}"
   while [[ \"$(curl -s -o /dev/null -m 3 -L -w '%{http_code}' http://localhost:7474 )\" != \"200\" ]];
     do echo "Waiting for cluster to start"
