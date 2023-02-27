@@ -114,7 +114,7 @@
       "scriptName": "[if(equals(parameters('graphDatabaseVersion'),'5'),'scripts/neo4j-enterprise/node.sh','scripts/neo4j-enterprise/node4.sh')]",
       "bashCommand": "[if(equals(parameters('graphDatabaseVersion'),'5'),'bash node.sh ','bash node4.sh ')]",
       "roleDefName": "[guid(concat('customRoleDef-',parameters('location'),'-',parameters('utcValue')))]",
-      "roleName": "[concat('customRole-',parameters('location'),'-',parameters('utcValue'))]",
+      "roleName": "[concat('customRole-',resourceGroup().name,'-',parameters('location'),'-',parameters('utcValue'))]",
       "adminUsername": "[string('neo4j')]",
       "doubleQuote": "\"",
       "readReplicaEnabledCondition": "[and(greaterOrEquals(parameters('readReplicaCount'),1),equals(parameters('graphDatabaseVersion'),'4.4'))]",
