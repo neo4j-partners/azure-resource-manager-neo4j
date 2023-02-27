@@ -179,6 +179,20 @@ start_neo4j() {
   done
 }
 
+get_core_members() {
+  coreMembers=$(az vmss nic list -g "${resourceGroup}" --vmss-name "${vmScaleSetsName}" | jq '.[] | .ipConfigurations[] | .privateIPAddress' | sed 's/"//g;s/$/:5000/g' | tr '\n' ',' | sed 's/,$//g')
+  echo "$(date) start of while , Printing coreMembers ${coreMembers}"
+  counter=0
+  while [[ (${#coreMembers} == 0 || ${coreMembers} == "null") && ${counter} -le 30 ]]; do
+      echo "sleeping for 10 seconds"
+      sleep 10
+      ((counter=counter+1))
+      coreMembers=$(az vmss nic list -g "${resourceGroup}" --vmss-name "${vmScaleSetsName}" | jq '.[] | .ipConfigurations[] | .privateIPAddress' | sed 's/"//g;s/$/:5000/g' | tr '\n' ',' | sed 's/,$//g')
+      echo "$(date) Inside while Printing coreMembers ${coreMembers}"
+  done
+  echo "$(date) End of func, Printing coreMembers ${coreMembers}"
+}
+
 build_neo4j_conf_file() {
   local -r privateIP="$(hostname -i | awk '{print $NF}')"
   echo "Configuring network in neo4j.conf..."
@@ -227,7 +241,8 @@ build_neo4j_conf_file() {
     sed -i s/#initial.dbms.default_secondaries_count=0/initial.dbms.default_secondaries_count=$(expr ${nodeCount} - 3)/g /etc/neo4j/neo4j.conf
     sed -i s/#server.bolt.listen_address=:7687/server.bolt.listen_address="${privateIP}":7687/g /etc/neo4j/neo4j.conf
     echo "dbms.cluster.minimum_initial_system_primaries_count=${nodeCount}" >> /etc/neo4j/neo4j.conf
-    coreMembers=$(az vmss nic list -g "${resourceGroup}" --vmss-name "${vmScaleSetsName}" | jq '.[] | .ipConfigurations[] | .privateIPAddress' | sed 's/"//g;s/$/:5000/g' | tr '\n' ',' | sed 's/,$//g')
+    get_core_members
+    echo "$(date) outside func , Printing coreMembers ${coreMembers}"
     sed -i s/#dbms.cluster.discovery.endpoints=localhost:5000,localhost:5001,localhost:5002/dbms.cluster.discovery.endpoints="${coreMembers}"/g /etc/neo4j/neo4j.conf
   fi
 }
