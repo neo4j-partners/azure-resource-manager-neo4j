@@ -21,7 +21,7 @@
     "value": 32
   },
   "graphDatabaseVersion": {
-    "value": "4.4"
+    "value": "5"
   },
   "installGraphDataScience": {
     "value": "No"
@@ -36,6 +36,6 @@
     "value": "None"
   },
   "_artifactsLocation": {
-    "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/main/"
+    "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/feature/community/"
   }
 }

@@ -71,7 +71,6 @@ gpgcheck=1
 EOF
 
   echo "Installing Graph Database..."
-  export NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
   set_yum_pkg
   yum -y install "${yumPkg}"
   systemctl enable neo4j
@@ -102,15 +101,15 @@ set_vmss_tags() {
 }
 
 set_yum_pkg() {
-    yumPkg="neo4j-enterprise"
+    yumPkg="neo4j"
     get_vmss_tags
     if [[ -z "${taggedNeo4jVersion}" || "${taggedNeo4jVersion}" == "null" ]]; then
       get_latest_neo4j_version
       if [[ ! -z "${latest_neo4j_version}" ]]; then
-        yumPkg="neo4j-enterprise-${latest_neo4j_version}"
+        yumPkg="neo4j-${latest_neo4j_version}"
       fi
     else
-      yumPkg="neo4j-enterprise-${taggedNeo4jVersion}"
+      yumPkg="neo4j-${taggedNeo4jVersion}"
     fi
     echo "Installing the yumpkg ${yumPkg}"
 }

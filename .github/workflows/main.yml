@@ -2,6 +2,9 @@ name: Test ARM Template
 
 on:
   pull_request:
+    paths:
+      - marketplace/enterprise/**
+      - scripts/enterprise/**
     branches:    
       - main
 
