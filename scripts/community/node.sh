@@ -158,12 +158,6 @@ build_neo4j_conf_file() {
   sed -i s/#server.bolt.listen_address=:7687/server.bolt.listen_address="${privateIP}":7687/g /etc/neo4j/neo4j.conf
   sed -i s/#server.bolt.advertised_address=:7687/server.bolt.advertised_address="${publicHostname}":7687/g /etc/neo4j/neo4j.conf
   neo4j-admin server memory-recommendation >> /etc/neo4j/neo4j.conf
-  echo "server.metrics.enabled=true" >> /etc/neo4j/neo4j.conf
-  echo "server.metrics.jmx.enabled=true" >> /etc/neo4j/neo4j.conf
-  echo "server.metrics.prefix=neo4j" >> /etc/neo4j/neo4j.conf
-  echo "server.metrics.filter=*" >> /etc/neo4j/neo4j.conf
-  echo "server.metrics.csv.interval=5s" >> /etc/neo4j/neo4j.conf
-  echo "dbms.routing.default_router=SERVER" >> /etc/neo4j/neo4j.conf
 
   #this is to prevent SSRF attacks
   #Read more here https://neo4j.com/developer/kb/protecting-against-ssrf/
