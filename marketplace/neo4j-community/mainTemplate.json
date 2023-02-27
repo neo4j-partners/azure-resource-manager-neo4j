@@ -49,7 +49,7 @@
       "userAssignedIdentityName": "[concat('usermanaged-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
       "roleAssignmentName": "[guid(concat('roleassignment-neo4j-',parameters('location'),'-',parameters('utcValue')))]",
       "azLoginIdentity": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.ManagedIdentity/userAssignedIdentities/',variables('userAssignedIdentityName'))]",
-      "scriptName": "[if(equals(parameters('graphDatabaseVersion'),'5'),'scripts/community/node.sh','scripts/community/node4.sh')]",
+      "scriptName": "[if(equals(parameters('graphDatabaseVersion'),'5'),'scripts/neo4j-community/node.sh','scripts/neo4j-community/node4.sh')]",
       "bashCommand": "[if(equals(parameters('graphDatabaseVersion'),'5'),'bash node.sh ','bash node4.sh ')]",
       "roleDefName": "[guid(concat('customRoleDef-',parameters('location'),'-',parameters('utcValue')))]",
       "roleName": "[concat('customRole-',parameters('location'),'-',parameters('utcValue'))]",

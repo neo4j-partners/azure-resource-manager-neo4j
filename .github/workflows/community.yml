@@ -3,8 +3,8 @@ name: Test ARM Template for Community Edition
 on:
   pull_request:
     paths:
-      - marketplace/community/**
-      - scripts/community/**
+      - marketplace/neo4j-community/**
+      - scripts/neo4j-community/**
     branches:
       - main
 

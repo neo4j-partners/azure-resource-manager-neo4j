@@ -1,16 +1,28 @@
 #!/usr/bin/env bash
+
+#
+# Script:      node4.sh
+# Purpose:     This script is used to install Neo4j 4.4.x Enterprise on Azure VM's
+
 set -euo pipefail
 
-echo "Running readreplica4.sh"
+echo "Running node4.sh"
 
-adminPassword=$1
-azLoginIdentity=$2
-resourceGroup=$3
-vmScaleSetsName=$4
-installGraphDataScience=$5
-graphDataScienceLicenseKey=$6
-installBloom=$7
-bloomLicenseKey=$8
+adminUsername=$1
+adminPassword=$2
+uniqueString=$3
+location=$4
+graphDatabaseVersion=$5
+installGraphDataScience=$6
+graphDataScienceLicenseKey=$7
+installBloom=$8
+bloomLicenseKey=$9
+nodeCount=${10}
+readReplicaCount=${11}
+loadBalancerDNSName=${12}
+azLoginIdentity=${13}
+resourceGroup=${14}
+vmScaleSetsName=${15}
 
 echo "Turning off firewalld"
 systemctl stop firewalld
@@ -77,8 +89,6 @@ EOF
   systemctl enable neo4j
 }
 
-
-
 install_apoc_plugin() {
   echo "Installing APOC..."
   mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins
@@ -98,7 +108,7 @@ get_vmss_tags() {
 set_vmss_tags() {
   installed_neo4j_version=$(/usr/bin/neo4j --version | awk -F " " '{print $2}')
   echo "Installed neo4j version is ${installed_neo4j_version}. Trying to set vmss tags"
-  resourceId=$(az vmss list --resource-group "${resourceGroup}" | jq -r '.[] | .id' | grep 'read-replica-vmss')
+  resourceId=$(az vmss list --resource-group "${resourceGroup}" | jq -r '.[] | .id')
   az tag create --tags Neo4jVersion="${installed_neo4j_version}" --resource-id "${resourceId}"
   echo "Added tag Neo4jVersion=${installed_neo4j_version}"
 }
@@ -167,24 +177,56 @@ start_neo4j() {
   done
 }
 
+set_cluster_configs() {
+  local -r privateIP="$(hostname -i | awk '{print $NF}')"  
+  sed -i s/#dbms.default_advertised_address=localhost/dbms.default_advertised_address=${privateIP}/g /etc/neo4j/neo4j.conf
+  sed -i s/#causal_clustering.discovery_listen_address=:5000/causal_clustering.discovery_listen_address=${privateIP}:5000/g /etc/neo4j/neo4j.conf
+  sed -i s/#causal_clustering.transaction_listen_address=:6000/causal_clustering.transaction_listen_address=${privateIP}:6000/g /etc/neo4j/neo4j.conf
+  sed -i s/#causal_clustering.raft_listen_address=:7000/causal_clustering.raft_listen_address=${privateIP}:7000/g /etc/neo4j/neo4j.conf
+  sed -i s/#dbms.connector.bolt.listen_address=:7687/dbms.connector.bolt.listen_address=${privateIP}:7687/g /etc/neo4j/neo4j.conf
+  sed -i s/#dbms.connector.http.advertised_address=:7474/dbms.connector.http.advertised_address=${privateIP}:7474/g /etc/neo4j/neo4j.conf
+  sed -i s/#dbms.connector.https.advertised_address=:7473/dbms.connector.https.advertised_address=${privateIP}:7473/g /etc/neo4j/neo4j.conf
+  sed -i s/#dbms.routing.enabled=false/dbms.routing.enabled=true/g /etc/neo4j/neo4j.conf
+  sed -i s/#dbms.routing.advertised_address=:7688/dbms.routing.advertised_address=${privateIP}:7688/g /etc/neo4j/neo4j.conf
+  sed -i s/#dbms.routing.listen_address=0.0.0.0:7688/dbms.routing.listen_address=${privateIP}:7688/g /etc/neo4j/neo4j.conf
+  echo dbms.routing.default_router=SERVER >> /etc/neo4j/neo4j.conf
+}
+
 build_neo4j_conf_file() {
   echo "Configuring network in neo4j.conf..."
 
-  local -r privateIP="$(hostname -i | awk '{print $NF}')"
+  local -r nodeIndex=`curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01" \
+    | jq ".name" \
+    | sed 's/.*_//' \
+    | sed 's/"//'`
+
+  publicHostname='vm'$nodeIndex'.node-'$uniqueString'.'$location'.cloudapp.azure.com'
 
   sed -i s/#dbms.default_listen_address=0.0.0.0/dbms.default_listen_address=0.0.0.0/g /etc/neo4j/neo4j.conf
   echo "Configuring memory settings in neo4j.conf..."
   neo4j-admin memrec >> /etc/neo4j/neo4j.conf
 
-    sed -i s/#dbms.default_advertised_address=localhost/dbms.default_advertised_address="${privateIP}"/g /etc/neo4j/neo4j.conf
-    echo "Configuring read replica membership in neo4j.conf..."
-    sed -i s/#dbms.mode=CORE/dbms.mode=READ_REPLICA/g /etc/neo4j/neo4j.conf
+  #this is to prevent SSRF attacks
+  #Read more here https://neo4j.com/developer/kb/protecting-against-ssrf/
+  echo "unsupported.dbms.cypher_ip_blocklist=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.169.0/24,fc00::/7,fe80::/10,ff00::/8" >> /etc/neo4j/neo4j.conf
+
+
+  if [[ ${nodeCount} == 1 ]]; then
+    echo "Running on a single node."
+    if [[ ${readReplicaCount} == 0 ]]; then
+      sed -i s/#dbms.default_advertised_address=localhost/dbms.default_advertised_address="${publicHostname}"/g /etc/neo4j/neo4j.conf
+    else
+      sed -i s/#dbms.mode=CORE/dbms.mode=SINGLE/g /etc/neo4j/neo4j.conf
+      echo "dbms.clustering.enable=true" >> /etc/neo4j/neo4j.conf
+      set_cluster_configs
+    fi
+  else
+    echo "Running on multiple nodes.  Configuring membership in neo4j.conf..."
+    sed -i s/#dbms.mode=CORE/dbms.mode=CORE/g /etc/neo4j/neo4j.conf
     coreMembers=$(az vmss nic list -g "${resourceGroup}" --vmss-name "${vmScaleSetsName}" | jq '.[] | .ipConfigurations[] | .privateIPAddress' | sed 's/"//g;s/$/:5000/g' | tr '\n' ',' | sed 's/,$//g')
     sed -i s/#causal_clustering.initial_discovery_members=localhost:5000,localhost:5001,localhost:5002/causal_clustering.initial_discovery_members=${coreMembers}/g /etc/neo4j/neo4j.conf
-    sed -i s/#dbms.routing.enabled=false/dbms.routing.enabled=true/g /etc/neo4j/neo4j.conf
-    sed -i s/#dbms.routing.advertised_address=:7688/dbms.routing.advertised_address=${privateIP}:7688/g /etc/neo4j/neo4j.conf
-    sed -i s/#dbms.routing.listen_address=0.0.0.0:7688/dbms.routing.listen_address=${privateIP}:7688/g /etc/neo4j/neo4j.conf
-    echo "dbms.routing.default_router=SERVER" >> /etc/neo4j/neo4j.conf
+    set_cluster_configs
+  fi
 }
 
 mount_data_disk

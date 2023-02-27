@@ -3,8 +3,8 @@ name: Test ARM Template
 on:
   pull_request:
     paths:
-      - marketplace/enterprise/**
-      - scripts/enterprise/**
+      - marketplace/neo4j-enterprise/**
+      - scripts/neo4j-enterprise/**
     branches:    
       - main
 
