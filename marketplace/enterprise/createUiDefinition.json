@@ -1,0 +1,358 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/0.1.2-preview/CreateUIDefinition.MultiVm.json#",
+  "handler": "Microsoft.Azure.CreateUIDef",
+  "version": "0.1.2-preview",
+  "parameters": {
+    "basics": [
+      {
+        "name": "adminPassword",
+        "type": "Microsoft.Common.PasswordBox",
+        "label": {
+          "password": "Admin Password",
+          "confirmPassword": "Confirm password"
+        },
+        "toolTip": "Admin password on all VMs",
+        "constraints": {
+          "required": true,
+          "regex": "^(?:(?=.*[a-z])(?:(?=.*[A-Z])(?=.*[\\d\\W])|(?=.*\\W)(?=.*\\d))|(?=.*\\W)(?=.*[A-Z])(?=.*\\d)).{12,72}$",
+          "validationMessage": "The password must be between 12 and 72 characters long, and contain characters from at least 3 of the following groups: uppercase characters, lowercase characters, numbers, and special characters."
+        },
+        "options": {
+          "hideConfirmation": false
+        }
+      }
+    ],
+    "steps": [
+      {
+        "name": "neo4jConfig",
+        "label": "Neo4j Config",
+        "subLabel": {
+          "preValidation": "Configure the Cluster",
+          "postValidation": "Done"
+        },
+        "bladeTitle": "Neo4j Settings",
+        "elements": [
+          {
+            "name": "vmSize",
+            "type": "Microsoft.Compute.SizeSelector",
+            "label": "Virtual Machine Size",
+            "toolTip": "Size of VMs in the cluster",
+            "recommendedSizes": [
+              "Standard_E4s_v5",
+              "Standard_E8s_v5",
+              "Standard_E16s_v5",
+              "Standard_E32s_v5"
+            ],
+            "constraints": {
+              "excludedSizes": [
+                "Standard_B1s",
+                "Standard_B1ls"
+              ]
+            },
+            "osPlatform": "Linux"
+          },
+          {
+            "name": "readReplicaVmSize",
+            "type": "Microsoft.Compute.SizeSelector",
+            "label": "Virtual Machine Size For Read Replicas",
+            "toolTip": "Size of VMs in the cluster",
+            "visible": "[equals(steps('neo4jConfig').graphDatabaseVersion,'4.4')]",
+            "recommendedSizes": [
+              "Standard_E4s_v5",
+              "Standard_E8s_v5",
+              "Standard_E16s_v5",
+              "Standard_E32s_v5"
+            ],
+            "constraints": {
+              "excludedSizes": [
+                "Standard_B1s",
+                "Standard_B1ls"
+              ]
+            },
+            "osPlatform": "Linux"
+          },
+          {
+            "name": "nodeCount",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Node Count",
+            "defaultValue": "1",
+            "toolTip": "Number of virtual machines to provision for Neo4j",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "1",
+                  "value": 1
+                },
+                {
+                  "label": "3",
+                  "value": 3
+                },
+                {
+                  "label": "4",
+                  "value": 4
+                },
+                {
+                  "label": "5",
+                  "value": 5
+                },
+                {
+                  "label": "6",
+                  "value": 6
+                },
+                {
+                  "label": "7",
+                  "value": 7
+                },
+                {
+                  "label": "8",
+                  "value": 8
+                },
+                {
+                  "label": "9",
+                  "value": 9
+                },
+                {
+                  "label": "10",
+                  "value": 10
+                }
+              ]
+            }
+          },
+          {
+            "name": "diskSize",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Disk Size",
+            "defaultValue": "32 GB",
+            "toolTip": "Size of disk on each node in the cluster",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "32 GB",
+                  "value": 32
+                },
+                {
+                  "label": "64 GB",
+                  "value": 64
+                },
+                {
+                  "label": "128 GB",
+                  "value": 128
+                },
+                {
+                  "label": "512 GB",
+                  "value": 512
+                },
+                {
+                  "label": "1 TB",
+                  "value": 1024
+                },
+                {
+                  "label": "2 TB",
+                  "value": 2048
+                },
+                {
+                  "label": "4 TB",
+                  "value": 4095
+                }
+              ]
+            }
+          },
+          {
+            "name": "readReplicaCount",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Read Replica Count",
+            "defaultValue": "0",
+            "toolTip": "Number of virtual machines to provision for Neo4j Read Replicas",
+            "visible": "[equals(steps('neo4jConfig').graphDatabaseVersion,'4.4')]",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "0",
+                  "value": 0
+                },
+                {
+                  "label": "1",
+                  "value": 1
+                },
+                {
+                  "label": "2",
+                  "value": 2
+                },
+                {
+                  "label": "3",
+                  "value": 3
+                },
+                {
+                  "label": "4",
+                  "value": 4
+                },
+                {
+                  "label": "5",
+                  "value": 5
+                },
+                {
+                  "label": "6",
+                  "value": 6
+                },
+                {
+                  "label": "7",
+                  "value": 7
+                },
+                {
+                  "label": "8",
+                  "value": 8
+                },
+                {
+                  "label": "9",
+                  "value": 9
+                },
+                {
+                  "label": "10",
+                  "value": 10
+                }
+              ]
+            }
+          },
+          {
+            "name": "readReplicaDiskSize",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Read Replica Disk Size",
+            "defaultValue": "32 GB",
+            "visible": "[equals(steps('neo4jConfig').graphDatabaseVersion,'4.4')]",
+            "toolTip": "Size of disk on each read replica node in the cluster",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "32 GB",
+                  "value": 32
+                },
+                {
+                  "label": "64 GB",
+                  "value": 64
+                },
+                {
+                  "label": "128 GB",
+                  "value": 128
+                },
+                {
+                  "label": "512 GB",
+                  "value": 512
+                },
+                {
+                  "label": "1 TB",
+                  "value": 1024
+                },
+                {
+                  "label": "2 TB",
+                  "value": 2048
+                },
+                {
+                  "label": "4 TB",
+                  "value": 4095
+                }
+              ]
+            }
+          },
+          {
+            "name": "graphDatabaseVersion",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Graph Database Version",
+            "defaultValue": "5",
+            "toolTip": "Graph Database Version",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "5",
+                  "value": "5"
+                },
+                {
+                  "label": "4.4",
+                  "value": "4.4"
+                }
+              ]
+            }
+          },
+          {
+            "name": "installGraphDataScience",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Install Graph Data Science",
+            "defaultValue": "No",
+            "visible": "[not(and(equals(steps('neo4jConfig').graphDatabaseVersion,'4.4'),greaterOrEquals(steps('neo4jConfig').nodeCount,3)))]",
+            "toolTip": "Set to true to install Graph Data Science.  Ignore if Node Count is not 1.",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "Yes",
+                  "value": "Yes"
+                },
+                {
+                  "label": "No",
+                  "value": "No"
+                }
+              ]
+            }
+          },
+          {
+            "name": "graphDataScienceLicenseKey",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Graph Data Science License Key",
+            "defaultValue": "None",
+            "visible": "[not(and(equals(steps('neo4jConfig').graphDatabaseVersion,'4.4'),greaterOrEquals(steps('neo4jConfig').nodeCount,3)))]",
+            "toolTip": "Graph Data Science License Key",
+            "constraints": {
+              "required": true,
+              "regex": "[a-zA-Z0-9_.-]*",
+              "validationMessage": "If you don't have a key enter None.  The license key is made up of letters, numbers and the characters -, _ and ."
+            }
+          },
+          {
+            "name": "installBloom",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Install Bloom",
+            "defaultValue": "No",
+            "toolTip": "Set to true to install Bloom.",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "Yes",
+                  "value": "Yes"
+                },
+                {
+                  "label": "No",
+                  "value": "No"
+                }
+              ]
+            }
+          },
+          {
+            "name": "bloomLicenseKey",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Bloom License Key",
+            "defaultValue": "None",
+            "toolTip": "Bloom License Key",
+            "constraints": {
+              "required": true,
+              "regex": "[a-zA-Z0-9_.-]*",
+              "validationMessage": "If you don't have a key enter None.  The license key is made up of letters, numbers and the characters -, _ and ."
+            }
+          }
+        ]
+      }
+    ],
+    "outputs": {
+      "adminPassword": "[basics('adminPassword')]",
+      "vmSize": "[steps('neo4jConfig').vmSize]",
+      "readReplicaVmSize": "[steps('neo4jConfig').readReplicaVmSize]",
+      "nodeCount": "[steps('neo4jConfig').nodeCount]",
+      "diskSize": "[steps('neo4jConfig').diskSize]",
+      "readReplicaDiskSize": "[steps('neo4jConfig').readReplicaDiskSize]",
+      "graphDatabaseVersion": "[steps('neo4jConfig').graphDatabaseVersion]",
+      "installGraphDataScience": "[steps('neo4jConfig').installGraphDataScience]",
+      "graphDataScienceLicenseKey": "[steps('neo4jConfig').graphDataScienceLicenseKey]",
+      "installBloom": "[steps('neo4jConfig').installBloom]",
+      "bloomLicenseKey": "[steps('neo4jConfig').bloomLicenseKey]",
+      "location": "[location()]",
+      "readReplicaCount": "[steps('neo4jConfig').readReplicaCount]"
+    }
+  }
+}
