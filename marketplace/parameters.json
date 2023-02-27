@@ -36,6 +36,6 @@
     "value": "None"
   },
   "_artifactsLocation": {
-    "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/fix/concurrency_bug/"
+    "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/main/"
   }
 }
