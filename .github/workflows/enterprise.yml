@@ -1,4 +1,4 @@
-name: Test ARM Template
+name: Test ARM Template for Enterprise
 
 on:
   pull_request:
@@ -49,14 +49,14 @@ jobs:
       uses: azure/arm-deploy@v1
       with:
         resourceGroupName: ${{ steps.variables.outputs.rgName }}
-        template: ./marketplace/mainTemplate.json
-        parameters: ./marketplace/parameters.json nodeCount="3" graphDatabaseVersion="5" _artifactsLocation="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
+        template: ./marketplace/neo4j-enterprise/mainTemplate.json
+        parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="3" graphDatabaseVersion="5" _artifactsLocation="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
         deploymentName: ${{ steps.variables.outputs.depName }}
 
     - name: Execute tests
       run: |
         URI=$(echo "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g') 
-        PASSWORD=$(cat ./marketplace/parameters.json | jq .adminPassword.value | sed 's/"//g')
+        PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
         curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
         chmod +x ./neo4jtester_linux
         ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
@@ -110,14 +110,14 @@ jobs:
         uses: azure/arm-deploy@v1
         with:
           resourceGroupName: ${{ steps.variables.outputs.rgName }}
-          template: ./marketplace/mainTemplate.json
-          parameters: ./marketplace/parameters.json nodeCount="1" graphDatabaseVersion="5" _artifactsLocation="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
+          template: ./marketplace/neo4j-enterprise/mainTemplate.json
+          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="1" graphDatabaseVersion="5" _artifactsLocation="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
           deploymentName: ${{ steps.variables.outputs.depName }}
 
       - name: Execute tests
         run: |
           URI=$(echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g') 
-          PASSWORD=$(cat ./marketplace/parameters.json | jq .adminPassword.value | sed 's/"//g')
+          PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
           curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
           chmod +x ./neo4jtester_linux
           ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
@@ -171,14 +171,14 @@ jobs:
         uses: azure/arm-deploy@v1
         with:
           resourceGroupName: ${{ steps.variables.outputs.rgName }}
-          template: ./marketplace/mainTemplate.json
-          parameters: ./marketplace/parameters.json nodeCount="3" graphDatabaseVersion="4.4" _artifactsLocation="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
+          template: ./marketplace/neo4j-enterprise/mainTemplate.json
+          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="3" graphDatabaseVersion="4.4" _artifactsLocation="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
           deploymentName: ${{ steps.variables.outputs.depName }}
 
       - name: Execute tests
         run: |
           URI=$(echo "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g') 
-          PASSWORD=$(cat ./marketplace/parameters.json | jq .adminPassword.value | sed 's/"//g')
+          PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
           curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
           chmod +x ./neo4jtester_linux
           ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
@@ -232,14 +232,14 @@ jobs:
         uses: azure/arm-deploy@v1
         with:
           resourceGroupName: ${{ steps.variables.outputs.rgName }}
-          template: ./marketplace/mainTemplate.json
-          parameters: ./marketplace/parameters.json nodeCount="1" graphDatabaseVersion="4.4" _artifactsLocation="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
+          template: ./marketplace/neo4j-enterprise/mainTemplate.json
+          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="1" graphDatabaseVersion="4.4" _artifactsLocation="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
           deploymentName: ${{ steps.variables.outputs.depName }}
 
       - name: Execute tests
         run: |
           URI=$(echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g') 
-          PASSWORD=$(cat ./marketplace/parameters.json | jq .adminPassword.value | sed 's/"//g')
+          PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
           curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
           chmod +x ./neo4jtester_linux
           ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
