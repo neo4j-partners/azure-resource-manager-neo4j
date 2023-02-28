@@ -169,6 +169,8 @@
               "actions": [
                 "Microsoft.Compute/virtualMachines/read",
                 "Microsoft.Compute/virtualMachines/*/read",
+                "Microsoft.Network/networkInterfaces/read",
+                "Microsoft.Network/networkInterfaces/*/read",
                 "Microsoft.Resources/tags/write",
                 "Microsoft.Resources/tags/read",
                 "Microsoft.Resources/tags/delete"
