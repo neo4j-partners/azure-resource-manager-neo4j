@@ -53,6 +53,8 @@
       "bashCommand": "[if(equals(parameters('graphDatabaseVersion'),'5'),'bash node.sh ','bash node4.sh ')]",
       "roleDefName": "[guid(concat('customRoleDef-',parameters('location'),'-',parameters('utcValue')))]",
       "roleName": "[concat('customRole-',resourceGroup().name,'-',parameters('location'),'-',parameters('utcValue'))]",
+      "nicName": "[concat('nic-',resourceGroup().name,'-',parameters('location'),'-',parameters('utcValue'))]",
+      "publicIpName": "[concat('ip-neo4j-',resourceGroup().name,'-',parameters('location'),'-',parameters('utcValue'))]",
       "adminUsername": "[string('neo4j')]",
       "doubleQuote": "\""
     },
@@ -169,9 +171,6 @@
               "actions": [
                 "Microsoft.Compute/virtualMachines/read",
                 "Microsoft.Compute/virtualMachines/*/read",
-                "Microsoft.Network/networkInterfaces/read",
-                "Microsoft.Network/networkInterfaces/*/read",
-                "Microsoft.Network/publicIPAddresses/read",
                 "Microsoft.Resources/tags/write",
                 "Microsoft.Resources/tags/read",
                 "Microsoft.Resources/tags/delete"
@@ -198,13 +197,53 @@
         }
       },
       {
+        "type": "Microsoft.Network/publicIPAddresses",
+        "name": "[variables('publicIpName')]",
+        "apiVersion": "2022-05-01",
+        "location": "[parameters('location')]",
+        "properties": {
+          "publicIPAllocationMethod": "Dynamic",
+          "dnsSettings": {
+            "domainNameLabel": "[concat('node-', variables('uniqueString'))]"
+          }
+        }
+      },
+      {
+        "type": "Microsoft.Network/networkInterfaces",
+        "name": "[variables('nicName')]",
+        "apiVersion": "2022-07-01",
+        "location": "[parameters('location')]",
+        "dependsOn": [
+          "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]",
+          "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+        ],
+        "properties": {
+          "ipConfigurations": [
+            {
+              "name": "ipConfig",
+              "properties": {
+                "primary": true,
+                "privateIPAllocationMethod": "Dynamic",
+                "publicIPAddress": {
+                  "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
+                },
+                "subnet": {
+                  "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), 'subnet')]"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
         "type": "Microsoft.Compute/virtualMachines",
         "name": "[variables('vmName')]",
         "location": "[parameters('location')]",
         "apiVersion": "2022-11-01",
         "dependsOn": [
           "[resourceId('Microsoft.Authorization/roleAssignments',variables('roleAssignmentName'))]",
-          "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+          "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]",
+          "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
         ],
         "identity": {
           "type": "userAssigned",
@@ -249,31 +288,11 @@
             "adminPassword": "[parameters('adminPassword')]"
           },
           "networkProfile": {
-            "networkApiVersion": "2020-11-01",
-            "networkInterfaceConfigurations": [
+            "networkInterfaces": [
               {
-                "name": "nic",
+                "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]",
                 "properties": {
-                  "primary": true,
-                  "ipConfigurations": [
-                    {
-                      "name": "ipconfig-cluster",
-                      "properties": {
-                        "subnet": {
-                          "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), 'subnet')]"
-                        },
-                        "publicipaddressconfiguration": {
-                          "name": "public",
-                          "properties": {
-                            "idleTimeoutInMinutes": 30,
-                            "dnsSettings": {
-                              "domainNameLabel": "[concat('node-', variables('uniqueString'))]"
-                            }
-                          }
-                        }
-                      }
-                    }
-                  ]
+                  "primary": true
                 }
               }
             ]
@@ -308,7 +327,7 @@
     "outputs": {
       "Neo4jBrowserURL": {
         "type": "string",
-        "value": "[uri(concat('http://vm0.node-', variables('uniqueString'), '.', parameters('location'),'.cloudapp.azure.com:7474'),'')]"
+        "value": "[uri(concat('http://node-', variables('uniqueString'), '.', parameters('location'),'.cloudapp.azure.com:7474'),'')]"
       },
       "Username": {
         "type": "string",

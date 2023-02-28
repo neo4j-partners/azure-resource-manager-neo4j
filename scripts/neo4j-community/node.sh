@@ -93,14 +93,14 @@ get_latest_neo4j_version() {
   echo "Latest Neo4j Version is ${latest_neo4j_version}"
 }
 
-get_vmss_tags() {
+get_vm_tags() {
   taggedNeo4jVersion=$(az vm show --resource-group ${resourceGroup} --name ${vmName} --query tags | jq '.Neo4jVersion')
   echo "Tagged Neo4j Version ${taggedNeo4jVersion}"
 }
 
-set_vmss_tags() {
+set_vm_tags() {
   installed_neo4j_version=$(/usr/bin/neo4j --version)
-  echo "Installed neo4j version is ${installed_neo4j_version}. Trying to set vmss tags"
+  echo "Installed neo4j version is ${installed_neo4j_version}. Trying to set vm tags"
   resourceId=$(az vm show --resource-group ${resourceGroup} --name ${vmName} | jq -r '.id')
   az tag create --tags Neo4jVersion="${installed_neo4j_version}" --resource-id "${resourceId}"
   echo "Added tag Neo4jVersion=${installed_neo4j_version}"
@@ -108,7 +108,7 @@ set_vmss_tags() {
 
 set_yum_pkg() {
     yumPkg="neo4j"
-    get_vmss_tags
+    get_vm_tags
     if [[ -z "${taggedNeo4jVersion}" || "${taggedNeo4jVersion}" == "null" ]]; then
       get_latest_neo4j_version
       if [[ ! -z "${latest_neo4j_version}" ]]; then
@@ -149,7 +149,7 @@ build_neo4j_conf_file() {
     | sed 's/.*_//' \
     | sed 's/"//'`
 
-  publicIp=$(az vm show -d -g ${resourceGroup} -n ${vmName} --query publicIps -o tsv)
+  publicIp=node-"${uniqueString}"."${location}".cloudapp.azure.com
 
   sed -i s/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g /etc/neo4j/neo4j.conf
   sed -i s/#server.default_advertised_address=localhost/server.default_advertised_address="${publicIp}"/g /etc/neo4j/neo4j.conf
@@ -175,4 +175,4 @@ install_apoc_plugin
 extension_config
 build_neo4j_conf_file
 start_neo4j
-set_vmss_tags
+set_vm_tags
