@@ -99,7 +99,7 @@ get_vmss_tags() {
 set_vmss_tags() {
   installed_neo4j_version=$(/usr/bin/neo4j --version | awk -F " " '{print $2}')
   echo "Installed neo4j version is ${installed_neo4j_version}. Trying to set vmss tags"
-  resourceId=$(az vmss list --resource-group "${resourceGroup}" | jq -r '.[] | .id')
+  resourceId=$(az vm show --resource-group ${resourceGroup} --name ${vmName} | jq -r '.id')
   az tag create --tags Neo4jVersion="${installed_neo4j_version}" --resource-id "${resourceId}"
   echo "Added tag Neo4jVersion=${installed_neo4j_version}"
 }
@@ -140,11 +140,6 @@ start_neo4j() {
 
 build_neo4j_conf_file() {
   echo "Configuring network in neo4j.conf..."
-
-  local -r nodeIndex=`curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01" \
-    | jq ".name" \
-    | sed 's/.*_//' \
-    | sed 's/"//'`
 
   publicIp=$(az vm show -d -g ${resourceGroup} -n ${vmName} --query publicIps -o tsv)
 
