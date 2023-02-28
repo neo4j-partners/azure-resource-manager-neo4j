@@ -14,7 +14,7 @@ location=$4
 graphDatabaseVersion=$5
 azLoginIdentity=$6
 resourceGroup=$7
-vmScaleSetsName=$8
+vmName=$8
 
 echo "Turning off firewalld"
 systemctl stop firewalld
@@ -92,7 +92,7 @@ get_latest_neo4j_version() {
 }
 
 get_vmss_tags() {
-  taggedNeo4jVersion=$(az vmss list --resource-group ${resourceGroup} | jq --arg vmssName "${vmScaleSetsName}" '.[] | select(.name==$vmssName).tags.Neo4jVersion')
+  taggedNeo4jVersion=$(az vm show --resource-group ${resourceGroup} --name ${vmName} --query tags | jq '.Neo4jVersion')
   echo "Tagged Neo4j Version ${taggedNeo4jVersion}"
 }
 
@@ -146,7 +146,7 @@ build_neo4j_conf_file() {
     | sed 's/.*_//' \
     | sed 's/"//'`
 
-  publicHostname='vm'$nodeIndex'.node-'$uniqueString'.'$location'.cloudapp.azure.com'
+  publicIp=$(az vm show -d -g ${resourceGroup} -n ${vmName} --query publicIps -o tsv)
 
   sed -i s/#dbms.default_listen_address=0.0.0.0/dbms.default_listen_address=0.0.0.0/g /etc/neo4j/neo4j.conf
   echo "Configuring memory settings in neo4j.conf..."

@@ -45,7 +45,7 @@
       "uniqueString": "[uniquestring(resourceGroup().id, deployment().name)]",
       "networkSGName": "[concat('nsg-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
       "vnetName": "[concat('vnet-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
-      "vmScaleSetsName": "[concat('vmss-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
+      "vmName": "[concat('vm-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
       "userAssignedIdentityName": "[concat('usermanaged-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
       "roleAssignmentName": "[guid(concat('roleassignment-neo4j-',parameters('location'),'-',parameters('utcValue')))]",
       "azLoginIdentity": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.ManagedIdentity/userAssignedIdentities/',variables('userAssignedIdentityName'))]",
@@ -167,8 +167,8 @@
           "permissions": [
             {
               "actions": [
-                "Microsoft.Compute/virtualMachineScaleSets/read",
-                "Microsoft.Compute/virtualMachineScaleSets/*/read",
+                "Microsoft.Compute/virtualMachines/read",
+                "Microsoft.Compute/virtualMachines/*/read",
                 "Microsoft.Resources/tags/write",
                 "Microsoft.Resources/tags/read",
                 "Microsoft.Resources/tags/delete"
@@ -195,10 +195,10 @@
         }
       },
       {
-        "type": "Microsoft.Compute/virtualMachineScaleSets",
-        "name": "[variables('vmScaleSetsName')]",
+        "type": "Microsoft.Compute/virtualMachines",
+        "name": "[variables('vmName')]",
         "location": "[parameters('location')]",
-        "apiVersion": "2018-06-01",
+        "apiVersion": "2022-11-01",
         "dependsOn": [
           "[resourceId('Microsoft.Authorization/roleAssignments',variables('roleAssignmentName'))]",
           "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
@@ -214,94 +214,90 @@
           "product": "neo4j-ee-vm",
           "name": "byol"
         },
-        "sku": {
-          "name": "[parameters('vmSize')]",
-          "capacity": "1"
-        },
         "properties": {
-          "overprovision": false,
-          "upgradePolicy": {
-            "mode": "Manual"
+          "hardwareProfile": {
+            "vmSize": "[parameters('vmSize')]"
           },
-          "virtualMachineProfile": {
-            "storageProfile": {
-              "osDisk": {
-                "createOption": "FromImage"
-              },
-              "imageReference": {
-                "publisher": "Neo4j",
-                "offer": "neo4j-ee-vm",
-                "sku": "byol",
-                "version": "latest"
-              },
-              "dataDisks": [
-                {
-                  "lun": 0,
-                  "createOption": "Empty",
-                  "managedDisk": {
-                    "storageAccountType": "Premium_LRS"
-                  },
-                  "caching": "None",
-                  "diskSizeGB": "[parameters('diskSize')]"
-                }
-              ]
+          "storageProfile": {
+            "osDisk": {
+              "createOption": "FromImage"
             },
-            "osProfile": {
-              "computerNamePrefix": "node",
-              "adminUsername": "[variables('adminUsername')]",
-              "adminPassword": "[parameters('adminPassword')]"
+            "imageReference": {
+              "publisher": "Neo4j",
+              "offer": "neo4j-ee-vm",
+              "sku": "byol",
+              "version": "latest"
             },
-            "networkProfile": {
-              "networkInterfaceConfigurations": [
-                {
-                  "name": "nic",
-                  "properties": {
-                    "primary": true,
-                    "ipConfigurations": [
-                      {
-                        "name": "ipconfig-cluster",
-                        "properties": {
-                          "subnet": {
-                            "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), 'subnet')]"
-                          },
-                          "publicipaddressconfiguration": {
-                            "name": "public",
-                            "properties": {
-                              "idleTimeoutInMinutes": 30,
-                              "dnsSettings": {
-                                "domainNameLabel": "[concat('node-', variables('uniqueString'))]"
-                              }
+            "dataDisks": [
+              {
+                "lun": 0,
+                "createOption": "Empty",
+                "managedDisk": {
+                  "storageAccountType": "Premium_LRS"
+                },
+                "caching": "None",
+                "diskSizeGB": "[parameters('diskSize')]"
+              }
+            ]
+          },
+          "osProfile": {
+            "computerName": "[concat('node-', variables('uniqueString'))]",
+            "adminUsername": "[variables('adminUsername')]",
+            "adminPassword": "[parameters('adminPassword')]"
+          },
+          "networkProfile": {
+            "networkApiVersion": "2020-11-01",
+            "networkInterfaceConfigurations": [
+              {
+                "name": "nic",
+                "properties": {
+                  "primary": true,
+                  "ipConfigurations": [
+                    {
+                      "name": "ipconfig-cluster",
+                      "properties": {
+                        "subnet": {
+                          "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), 'subnet')]"
+                        },
+                        "publicipaddressconfiguration": {
+                          "name": "public",
+                          "properties": {
+                            "idleTimeoutInMinutes": 30,
+                            "dnsSettings": {
+                              "domainNameLabel": "[concat('node-', variables('uniqueString'))]"
                             }
                           }
                         }
                       }
-                    ]
-                  }
-                }
-              ]
-            },
-            "extensionProfile": {
-              "extensions": [
-                {
-                  "name": "extension",
-                  "properties": {
-                    "publisher": "Microsoft.Azure.Extensions",
-                    "type": "CustomScript",
-                    "typeHandlerVersion": "2.0",
-                    "autoUpgradeMinorVersion": true,
-                    "settings": {
-                      "fileUris": [
-                        "[uri(parameters('_artifactsLocation'), concat(variables('scriptName'), parameters('_artifactsLocationSasToken')))]"
-                      ]
-                    },
-                    "protectedSettings": {
-                      "commandToExecute": "[concat(variables('bashCommand'), variables('adminUsername'), ' ',variables('doubleQuote'),parameters('adminPassword'),variables('doubleQuote'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'),' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmScaleSetsName'))]"
                     }
-                  }
+                  ]
                 }
-              ]
-            }
+              }
+            ]
           }
+        }
+      },
+      {
+        "type": "Microsoft.Compute/virtualMachines/extensions",
+        "name": "[concat(variables('vmName'),'/installNeo4j')]",
+        "apiVersion": "2022-11-01",
+        "location": "[parameters('location')]",
+        "dependsOn": [
+          "[resourceId('Microsoft.Compute/virtualMachines/', variables('vmName'))]"
+        ],
+        "properties": {
+          "publisher": "Microsoft.Azure.Extensions",
+          "type": "CustomScript",
+          "typeHandlerVersion": "2.0",
+          "autoUpgradeMinorVersion": true,
+          "settings": {
+            "fileUris": [
+              "[uri(parameters('_artifactsLocation'), concat(variables('scriptName'), parameters('_artifactsLocationSasToken')))]"
+            ]
+          },
+          "protectedSettings": {
+              "commandToExecute": "[concat(variables('bashCommand'), variables('adminUsername'), ' ',variables('doubleQuote'),parameters('adminPassword'),variables('doubleQuote'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'),' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmName'))]"
+            }
         }
       }
 

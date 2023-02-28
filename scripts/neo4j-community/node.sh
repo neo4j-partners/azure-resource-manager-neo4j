@@ -13,7 +13,7 @@ location=$4
 graphDatabaseVersion=$5
 azLoginIdentity=$6
 resourceGroup=$7
-vmScaleSetsName=$8
+vmName=$8
 
 echo "Turning off firewalld"
 systemctl stop firewalld
@@ -94,7 +94,7 @@ get_latest_neo4j_version() {
 }
 
 get_vmss_tags() {
-  taggedNeo4jVersion=$(az vmss list --resource-group ${resourceGroup} | jq --arg vmssName "${vmScaleSetsName}" '.[] | select(.name==$vmssName).tags.Neo4jVersion')
+  taggedNeo4jVersion=$(az vm show --resource-group ${resourceGroup} --name ${vmName} --query tags | jq '.Neo4jVersion')
   echo "Tagged Neo4j Version ${taggedNeo4jVersion}"
 }
 
@@ -149,17 +149,16 @@ build_neo4j_conf_file() {
     | sed 's/.*_//' \
     | sed 's/"//'`
 
-  publicHostname='vm'$nodeIndex'.node-'$uniqueString'.'$location'.cloudapp.azure.com'
-
+  publicIp=$(az vm show -d -g ${resourceGroup} -n ${vmName} --query publicIps -o tsv)
 
   sed -i s/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g /etc/neo4j/neo4j.conf
-  sed -i s/#server.default_advertised_address=localhost/server.default_advertised_address="${publicHostname}"/g /etc/neo4j/neo4j.conf
+  sed -i s/#server.default_advertised_address=localhost/server.default_advertised_address="${publicIp}"/g /etc/neo4j/neo4j.conf
   sed -i s/#server.discovery.advertised_address=:5000/server.discovery.advertised_address="${privateIP}":5000/g /etc/neo4j/neo4j.conf
   sed -i s/#server.routing.advertised_address=:7688/server.routing.advertised_address="${privateIP}":7688/g /etc/neo4j/neo4j.conf
   sed -i s/#server.discovery.listen_address=:5000/server.discovery.listen_address="${privateIP}":5000/g /etc/neo4j/neo4j.conf
   sed -i s/#server.routing.listen_address=0.0.0.0:7688/server.routing.listen_address="${privateIP}":7688/g /etc/neo4j/neo4j.conf
   sed -i s/#server.bolt.listen_address=:7687/server.bolt.listen_address="${privateIP}":7687/g /etc/neo4j/neo4j.conf
-  sed -i s/#server.bolt.advertised_address=:7687/server.bolt.advertised_address="${publicHostname}":7687/g /etc/neo4j/neo4j.conf
+  sed -i s/#server.bolt.advertised_address=:7687/server.bolt.advertised_address="${publicIp}":7687/g /etc/neo4j/neo4j.conf
   neo4j-admin server memory-recommendation >> /etc/neo4j/neo4j.conf
 
   #this is to prevent SSRF attacks
