@@ -8,13 +8,6 @@
       "vmSize": {
         "type": "string"
       },
-      "graphDatabaseVersion": {
-        "type": "string",
-        "allowedValues": [
-          "5",
-          "4.4"
-        ]
-      },
       "diskSize": {
         "type": "int"
       },
@@ -49,8 +42,8 @@
       "userAssignedIdentityName": "[concat('usermanaged-neo4j-',parameters('location'),'-',parameters('utcValue'))]",
       "roleAssignmentName": "[guid(concat('roleassignment-neo4j-',parameters('location'),'-',parameters('utcValue')))]",
       "azLoginIdentity": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.ManagedIdentity/userAssignedIdentities/',variables('userAssignedIdentityName'))]",
-      "scriptName": "[if(equals(parameters('graphDatabaseVersion'),'5'),'scripts/neo4j-community/node.sh','scripts/neo4j-community/node4.sh')]",
-      "bashCommand": "[if(equals(parameters('graphDatabaseVersion'),'5'),'bash node.sh ','bash node4.sh ')]",
+      "scriptName": "scripts/neo4j-community/node.sh",
+      "bashCommand": "bash node.sh",
       "roleDefName": "[guid(concat('customRoleDef-',parameters('location'),'-',parameters('utcValue')))]",
       "roleName": "[concat('customRole-',resourceGroup().name,'-',parameters('location'),'-',parameters('utcValue'))]",
       "nicName": "[concat('nic-',resourceGroup().name,'-',parameters('location'),'-',parameters('utcValue'))]",
@@ -318,7 +311,7 @@
             ]
           },
           "protectedSettings": {
-              "commandToExecute": "[concat(variables('bashCommand'), variables('adminUsername'), ' ',variables('doubleQuote'),parameters('adminPassword'),variables('doubleQuote'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'),' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmName'))]"
+              "commandToExecute": "[concat(variables('bashCommand'), variables('adminUsername'), ' ',variables('doubleQuote'),parameters('adminPassword'),variables('doubleQuote'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmName'))]"
             }
         }
       }

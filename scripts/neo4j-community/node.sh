@@ -10,10 +10,9 @@ adminUsername=$1
 adminPassword=$2
 uniqueString=$3
 location=$4
-graphDatabaseVersion=$5
-azLoginIdentity=$6
-resourceGroup=$7
-vmName=$8
+azLoginIdentity=$5
+resourceGroup=$6
+vmName=$7
 
 echo "Turning off firewalld"
 systemctl stop firewalld
@@ -143,11 +142,6 @@ start_neo4j() {
 build_neo4j_conf_file() {
   local -r privateIP="$(hostname -i | awk '{print $NF}')"
   echo "Configuring network in neo4j.conf..."
-
-  local -r nodeIndex=`curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01" \
-    | jq ".name" \
-    | sed 's/.*_//' \
-    | sed 's/"//'`
 
   publicIp=node-"${uniqueString}"."${location}".cloudapp.azure.com
 
