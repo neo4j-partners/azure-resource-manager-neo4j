@@ -13,7 +13,7 @@ jobs:
     name: Test ARM (Neo4j Community Standalone)
     runs-on: ubuntu-latest
     env:
-      ResourceGroupLocation: westeurope
+      ResourceGroupLocation: northeurope
     steps:
       - name: Checkout
         uses: actions/checkout@v2

@@ -74,7 +74,7 @@ jobs:
     name: Test ARM (Neo4j Standalone)
     runs-on: ubuntu-latest
     env:
-      ResourceGroupLocation: westeurope
+      ResourceGroupLocation: eastus2
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -135,7 +135,7 @@ jobs:
     name: Test ARM (Neo4j Cluster v4.4)
     runs-on: ubuntu-latest
     env:
-      ResourceGroupLocation: westeurope
+      ResourceGroupLocation: uksouth
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -196,7 +196,7 @@ jobs:
     name: Test ARM (Neo4j Standalone v4.4)
     runs-on: ubuntu-latest
     env:
-      ResourceGroupLocation: westeurope
+      ResourceGroupLocation: swedencentral
     steps:
       - name: Checkout
         uses: actions/checkout@v2
