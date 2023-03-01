@@ -311,7 +311,7 @@
             ]
           },
           "protectedSettings": {
-              "commandToExecute": "[concat(variables('bashCommand'), variables('adminUsername'), ' ',variables('doubleQuote'),parameters('adminPassword'),variables('doubleQuote'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmName'))]"
+              "commandToExecute": "[concat(variables('bashCommand'),' ',variables('adminUsername'), ' ',variables('doubleQuote'),parameters('adminPassword'),variables('doubleQuote'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmName'))]"
             }
         }
       }
