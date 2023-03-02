@@ -1,0 +1,14 @@
+{
+  "adminPassword": {
+    "value": "Neo4jNeo4j123'"
+  },
+  "vmSize": {
+    "value": "Standard_E8s_v5"
+  },
+  "diskSize": {
+    "value": 32
+  },
+  "_artifactsLocation": {
+    "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/feature/community/"
+  }
+}
