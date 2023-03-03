@@ -97,7 +97,7 @@
       "adminPassword": "[basics('adminPassword')]",
       "vmSize": "[steps('neo4jConfig').vmSize]",
       "diskSize": "[steps('neo4jConfig').diskSize]",
-      "location": "[location()]",
+      "location": "[location()]"
     }
   }
 }
