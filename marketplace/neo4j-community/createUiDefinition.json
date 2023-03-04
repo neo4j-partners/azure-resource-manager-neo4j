@@ -89,25 +89,6 @@
                 }
               ]
             }
-          },
-          {
-            "name": "graphDatabaseVersion",
-            "type": "Microsoft.Common.DropDown",
-            "label": "Graph Database Version",
-            "defaultValue": "5",
-            "toolTip": "Graph Database Version",
-            "constraints": {
-              "allowedValues": [
-                {
-                  "label": "5",
-                  "value": "5"
-                },
-                {
-                  "label": "4.4",
-                  "value": "4.4"
-                }
-              ]
-            }
           }
         ]
       }
@@ -116,8 +97,7 @@
       "adminPassword": "[basics('adminPassword')]",
       "vmSize": "[steps('neo4jConfig').vmSize]",
       "diskSize": "[steps('neo4jConfig').diskSize]",
-      "graphDatabaseVersion": "[steps('neo4jConfig').graphDatabaseVersion]",
-      "location": "[location()]",
+      "location": "[location()]"
     }
   }
 }
