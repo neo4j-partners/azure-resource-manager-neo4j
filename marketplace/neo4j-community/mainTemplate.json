@@ -24,7 +24,7 @@
         "metadata": {
             "description": "The base URI where artifacts required by this template are located including a trailing '/'"
         },
-          "defaultValue": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/fix/makeArchiveScripts/"
+          "defaultValue": "[deployment().properties.templateLink.uri]"
       },
       "_artifactsLocationSasToken": {
         "type": "securestring",
@@ -49,8 +49,7 @@
       "nicName": "[concat('nic-',resourceGroup().name,'-',parameters('location'),'-',parameters('utcValue'))]",
       "publicIpName": "[concat('ip-neo4j-',resourceGroup().name,'-',parameters('location'),'-',parameters('utcValue'))]",
       "adminUsername": "[string('neo4j')]",
-      "doubleQuote": "\"",
-      "demoValue": "[deployment().properties.templateLink.uri]"
+      "doubleQuote": "\""
     },
     "resources": [
       {
@@ -312,7 +311,7 @@
             ]
           },
           "protectedSettings": {
-              "commandToExecute": "[concat(variables('bashCommand'),' ',variables('adminUsername'), ' ',variables('doubleQuote'),parameters('adminPassword'),variables('doubleQuote'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmName'), ' ',variables('demoValue'))]"
+              "commandToExecute": "[concat(variables('bashCommand'),' ',variables('adminUsername'), ' ',variables('doubleQuote'),parameters('adminPassword'),variables('doubleQuote'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmName'))]"
             }
         }
       }

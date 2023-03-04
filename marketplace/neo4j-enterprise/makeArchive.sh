@@ -5,7 +5,7 @@
 mkdir tmp
 cd tmp
 
-mkdir scripts
+mkdir -p scripts/node-enterprise
 cp ../../../scripts/node-enterprise/node.sh ./scripts/node-enterprise/node.sh
 cp ../../../scripts/node-enterprise/node4.sh ./scripts/node-enterprise/node4.sh
 cp ../../../scripts/node-enterprise/readreplica4.sh ./scripts/node-enterprise/readreplica4.sh

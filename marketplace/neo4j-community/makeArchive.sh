@@ -5,7 +5,7 @@
 mkdir tmp
 cd tmp
 
-mkdir scripts
+mkdir -p scripts/node-community
 cp ../../../scripts/neo4j-community/node.sh ./scripts/node-community/node.sh
 cp ../mainTemplate.json ./
 cp ../createUiDefinition.json ./
