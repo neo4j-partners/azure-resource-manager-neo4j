@@ -13,11 +13,13 @@ location=$4
 azLoginIdentity=$5
 resourceGroup=$6
 vmName=$7
+artifactsLocation=$8
 
 echo "Turning off firewalld"
 systemctl stop firewalld
 systemctl disable firewalld
 
+echo "Printing artifacts location ${artifactsLocation}"
 
 mount_data_disk() {
   #Format and mount the data disk to /var/lib/neo4j
