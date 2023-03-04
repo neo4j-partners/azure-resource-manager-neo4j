@@ -6,9 +6,9 @@ mkdir tmp
 cd tmp
 
 mkdir scripts
-cp ../../../scripts/node.sh ./scripts/node.sh
-cp ../../../scripts/node4.sh ./scripts/node4.sh
-cp ../../../scripts/readreplica4.sh ./scripts/readreplica4.sh
+cp ../../../scripts/node-enterprise/node.sh ./scripts/node-enterprise/node.sh
+cp ../../../scripts/node-enterprise/node4.sh ./scripts/node-enterprise/node4.sh
+cp ../../../scripts/node-enterprise/readreplica4.sh ./scripts/node-enterprise/readreplica4.sh
 cp ../mainTemplate.json ./
 cp ../createUiDefinition.json ./
 
