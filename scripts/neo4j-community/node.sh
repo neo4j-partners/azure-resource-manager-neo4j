@@ -18,7 +18,6 @@ echo "Turning off firewalld"
 systemctl stop firewalld
 systemctl disable firewalld
 
-
 mount_data_disk() {
   #Format and mount the data disk to /var/lib/neo4j
   local -r MOUNT_POINT="/var/lib/neo4j"
