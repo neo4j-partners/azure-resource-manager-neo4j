@@ -5,10 +5,10 @@
 mkdir tmp
 cd tmp
 
-mkdir -p scripts/node-enterprise
-cp ../../../scripts/node-enterprise/node.sh ./scripts/node-enterprise/node.sh
-cp ../../../scripts/node-enterprise/node4.sh ./scripts/node-enterprise/node4.sh
-cp ../../../scripts/node-enterprise/readreplica4.sh ./scripts/node-enterprise/readreplica4.sh
+mkdir -p scripts/neo4j-enterprise
+cp ../../../scripts/neo4j-enterprise/node.sh ./scripts/neo4j-enterprise/node.sh
+cp ../../../scripts/neo4j-enterprise/node4.sh ./scripts/neo4j-enterprise/node4.sh
+cp ../../../scripts/neo4j-enterprise/readreplica4.sh ./scripts/neo4j-enterprise/readreplica4.sh
 cp ../mainTemplate.json ./
 cp ../createUiDefinition.json ./
 
