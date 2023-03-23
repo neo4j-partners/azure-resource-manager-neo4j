@@ -1,7 +1,7 @@
 # marketplace
 This template is used by the Neo4j Azure Marketplace offer.  It is not intended to be used outside the marketplace.
 
-Unless you are a Neo4j employee updating the Azure Marketplace listing, you probably want to be using either the Marketplace listing itself or [simple](../simple).
+Unless you are a Neo4j employee updating the Azure Marketplace listing, you probably want to be using either the Marketplace listing itself.
 
 # Test the Template
 Documentation on how to do this is [here](https://docs.microsoft.com/en-us/azure/azure-resource-manager/templates/test-toolkit).  I haven't been able to get that working and have just used the portal.
