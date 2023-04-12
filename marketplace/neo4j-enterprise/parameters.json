@@ -35,7 +35,10 @@
   "bloomLicenseKey": {
     "value": "None"
   },
+  "licenseType": {
+    "value": "Evaluation"
+  },
   "_artifactsLocation": {
-    "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/feature/community/"
+    "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/feature/eval_license/"
   }
 }

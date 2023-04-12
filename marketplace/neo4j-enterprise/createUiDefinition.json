@@ -273,6 +273,26 @@
             }
           },
           {
+            "name": "licenseType",
+            "type": "Microsoft.Common.DropDown",
+            "label": "License Type",
+            "visible": "[equals(steps('neo4jConfig').graphDatabaseVersion,'5')]",
+            "defaultValue": "Enterprise",
+            "toolTip": "Neo4j License Type",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "Enterprise",
+                  "value": "Enterprise"
+                },
+                {
+                  "label": "Evaluation",
+                  "value": "Evaluation"
+                }
+              ]
+            }
+          },
+          {
             "name": "installGraphDataScience",
             "type": "Microsoft.Common.DropDown",
             "label": "Install Graph Data Science",
@@ -352,6 +372,7 @@
       "installBloom": "[steps('neo4jConfig').installBloom]",
       "bloomLicenseKey": "[steps('neo4jConfig').bloomLicenseKey]",
       "location": "[location()]",
+      "licenseType": "[steps('neo4jConfig').licenseType]",
       "readReplicaCount": "[steps('neo4jConfig').readReplicaCount]"
     }
   }
