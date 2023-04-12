@@ -59,7 +59,7 @@ jobs:
         PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
         curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
         chmod +x ./neo4jtester_linux
-        ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
+        ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}" "Enterprise"
 
     - name: Delete Resource Group
       if: always()
@@ -120,7 +120,7 @@ jobs:
           PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
           curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
           chmod +x ./neo4jtester_linux
-          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
+          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}" "Enterprise"
 
       - name: Delete Resource Group
         if: always()
@@ -181,7 +181,7 @@ jobs:
           PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
           curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
           chmod +x ./neo4jtester_linux
-          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
+          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}" "Evaluation"
 
       - name: Delete Resource Group
         if: always()
@@ -242,7 +242,7 @@ jobs:
           PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
           curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
           chmod +x ./neo4jtester_linux
-          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
+          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}" "Evaluation"
 
       - name: Delete Resource Group
         if: always()
@@ -303,7 +303,7 @@ jobs:
           PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
           curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
           chmod +x ./neo4jtester_linux
-          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
+          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}" "Enterprise"
 
       - name: Delete Resource Group
         if: always()
@@ -364,7 +364,7 @@ jobs:
           PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
           curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
           chmod +x ./neo4jtester_linux
-          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}"
+          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}" "Enterprise"
 
       - name: Delete Resource Group
         if: always()
