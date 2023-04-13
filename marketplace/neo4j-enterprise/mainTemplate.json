@@ -23,6 +23,10 @@
         "type": "string",
         "defaultValue": "No"
       },
+      "licenseType": {
+        "type": "string",
+        "defaultValue": "Enterprise"
+      },
       "graphDataScienceLicenseKey": {
         "type": "string",
         "defaultValue": "None"
@@ -497,7 +501,7 @@
                       ]
                     },
                     "protectedSettings": {
-                      "commandToExecute": "[concat(variables('bashCommand'), variables('adminUsername'), ' ',variables('doubleQuote'),parameters('adminPassword'),variables('doubleQuote'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'), ' ',if(equals(parameters('graphDatabaseVersion'),'4.4'),concat(parameters('readReplicaCount'),' '),''), if(variables('loadBalancerCondition'),reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName')),'2022-05-01').ipAddress,'-'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmScaleSetsName'))]"
+                      "commandToExecute": "[concat(variables('bashCommand'), variables('adminUsername'), ' ',variables('doubleQuote'),parameters('adminPassword'),variables('doubleQuote'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'), ' ',if(equals(parameters('graphDatabaseVersion'),'4.4'),concat(parameters('readReplicaCount'),' '),''), if(variables('loadBalancerCondition'),reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName')),'2022-05-01').ipAddress,'-'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmScaleSetsName'), ' ',if(equals(parameters('graphDatabaseVersion'),'5'),parameters('licenseType'),''))]"
                     }
                   }
                 }

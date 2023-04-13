@@ -22,6 +22,7 @@ loadBalancerDNSName=${11}
 azLoginIdentity=${12}
 resourceGroup=${13}
 vmScaleSetsName=${14}
+licenseType=${15}
 
 echo "Turning off firewalld"
 systemctl stop firewalld
@@ -84,7 +85,9 @@ EOF
 
   echo "Installing Graph Database..."
   export NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
-
+  if [[ "${licenseType}" == "Evaluation" ]]; then
+    export NEO4J_ACCEPT_LICENSE_AGREEMENT="eval"
+  fi
   set_yum_pkg
   yum -y install "${yumPkg}"
   systemctl enable neo4j
