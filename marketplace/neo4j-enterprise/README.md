@@ -96,7 +96,7 @@ The Publish Portal could potentially print an error: "The SAS URL start date (st
 
 The SAS URI should look like this:
 
-    https://sa45345345.blob.core.windows.net/vhds/osdisk_b91e6a0e9a.vhd?sp=r&st=2022-01-30T02:07:41Z&se=2023-01-30T10:07:41Z&spr=https&sv=2020-08-04&sr=b&sig=%2FNfIZWzp1pE2JcH2lQcVLx72k0M%2Fidaan%2BlNHWMzOl0%3D
+    https://sa45345345.blob.core.windows.net/vhds/osdisk_b91e6a0e9a.vhd?sp=r&st=2022-01-30T02:07:41Z&se=2023-01-30T10:07:41Z&spr=https&sv=2020-08-04&sr=b&sig=XXXXX
 
 Make sure it works by running:
 
