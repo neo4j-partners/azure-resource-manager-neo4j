@@ -96,7 +96,12 @@ jobs:
           DATE=`echo $(date '+%Y%m%d-%S-%2N')`
           RGNAME=`echo ghactions-rg-$DATE`
           DEPNAME=`echo ghactions-dep-$DATE`
+          ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/`
+          if ${{ github.event_name == 'workflow_dispatch' }}; then
+            ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/`
+          fi
           echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
+          echo "artifactsLocation=$ARTIFACTS_LOCATION" >> $GITHUB_OUTPUT          
           echo "depName=$DEPNAME" >> $GITHUB_OUTPUT
           echo "Resource Group name: $RGNAME"
           echo "Deployment name: $DEPNAME"
@@ -109,7 +114,7 @@ jobs:
             #!/bin/bash
             az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
             echo "Azure resource group created"
-            echo "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
+            echo "Artifacts Location = ${{ steps.variables.outputs.artifactsLocation }}"
 
       - name: Deploy ARM Template (Neo4j Standalone v5)
         id: deployARM
@@ -117,7 +122,7 @@ jobs:
         with:
           resourceGroupName: ${{ steps.variables.outputs.rgName }}
           template: ./marketplace/neo4j-enterprise/mainTemplate.json
-          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="1" graphDatabaseVersion="5" _artifactsLocation="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
+          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="1" graphDatabaseVersion="5" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
           deploymentName: ${{ steps.variables.outputs.depName }}
 
       - name: Execute tests
@@ -157,7 +162,12 @@ jobs:
           DATE=`echo $(date '+%Y%m%d-%S-%2N')`
           RGNAME=`echo ghactions-rg-$DATE`
           DEPNAME=`echo ghactions-dep-$DATE`
+          ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/`
+          if ${{ github.event_name == 'workflow_dispatch' }}; then
+            ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/`
+          fi
           echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
+          echo "artifactsLocation=$ARTIFACTS_LOCATION" >> $GITHUB_OUTPUT
           echo "depName=$DEPNAME" >> $GITHUB_OUTPUT
           echo "Resource Group name: $RGNAME"
           echo "Deployment name: $DEPNAME"
@@ -170,7 +180,7 @@ jobs:
             #!/bin/bash
             az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
             echo "Azure resource group created"
-            echo "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
+            echo "Artifacts Location = ${{ steps.variables.outputs.artifactsLocation }}"
 
       - name: Deploy ARM Template (Neo4j Cluster v5)
         id: deployARM
@@ -178,7 +188,7 @@ jobs:
         with:
           resourceGroupName: ${{ steps.variables.outputs.rgName }}
           template: ./marketplace/neo4j-enterprise/mainTemplate.json
-          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="3" graphDatabaseVersion="5" licenseType="Evaluation" _artifactsLocation="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
+          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="3" graphDatabaseVersion="5" licenseType="Evaluation" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
           deploymentName: ${{ steps.variables.outputs.depName }}
 
       - name: Execute tests
@@ -218,7 +228,12 @@ jobs:
           DATE=`echo $(date '+%Y%m%d-%S-%2N')`
           RGNAME=`echo ghactions-rg-$DATE`
           DEPNAME=`echo ghactions-dep-$DATE`
+          ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/`
+          if ${{ github.event_name == 'workflow_dispatch' }}; then
+            ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/`
+          fi
           echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
+          echo "artifactsLocation=$ARTIFACTS_LOCATION" >> $GITHUB_OUTPUT
           echo "depName=$DEPNAME" >> $GITHUB_OUTPUT
           echo "Resource Group name: $RGNAME"
           echo "Deployment name: $DEPNAME"
@@ -231,7 +246,7 @@ jobs:
             #!/bin/bash
             az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
             echo "Azure resource group created"
-            echo "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
+            echo "Artifacts Location = ${{ steps.variables.outputs.artifactsLocation }}"
 
       - name: Deploy ARM Template (Neo4j Standalone v5)
         id: deployARM
@@ -239,7 +254,7 @@ jobs:
         with:
           resourceGroupName: ${{ steps.variables.outputs.rgName }}
           template: ./marketplace/neo4j-enterprise/mainTemplate.json
-          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="1" graphDatabaseVersion="5" licenseType="Evaluation" _artifactsLocation="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
+          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="1" graphDatabaseVersion="5" licenseType="Evaluation" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
           deploymentName: ${{ steps.variables.outputs.depName }}
 
       - name: Execute tests
@@ -279,7 +294,12 @@ jobs:
           DATE=`echo $(date '+%Y%m%d-%S-%2N')`
           RGNAME=`echo ghactions-rg-$DATE`
           DEPNAME=`echo ghactions-dep-$DATE`
+          ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/`
+          if ${{ github.event_name == 'workflow_dispatch' }}; then
+            ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/`
+          fi
           echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
+          echo "artifactsLocation=$ARTIFACTS_LOCATION" >> $GITHUB_OUTPUT
           echo "depName=$DEPNAME" >> $GITHUB_OUTPUT
           echo "Resource Group name: $RGNAME"
           echo "Deployment name: $DEPNAME"
@@ -292,7 +312,7 @@ jobs:
             #!/bin/bash
             az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
             echo "Azure resource group created"
-            echo "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
+            echo "Artifacts Location = ${{ steps.variables.outputs.artifactsLocation }}"
 
       - name: Deploy ARM Template (Neo4j Cluster v4.4)
         id: deployARM
@@ -300,7 +320,7 @@ jobs:
         with:
           resourceGroupName: ${{ steps.variables.outputs.rgName }}
           template: ./marketplace/neo4j-enterprise/mainTemplate.json
-          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="3" graphDatabaseVersion="4.4" _artifactsLocation="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
+          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="3" graphDatabaseVersion="4.4" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
           deploymentName: ${{ steps.variables.outputs.depName }}
 
       - name: Execute tests
@@ -340,7 +360,12 @@ jobs:
           DATE=`echo $(date '+%Y%m%d-%S-%2N')`
           RGNAME=`echo ghactions-rg-$DATE`
           DEPNAME=`echo ghactions-dep-$DATE`
+          ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/`
+          if ${{ github.event_name == 'workflow_dispatch' }}; then
+            ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/`
+          fi
           echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
+          echo "artifactsLocation=$ARTIFACTS_LOCATION" >> $GITHUB_OUTPUT
           echo "depName=$DEPNAME" >> $GITHUB_OUTPUT
           echo "Resource Group name: $RGNAME"
           echo "Deployment name: $DEPNAME"
@@ -353,7 +378,7 @@ jobs:
             #!/bin/bash
             az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
             echo "Azure resource group created"
-            echo "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
+            echo "Artifacts Location = ${{ steps.variables.outputs.artifactsLocation }}"
 
       - name: Deploy ARM Template (Neo4j Standalone v4.4)
         id: deployARM
@@ -361,7 +386,7 @@ jobs:
         with:
           resourceGroupName: ${{ steps.variables.outputs.rgName }}
           template: ./marketplace/neo4j-enterprise/mainTemplate.json
-          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="1" graphDatabaseVersion="4.4" _artifactsLocation="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
+          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="1" graphDatabaseVersion="4.4" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
           deploymentName: ${{ steps.variables.outputs.depName }}
 
       - name: Execute tests
