@@ -1,6 +1,7 @@
 name: Test ARM Template for Community
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - marketplace/neo4j-community/**
