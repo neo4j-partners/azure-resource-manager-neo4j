@@ -6,6 +6,7 @@ on:
     paths:
       - marketplace/neo4j-enterprise/**
       - scripts/neo4j-enterprise/**
+      - .github/**
     branches:    
       - main
 
