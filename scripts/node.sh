@@ -25,32 +25,47 @@ systemctl disable firewalld
 #Format and mount the data disk to /var/lib/neo4j
 MOUNT_POINT="/var/lib/neo4j"
 
-DATA_DISK_DEVICE=$(parted -l 2>&1 | grep Error | awk {'print $2'} | sed 's/\://')
+DATA_DISK_DEVICE=$(sudo parted -l 2>&1 | grep Error | awk {'print $2'} | sed 's/\://')
 
 sudo parted $DATA_DISK_DEVICE --script mklabel gpt mkpart xfspart xfs 0% 100%
 sudo mkfs.xfs $DATA_DISK_DEVICE\1
 sudo partprobe $DATA_DISK_DEVICE\1
-mkdir $MOUNT_POINT
+sudo mkdir $MOUNT_POINT
 
-DATA_DISK_UUID=$(blkid | grep $DATA_DISK_DEVICE\1 | awk {'print $2'} | sed s/\"//g)
+DATA_DISK_UUID=$(sudo blkid | grep $DATA_DISK_DEVICE\1 | awk {'print $2'} | sed s/\"//g)
 
-echo "$DATA_DISK_UUID $MOUNT_POINT xfs defaults 0 0" >> /etc/fstab
+echo "$DATA_DISK_UUID $MOUNT_POINT xfs defaults 0 0" | sudo tee -a /etc/fstab
 
-systemctl daemon-reload
-mount -a
+sudo systemctl daemon-reload
+sudo mount -a
 
 
 install_azure_from_dnf() {
+sudo dnf remove -y $(rpm -qa | grep -i rhui)
+sudo rm -f /etc/yum.repos.d/rh-cloud.repo
+sudo rm -f /etc/yum.repos.d/rhui-microsoft-azure-rhel9.repo
+sudo rm -f /etc/yum.repos.d/rhui-load-balancers.conf
 
-  sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
-  sudo dnf install -y https://packages.microsoft.com/config/rhel/8/packages-microsoft-prod.rpm
-echo -e "[azure-cli]
-name=Azure CLI
-baseurl=https://packages.microsoft.com/yumrepos/azure-cli
+cat << EOF | sudo tee /etc/yum.repos.d/ubi.repo
+[ubi-9-baseos]
+name=Red Hat Universal Base Image 9 - BaseOS
+baseurl=https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os
 enabled=1
-gpgcheck=1
-gpgkey=https://packages.microsoft.com/keys/microsoft.asc" | sudo tee /etc/yum.repos.d/azure-cli.repo
+gpgcheck=0
+
+[ubi-9-appstream]
+name=Red Hat Universal Base Image 9 - AppStream
+baseurl=https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os
+enabled=1
+gpgcheck=0
+EOF
+
+sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+sudo curl -o /etc/yum.repos.d/microsoft-prod.repo https://packages.microsoft.com/config/rhel/9/prod.repo
+sudo dnf clean all
+sudo dnf makecache
 sudo dnf install -y azure-cli
+
 }
 
 perform_az_login() {
@@ -61,18 +76,19 @@ perform_az_login() {
 install_neo4j_from_yum() {
 
   echo "Adding neo4j yum repo..."
-  rpm --import https://debian.neo4j.com/neotechnology.gpg.key
-  echo "
+  sudo rpm --import https://debian.neo4j.com/neotechnology.gpg.key
+echo "
 [neo4j]
 name=Neo4j Yum Repo
 baseurl=http://yum.neo4j.com/stable/5
 enabled=1
-gpgcheck=1" > /etc/yum.repos.d/neo4j.repo
+gpgcheck=1" | sudo tee /etc/yum.repos.d/neo4j.repo
 
   echo "Installing Graph Database..."
-  export NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
-  yum -y install neo4j-enterprise-"${graphDatabaseVersion}"
-  systemctl enable neo4j
+sudo NEO4J_ACCEPT_LICENSE_AGREEMENT=yes yum -y install neo4j-enterprise-"${graphDatabaseVersion}"
+export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+echo "export JAVA_HOME=$JAVA_HOME" | sudo tee -a /etc/profile.d/java.sh
+  sudo systemctl enable neo4j
 }
 
 install_apoc_plugin() {
@@ -118,7 +134,7 @@ extension_config() {
 
 start_neo4j() {
   echo "Starting Neo4j..."
-  service neo4j start
+  sudo systemctl start neo4j
   neo4j-admin dbms set-initial-password "${adminPassword}"
   while [[ \"$(curl -s -o /dev/null -m 3 -L -w '%{http_code}' http://localhost:7474 )\" != \"200\" ]];
     do echo "Waiting for cluster to start"
