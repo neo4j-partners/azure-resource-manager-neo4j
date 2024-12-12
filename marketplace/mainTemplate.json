@@ -317,7 +317,7 @@
         "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
         "name": "[variables('userAssignedIdentityName')]",
         "apiVersion": "2018-11-30",
-        "location": "[resourceGroup().location]"
+        "location": "[parameters('location')]"
       },
       {
         "type": "Microsoft.Authorization/roleAssignments",
