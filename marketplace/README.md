@@ -59,7 +59,7 @@ We want the latest RHEL platform image.
 
     az group create --name $resourceGroup --location westus
     az storage account create --sku Premium_LRS --resource-group $resourceGroup --location westus --name $saAccountName
-    az vm create --name vm --resource-group $resourceGroup --image RedHat:RHEL:8_5:latest --admin-username neo4j --use-unmanaged-disk --storage-account $saAccountName --admin-password fooBar12345!
+    az vm create --name vm --resource-group $resourceGroup --image RedHat:RHEL:9_5:latest --admin-username neo4j --use-unmanaged-disk --storage-account $saAccountName --admin-password fooBar12345!
 
 SSH into the image using the command:
 
