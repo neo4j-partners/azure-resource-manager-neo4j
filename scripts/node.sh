@@ -41,12 +41,12 @@ sudo mount -a
 
 
 install_azure_from_dnf() {
-sudo dnf remove -y $(rpm -qa | grep -i rhui)
-sudo rm -f /etc/yum.repos.d/rh-cloud.repo
-sudo rm -f /etc/yum.repos.d/rhui-microsoft-azure-rhel9.repo
-sudo rm -f /etc/yum.repos.d/rhui-load-balancers.conf
+    sudo dnf remove -y $(rpm -qa | grep -i rhui)
+    sudo rm -f /etc/yum.repos.d/rh-cloud.repo
+    sudo rm -f /etc/yum.repos.d/rhui-microsoft-azure-rhel9.repo
+    sudo rm -f /etc/yum.repos.d/rhui-load-balancers.conf
 
-cat << EOF | sudo tee /etc/yum.repos.d/ubi.repo
+    cat << EOF | sudo tee /etc/yum.repos.d/ubi.repo
 [ubi-9-baseos]
 name=Red Hat Universal Base Image 9 - BaseOS
 baseurl=https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os
@@ -60,17 +60,47 @@ enabled=1
 gpgcheck=0
 EOF
 
-sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
-sudo curl -o /etc/yum.repos.d/microsoft-prod.repo https://packages.microsoft.com/config/rhel/9/prod.repo
-sudo dnf clean all
-sudo dnf makecache
-sudo dnf install -y azure-cli
+    # Remove existing Microsoft repository configuration
+    sudo rm -f /etc/yum.repos.d/microsoft-prod.repo
+    sudo rm -f /etc/yum.repos.d/microsoft.repo
 
+    for i in {1..3}; do
+        if sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc; then
+            break
+        fi
+        sleep 5
+    done
+
+    # Add Microsoft repository with gpgcheck disabled initially
+    cat << EOF | sudo tee /etc/yum.repos.d/microsoft.repo
+[packages-microsoft-com-prod]
+name=Microsoft Products
+baseurl=https://packages.microsoft.com/rhel/9/prod/
+enabled=1
+gpgcheck=0
+EOF
+    sudo chmod +x /usr/local/bin/az
+
+    # Clean and update DNF cache
+    sudo dnf clean all
+    sudo dnf makecache
+
+    # Install Azure CLI
+    sudo dnf install -y azure-cli
+
+    # Re-enable gpgcheck after installation
+    sudo sed -i 's/gpgcheck=0/gpgcheck=1/' /etc/yum.repos.d/microsoft.repo
 }
 
 perform_az_login() {
-  echo "Performing az login"
-  az login --identity -u "${azLoginIdentity}"
+  echo "Checking if Azure CLI is installed..."
+  if command -v az &> /dev/null; then
+    echo "Azure CLI is installed. Performing az login..."
+    az login --identity -u "${azLoginIdentity}"
+  else
+    echo "Azure CLI is not installed. Skipping az login."
+
+  fi
 }
 
 install_neo4j_from_yum() {
