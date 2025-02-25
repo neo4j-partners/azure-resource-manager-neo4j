@@ -79,7 +79,6 @@ baseurl=https://packages.microsoft.com/rhel/9/prod/
 enabled=1
 gpgcheck=0
 EOF
-    sudo chmod +x /usr/local/bin/az
 
     # Clean and update DNF cache
     sudo dnf clean all
