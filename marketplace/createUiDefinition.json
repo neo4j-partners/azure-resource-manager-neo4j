@@ -142,7 +142,7 @@
             "name": "graphDatabaseVersion",
             "type": "Microsoft.Common.TextBox",
             "label": "Graph Database Version",
-            "defaultValue": "5.1.0",
+            "defaultValue": "5.26.3",
             "toolTip": "Graph Database Version",
             "constraints": {
               "required": true,
@@ -211,6 +211,25 @@
               "regex": "[a-zA-Z0-9_.-]*",
               "validationMessage": "If you don't have a key enter None.  The license key is made up of letters, numbers and the characters -, _ and ."
             }
+          },
+          {
+            "name": "licenseType",
+            "type": "Microsoft.Common.DropDown",
+            "label": "License Type",
+            "defaultValue": "BYOL",
+            "toolTip": "Select the license type for Neo4j. BYOL (Bring Your Own License) or Evaluation.",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "BYOL (Bring Your Own License)",
+                  "value": "BYOL"
+                },
+                {
+                  "label": "Evaluation",
+                  "value": "Evaluation"
+                }
+              ]
+            }
           }
         ]
       }
@@ -226,6 +245,7 @@
       "graphDataScienceLicenseKey": "[steps('neo4jConfig').graphDataScienceLicenseKey]",
       "installBloom": "[steps('neo4jConfig').installBloom]",
       "bloomLicenseKey": "[steps('neo4jConfig').bloomLicenseKey]",
+      "licenseType": "[steps('neo4jConfig').licenseType]",
       "location": "[location()]"
     }
   }

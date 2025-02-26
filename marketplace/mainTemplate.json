@@ -1,4 +1,4 @@
-{
+  {
     "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
@@ -13,7 +13,7 @@
       },
       "graphDatabaseVersion": {
         "type": "string",
-        "defaultValue": "5.1.0"
+        "defaultValue": "5.26.3"
       },
       "installGraphDataScience": {
         "type": "string"
@@ -26,6 +26,17 @@
       },
       "bloomLicenseKey": {
         "type": "string"
+      },
+      "licenseType": {
+        "type": "string",
+        "defaultValue": "BYOL",
+        "allowedValues": [
+          "BYOL",
+          "Evaluation"
+        ],
+        "metadata": {
+          "description": "License type for Neo4j. BYOL (Bring Your Own License) or Evaluation."
+        }
       },
       "nodeCount": {
         "type": "int",
@@ -333,12 +344,26 @@
         }
       },
       {
+        "type": "Microsoft.Authorization/roleAssignments",
+        "dependsOn" : [
+          "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities',variables('userAssignedIdentityName'))]"
+        ],
+        "apiVersion": "2022-04-01",
+        "name": "[guid(concat('tagcontributor-neo4j-',parameters('location'),'-',parameters('utcValue')))]",
+        "properties": {
+          "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '4a9ae827-6dc8-4573-8ac7-8239d42aa03f')]",
+          "principalType": "ServicePrincipal",
+          "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('userAssignedIdentityName'))).principalId]"
+        }
+      },
+      {
         "type": "Microsoft.Compute/virtualMachineScaleSets",
         "name": "[variables('vmScaleSetsName')]",
         "location": "[parameters('location')]",
         "apiVersion": "2018-06-01",
         "dependsOn": [
           "[resourceId('Microsoft.Authorization/roleAssignments',variables('roleAssignmentName'))]",
+          "[resourceId('Microsoft.Authorization/roleAssignments',guid(concat('tagcontributor-neo4j-',parameters('location'),'-',parameters('utcValue'))))]",
           "[resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))]",
           "[if(greaterOrEquals(parameters('nodeCount'),3),resourceId('Microsoft.Network/loadBalancers',variables('loadBalancerName')),resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')))]"
         ],
@@ -435,7 +460,7 @@
                       ]
                     },
                     "protectedSettings": {
-                      "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'), ' ', if(greaterOrEquals(parameters('nodeCount'),3),reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName')),'2022-05-01').ipAddress,'-'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmScaleSetsName'))]"
+                      "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('installGraphDataScience'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('installBloom'), ' ', parameters('bloomLicenseKey'), ' ', parameters('nodeCount'), ' ', if(greaterOrEquals(parameters('nodeCount'),3),reference(resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName')),'2022-05-01').ipAddress,'-'), ' ',variables('azLoginIdentity'), ' ',resourceGroup().name, ' ',variables('vmScaleSetsName'), ' ', parameters('licenseType'))]"
                     }
                   }
                 }
