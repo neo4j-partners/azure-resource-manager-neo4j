@@ -138,7 +138,7 @@ set_yum_pkg() {
 }
 
 configure_graph_data_science() {
-  if [[ "${installGraphDataScience}" == Yes && "${nodeCount}" == 1 ]]; then
+  if [[ "${installGraphDataScience}" == True && "${nodeCount}" == 1 ]]; then
     echo "Installing Graph Data Science..."
     cp /var/lib/neo4j/products/neo4j-graph-data-science-*.jar /var/lib/neo4j/plugins
     chown neo4j:neo4j /var/lib/neo4j/plugins/neo4j-graph-data-science-*.jar
@@ -154,7 +154,7 @@ configure_graph_data_science() {
 }
 
 configure_bloom() {
-  if [[ ${installBloom} == Yes ]]; then
+  if [[ ${installBloom} == True ]]; then
     echo "Installing Bloom..."
     cp /var/lib/neo4j/products/bloom-plugin-*.jar /var/lib/neo4j/plugins
     chown neo4j:neo4j /var/lib/neo4j/plugins/bloom-plugin-*.jar
