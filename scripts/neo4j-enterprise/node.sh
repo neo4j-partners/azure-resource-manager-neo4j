@@ -105,30 +105,21 @@ get_latest_neo4j_version() {
   echo "Latest Neo4j Version is ${latest_neo4j_version}"
 }
 
-get_vmss_tags() {
-  taggedNeo4jVersion=$(az vmss list --resource-group ${resourceGroup} | jq --arg vmssName "${vmScaleSetsName}" '.[] | select(.name==$vmssName).tags.Neo4jVersion')
-  echo "Tagged Neo4j Version ${taggedNeo4jVersion}"
-}
-
-set_vmss_tags() {
-  installed_neo4j_version=$(/usr/bin/neo4j --version)
-  echo "Installed neo4j version is ${installed_neo4j_version}. Trying to set vmss tags"
-  resourceId=$(az vmss list --resource-group "${resourceGroup}" | jq -r '.[] | .id')
-  az tag create --tags Neo4jVersion="${installed_neo4j_version}" --resource-id "${resourceId}"
-  echo "Added tag Neo4jVersion=${installed_neo4j_version}"
-}
+# REMOVED: Self-tagging functions no longer needed
+# Tags are now set directly in ARM template (no custom RBAC roles required)
+# get_vmss_tags() { ... }
+# set_vmss_tags() { ... }
 
 set_yum_pkg() {
+    # Use template parameter directly (no tag lookup needed)
     yumPkg="neo4j-enterprise"
-    get_vmss_tags
-    if [[ -z "${taggedNeo4jVersion}" || "${taggedNeo4jVersion}" == "null" ]]; then
-      get_latest_neo4j_version
-      if [[ ! -z "${latest_neo4j_version}" ]]; then
-        yumPkg="neo4j-enterprise-${latest_neo4j_version}"
-      fi
-    else
-      yumPkg="neo4j-enterprise-${taggedNeo4jVersion}"
+
+    # Get latest version for the major version specified
+    get_latest_neo4j_version
+    if [[ ! -z "${latest_neo4j_version}" ]]; then
+      yumPkg="neo4j-enterprise-${latest_neo4j_version}"
     fi
+
     echo "Installing the yumpkg ${yumPkg}"
 }
 
@@ -260,4 +251,4 @@ build_neo4j_conf_file
 configure_graph_data_science
 configure_bloom
 start_neo4j
-set_vmss_tags
+# set_vmss_tags - REMOVED: Tags now set by ARM template

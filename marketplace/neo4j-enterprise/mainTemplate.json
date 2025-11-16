@@ -362,52 +362,20 @@
         "location": "[parameters('location')]"
       },
       {
-        "type": "Microsoft.Authorization/roleDefinitions",
-        "apiVersion": "2018-07-01",
-        "name": "[variables('roleDefName')]",
-        "properties": {
-          "roleName": "[variables('roleName')]",
-          "description": "Allow access to create tags on vmss",
-          "type": "customRole",
-          "permissions": [
-            {
-              "actions": [
-                "Microsoft.Compute/virtualMachineScaleSets/read",
-                "Microsoft.Compute/virtualMachineScaleSets/*/read",
-                "Microsoft.Resources/tags/write",
-                "Microsoft.Resources/tags/read",
-                "Microsoft.Resources/tags/delete"
-              ]
-            }
-          ],
-          "assignableScopes": [
-            "[resourceGroup().id]"
-          ]
-        }
-      },
-      {
-        "type": "Microsoft.Authorization/roleAssignments",
-        "dependsOn" : [
-          "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities',variables('userAssignedIdentityName'))]",
-          "[resourceId('Microsoft.Authorization/roleDefinitions',variables('roleDefName'))]"
-        ],
-        "apiVersion": "2022-04-01",
-        "name": "[variables('roleAssignmentName')]",
-        "properties": {
-          "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions',variables('roleDefName'))]",
-          "principalType": "ServicePrincipal",
-          "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('userAssignedIdentityName'))).principalId]"
-        }
-      },
-      {
         "type": "Microsoft.Compute/virtualMachineScaleSets",
         "name": "[variables('vmScaleSetsName')]",
         "location": "[parameters('location')]",
         "apiVersion": "2018-06-01",
         "dependsOn": [
-          "[resourceId('Microsoft.Authorization/roleAssignments',variables('roleAssignmentName'))]",
           "[variables('vmScaleSetsDependsOn')]"
         ],
+        "tags": {
+          "Neo4jVersion": "[parameters('graphDatabaseVersion')]",
+          "Neo4jEdition": "[parameters('licenseType')]",
+          "NodeCount": "[parameters('nodeCount')]",
+          "DeployedBy": "arm-template",
+          "TemplateVersion": "1.0.0"
+        },
         "identity": {
           "type": "userAssigned",
           "userAssignedIdentities": {
