@@ -49,11 +49,11 @@ mount_data_disk() {
 }
 
 install_azure_from_dnf() {
-
+  # Import Microsoft signing key
   sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
-  sudo dnf install -y https://packages.microsoft.com/config/rhel/8/packages-microsoft-prod.rpm
 
-  cat <<EOF >/etc/yum.repos.d/azure-cli.repo
+  # Create Azure CLI repository directly (no packages-microsoft-prod.rpm needed)
+  cat <<EOF | sudo tee /etc/yum.repos.d/azure-cli.repo
 [azure-cli]
 name=Azure CLI
 baseurl=https://packages.microsoft.com/yumrepos/azure-cli
@@ -62,7 +62,8 @@ gpgcheck=1
 gpgkey=https://packages.microsoft.com/keys/microsoft.asc
 EOF
 
-sudo dnf install -y azure-cli
+  # Install Azure CLI
+  sudo dnf install -y azure-cli
 }
 
 perform_az_login() {
