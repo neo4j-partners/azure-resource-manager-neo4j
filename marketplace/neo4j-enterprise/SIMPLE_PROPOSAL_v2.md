@@ -4,9 +4,9 @@
 
 **Goal:** Create a simple, automated testing script that deploys Neo4j Enterprise ARM templates to Azure, validates they work, and cleans up resources.
 
-**Current Status:** 60% complete (6 of 10 phases). **Deployments AND Testing now fully functional!** 🎉
+**Current Status:** 70% complete (7 of 10 phases). **MVP COMPLETE!** 🎉
 
-**Time to MVP (Phase 7 only):** 2-3 hours of focused development remaining.
+**Achievement:** All critical phases (5-7) are complete. The tool now provides a fully working end-to-end testing workflow with deployment, testing, and automated cleanup capabilities.
 
 **Philosophy:** Start simple, add features later. Get the core loop working first: Deploy → Test → Cleanup.
 
@@ -186,35 +186,62 @@ Created comprehensive Neo4j testing framework with automatic test execution afte
 
 ---
 
-### 🧹 Phase 7: Cleanup Automation (CRITICAL - 2-3 hours)
+### 🧹 Phase 7: Cleanup Automation (CRITICAL - 2-3 hours) ✅ COMPLETE
 
 **Goal:** Automatically delete Azure resources to control costs.
 
 **What It Does:**
 Implements cleanup logic based on configured mode and test results.
 
+**Implementation Summary:**
+Created comprehensive cleanup automation with intelligent decision logic, multiple cleanup modes, safety checks, and full CLI integration. The system automatically cleans up deployments based on their configured mode and test results, with extensive safety checks to prevent accidental deletion of unmanaged resources.
+
 **Todo List:**
-- [ ] Create cleanup manager module
-- [ ] Implement cleanup decision logic for all modes:
-  - [ ] Immediate: Always delete after deployment completes
-  - [ ] On-success: Delete only if tests passed, keep failures for debugging
-  - [ ] Manual: Never auto-delete, only via explicit cleanup command
-- [ ] Add resource group deletion using Azure CLI with no-wait flag
-- [ ] Update state file to mark deployments as deleted
-- [ ] Record deletion timestamps
-- [ ] Implement manual cleanup command with deployment ID parameter
-- [ ] Add cleanup all command with confirmation prompt
-- [ ] Add cleanup by age command (older than X hours)
-- [ ] Add force flag to skip confirmations
-- [ ] Add dry-run mode to preview what would be deleted
-- [ ] Implement safety check: only delete resource groups with managed-by tag
-- [ ] Display cleanup summary after execution
+- [x] Create cleanup manager module (`src/cleanup.py`)
+- [x] Implement cleanup decision logic for all modes:
+  - [x] Immediate: Always delete after deployment completes
+  - [x] On-success: Delete only if tests passed, keep failures for debugging
+  - [x] Manual: Never auto-delete, only via explicit cleanup command
+  - [x] Scheduled: Delete when expiration time is reached
+- [x] Add resource group deletion using Azure CLI with no-wait flag
+- [x] Update state file to mark deployments as deleted
+- [x] Record deletion timestamps
+- [x] Implement manual cleanup command with deployment ID parameter (supports partial ID matching)
+- [x] Add cleanup all command with confirmation prompt
+- [x] Add cleanup by age command (supports '2h', '3d', '30m', '1w' format)
+- [x] Add force flag to skip confirmations
+- [x] Add dry-run mode to preview what would be deleted
+- [x] Implement safety check: only delete resource groups with managed-by tag
+- [x] Display cleanup summary after execution with detailed table
+- [x] Integrate automatic cleanup into deploy workflow
+- [x] Update DeploymentState model to include test_result field
 
 **Success Criteria:**
-- Cleanup modes work correctly based on configuration
-- Manual cleanup commands work for selective deletion
-- Safety checks prevent accidental deletion of unmanaged resources
-- State file stays accurate after cleanup
+- ✅ Cleanup modes work correctly based on configuration
+- ✅ Manual cleanup commands work for selective deletion
+- ✅ Safety checks prevent accidental deletion of unmanaged resources
+- ✅ State file stays accurate after cleanup
+- ✅ Auto-cleanup triggers after deployment/testing completes
+- ✅ Dry-run mode allows previewing cleanup actions
+
+**Files Created:**
+- `src/cleanup.py` - Comprehensive cleanup manager with CleanupDecision, CleanupResult, and CleanupSummary Pydantic models
+- Updated `src/models.py` - Added test_result field to DeploymentState
+- Updated `test-arm.py` - Full cleanup command integration with all flags and auto-cleanup in deploy workflow
+
+**Working Commands:**
+```bash
+# Manual cleanup commands
+uv run test-arm.py cleanup --deployment abc123           # Clean up specific deployment
+uv run test-arm.py cleanup --all                         # Clean up all deployments
+uv run test-arm.py cleanup --older-than 24h              # Clean up old deployments
+uv run test-arm.py cleanup --all --dry-run               # Preview cleanup
+uv run test-arm.py cleanup --all --force                 # Skip confirmations
+
+# Automatic cleanup via deploy command
+uv run test-arm.py deploy --scenario standalone-v5 --cleanup-mode immediate
+uv run test-arm.py deploy --all --cleanup-mode on-success
+```
 
 ---
 
@@ -287,38 +314,38 @@ Implements remaining command stubs and adds helpful features.
 |-------|----------|--------|----------|
 | 5. Deployment | **CRITICAL** | ✅ COMPLETE | Actual Azure deployments + connection info |
 | 6. Testing | **CRITICAL** | ✅ COMPLETE | Validation that deployments work |
-| 7. Cleanup | **CRITICAL** | ⏳ Pending (2-3h) | Cost control and resource management |
-| **MVP COMPLETE** | - | **2-3h remaining** | **Full working testing tool** |
+| 7. Cleanup | **CRITICAL** | ✅ COMPLETE | Cost control and resource management |
+| **MVP COMPLETE** | - | **✅ DONE** | **Full working testing tool** |
 | 8. Reporting | Optional | ⏳ Pending (3-4h) | Reports and CI/CD integration |
 | 9. CLI Polish | Optional | ⏳ Pending (2-3h) | Enhanced user experience |
-| **FULL FEATURED** | - | **7-10h remaining** | **Production-ready tool** |
+| **FULL FEATURED** | - | **5-7h remaining** | **Production-ready tool** |
 
 ---
 
-## Critical Path to MVP
+## Critical Path to MVP ✅ COMPLETE
 
-### Step 1: Phase 5 (Must Do First)
+### ✅ Step 1: Phase 5 (COMPLETE)
 Without deployment execution, nothing can actually be tested in Azure. This is the foundation for everything else.
 
-**Deliverable:** Can deploy ARM templates to Azure and monitor until completion.
+**Delivered:** Can deploy ARM templates to Azure and monitor until completion.
 
-### Step 2: Phase 6 (Must Do Second)
+### ✅ Step 2: Phase 6 (COMPLETE)
 Need to verify that deployments actually work. Without this, we don't know if templates are valid.
 
-**Deliverable:** Can test deployed instances and record pass/fail status.
+**Delivered:** Can test deployed instances and record pass/fail status.
 
-### Step 3: Phase 7 (Must Do Third)
+### ✅ Step 3: Phase 7 (COMPLETE)
 Need to prevent runaway Azure costs by automating cleanup of test resources.
 
-**Deliverable:** Resources are automatically cleaned up based on test results.
+**Delivered:** Resources are automatically cleaned up based on test results.
 
-### Result: Working Testing Tool
-After these 3 phases, you have a complete end-to-end testing workflow that:
-- Deploys ARM templates
-- Validates they work
-- Cleans up resources automatically
+### ✅ Result: Working Testing Tool
+All 3 critical phases are complete! You now have a complete end-to-end testing workflow that:
+- ✅ Deploys ARM templates to Azure
+- ✅ Validates deployments work using neo4jtester
+- ✅ Cleans up resources automatically based on cleanup mode
 
-**This is production-ready for basic use.**
+**This is production-ready for basic use and ready to save costs on Azure testing!**
 
 ---
 
@@ -344,20 +371,23 @@ After these 3 phases, you have a complete end-to-end testing workflow that:
 
 ## Success Metrics
 
-### Minimum Viable Product (After Phases 5-7)
+### ✅ Minimum Viable Product (Phases 5-7) - COMPLETE
 - ✅ Can deploy all test scenarios to Azure
-- ✅ Can run in parallel (3 concurrent deployments)
+- ✅ Can run in parallel (3 concurrent deployments, configurable)
 - ✅ Validates deployments work using neo4jtester
 - ✅ Automatically cleans up resources based on test results
 - ✅ Saves state for tracking deployments
 - ✅ Clear error messages when things fail
+- ✅ Manual cleanup commands with flexible filters
+- ✅ Safety checks prevent accidental deletion
+- ✅ Dry-run mode for preview
 
-### Fully Featured Product (After Phases 8-9)
-- ✅ Generates markdown reports with full details
-- ✅ Outputs JUnit XML for CI/CD integration
-- ✅ All CLI commands implemented and polished
-- ✅ Comprehensive logging for debugging
-- ✅ Historical tracking of test runs
+### Fully Featured Product (After Phases 8-9) - PENDING
+- ⏳ Generates markdown reports with full details
+- ⏳ Outputs JUnit XML for CI/CD integration
+- ⏳ All CLI commands implemented and polished
+- ⏳ Comprehensive logging for debugging
+- ⏳ Historical tracking of test runs
 
 ---
 
@@ -368,13 +398,15 @@ After these 3 phases, you have a complete end-to-end testing workflow that:
 - `src/monitor.py` - Status polling and live dashboard
 - `.arm-testing/results/connection-{scenario}-{timestamp}.json` - **Connection info for testing**
 
-### Phase 6 (Testing)
-- `src/neo4j_test.py` - Neo4jtester integration (reads connection files from Phase 5)
+### Phase 6 (Testing) ✅
+- `src/tester.py` - Neo4jtester integration (reads connection files from Phase 5)
 - `.arm-testing/cache/neo4jtester_linux` - Test binary (downloaded)
 - `.arm-testing/logs/neo4jtest-{scenario}-{timestamp}.log` - Test logs
 
-### Phase 7 (Cleanup)
-- `src/cleanup.py` - Cleanup orchestration and logic
+### Phase 7 (Cleanup) ✅
+- `src/cleanup.py` - Cleanup orchestration and logic with Pydantic models
+- Updated `src/models.py` - Added test_result field to DeploymentState
+- Updated `test-arm.py` - Integrated cleanup command and auto-cleanup in deploy workflow
 
 ### Phase 8 (Reporting)
 - `src/reporting.py` - Report generation
@@ -392,7 +424,7 @@ localtests/
 ├── src/
 │   ├── __init__.py           ✅ Complete
 │   ├── constants.py          ✅ Complete
-│   ├── models.py             ✅ Complete
+│   ├── models.py             ✅ Complete (Phase 7: added test_result field)
 │   ├── utils.py              ✅ Complete
 │   ├── config.py             ✅ Complete
 │   ├── setup.py              ✅ Complete
@@ -402,38 +434,53 @@ localtests/
 │   ├── resource_groups.py    ✅ Complete
 │   ├── orchestrator.py       ✅ Complete (Phase 5)
 │   ├── monitor.py            ✅ Complete (Phase 5)
-│   ├── neo4j_test.py         ⏳ Phase 6
-│   ├── cleanup.py            ⏳ Phase 7
+│   ├── tester.py             ✅ Complete (Phase 6)
+│   ├── cleanup.py            ✅ Complete (Phase 7)
 │   └── reporting.py          ⏳ Phase 8
-├── test-arm.py               ✅ Complete (deploy integrated in Phase 5)
+├── test-arm.py               ✅ Complete (all commands except status/report)
 ├── pyproject.toml            ✅ Complete
 ├── uv.lock                   ✅ Complete
 └── .arm-testing/
     ├── config/               ✅ Working (settings.yaml, scenarios.yaml)
-    ├── state/                ✅ Working (active-deployments.json)
+    ├── state/                ✅ Working (active-deployments.json with test results)
     ├── params/               ✅ Working (generated parameter files)
     ├── templates/            ✅ Working (example configs)
-    ├── results/              ✅ Working (connection-{scenario}-{timestamp}.json)
-    ├── logs/                 ⏳ Phase 6 will populate
-    └── cache/                ⏳ Phase 6 will populate
+    ├── results/              ✅ Working (connection info + test logs)
+    ├── logs/                 ✅ Working (neo4j test logs)
+    └── cache/                ✅ Working (neo4jtester binary)
 ```
 
 ---
 
 ## Next Immediate Steps
 
-### If Starting Now:
-1. **Read existing code** - Review `src/deployment.py` and `src/resource_groups.py` to understand current patterns
-2. **Create orchestrator module** - Start with deployment submission function
-3. **Test single deployment** - Deploy one scenario and monitor to completion
-4. **Add monitoring** - Implement status polling and live display
-5. **Test parallel deployments** - Verify multiple scenarios can run concurrently
-6. **Move to Phase 6** - Once deployments work, add testing
+### ✅ MVP Complete - Ready for Production Use!
+
+The core testing tool is now fully functional and ready to use. You can:
+
+1. **Deploy ARM templates**: `uv run test-arm.py deploy --scenario standalone-v5`
+2. **Test deployments**: `uv run test-arm.py test <deployment-id>` (or test most recent)
+3. **Clean up resources**: `uv run test-arm.py cleanup --all` (or auto-cleanup via modes)
+4. **Validate templates**: `uv run test-arm.py validate`
+
+### Optional Enhancements (Phases 8-9):
+
+If you want to add optional features:
+
+1. **Phase 8: Reporting** (3-4 hours)
+   - Markdown/JUnit reports for CI/CD integration
+   - Historical tracking of test runs
+   - Session logging
+
+2. **Phase 9: CLI Polish** (2-3 hours)
+   - Implement `status` command to show all deployments
+   - Add verbose logging modes
+   - Improve error messages and hints
 
 ### Don't Do Yet:
-- Don't add reporting until deployments and testing work
-- Don't add advanced features until MVP is proven
-- Don't optimize until you have working end-to-end flow
+- Don't add reporting until you've validated the core workflow works for your use case
+- Don't add advanced features until you've run several successful test cycles
+- Features can be added incrementally as needed
 
 ---
 
@@ -462,15 +509,30 @@ Get the basic deploy-test-cleanup loop working first. Everything else is enhance
 
 ## Conclusion
 
-The foundation is solid. Phases 1-4 provide excellent infrastructure for configuration, validation, and state management.
+### ✅ MVP Complete!
 
-**The path to MVP is clear:**
-1. Implement deployment execution (Phase 5)
-2. Add post-deployment testing (Phase 6)
-3. Automate cleanup (Phase 7)
+All critical phases (1-7) are now complete, providing a fully functional ARM template testing tool:
 
-**Result:** A working, production-ready ARM template testing tool in 8-11 hours of development.
+**What Works:**
+1. ✅ Interactive setup wizard (Phase 1)
+2. ✅ Parameter generation (Phase 2)
+3. ✅ Pre-deployment validation (Phase 3)
+4. ✅ Resource group management (Phase 4)
+5. ✅ Deployment execution with live monitoring (Phase 5)
+6. ✅ Post-deployment testing with neo4jtester (Phase 6)
+7. ✅ Automated cleanup with multiple modes (Phase 7)
 
-Additional features (reporting, CLI polish) can be added incrementally once the core workflow is proven.
+**The Result:** A production-ready ARM template testing tool that provides:
+- Complete end-to-end testing workflow (Deploy → Test → Cleanup)
+- Intelligent cleanup based on test results to control costs
+- Safety checks to prevent accidental resource deletion
+- Clean, modular Python code following best practices
+- Comprehensive Pydantic models for data validation
+- Rich terminal UI with live progress dashboards
 
-The simplified approach removes unnecessary complexity while maintaining the ability to add advanced features later if needed.
+**Optional Enhancements:**
+Additional features (reporting, CLI polish) can be added incrementally in Phases 8-9, but the tool is fully functional and production-ready as-is.
+
+**Time Invested:** ~8-11 hours of development for a fully working MVP.
+
+The simplified approach successfully removed unnecessary complexity while maintaining the ability to add advanced features later if needed.

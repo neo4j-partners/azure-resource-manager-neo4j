@@ -395,6 +395,7 @@ def deploy(
     import uuid
     from datetime import datetime, timedelta, timezone
 
+    from src.cleanup import CleanupManager
     from src.models import CleanupMode, DeploymentState
     from src.monitor import DeploymentMonitor
     from src.orchestrator import DeploymentOrchestrator
@@ -419,6 +420,7 @@ def deploy(
         password_manager=password_manager,
         resource_group_manager=rg_manager,
     )
+    cleanup_manager = CleanupManager(rg_manager)
 
     # Determine cleanup mode
     if cleanup_mode:
@@ -549,10 +551,17 @@ def deploy(
                                 console.print(f"[green]✓ All tests passed for {state.scenario_name}[/green]\n")
                             else:
                                 console.print(f"[red]✗ Tests failed for {state.scenario_name}[/red]\n")
+
+                            # Auto-cleanup after testing completes
+                            cleanup_manager.auto_cleanup_deployment(state, no_wait=True)
+
                         except Exception as e:
                             console.print(f"[yellow]Warning: Failed to run tests for {state.scenario_name}: {e}[/yellow]\n")
         else:
             failed_count += 1
+
+            # Auto-cleanup for failed deployments (will respect cleanup mode)
+            cleanup_manager.auto_cleanup_deployment(state, no_wait=True)
 
     # Summary
     console.print("\n" + "=" * 60)
@@ -563,9 +572,13 @@ def deploy(
 
     if succeeded_count > 0:
         console.print("\n[cyan]Next steps:[/cyan]")
-        console.print("  - Test deployments with: uv run test-arm.py test <deployment-id>")
-        console.print("  - Check status with: uv run test-arm.py status")
-        console.print("  - Clean up resources with: uv run test-arm.py cleanup")
+        console.print("  - Test deployment: [bold]uv run test-arm.py test[/bold]")
+        console.print("  - Check status: uv run test-arm.py status")
+
+        if cleanup == CleanupMode.MANUAL:
+            console.print("  - Clean up resources with: uv run test-arm.py cleanup --all")
+        else:
+            console.print(f"  - Cleanup mode: {cleanup.value} (auto-cleanup {'enabled' if cleanup != CleanupMode.MANUAL else 'disabled'})")
 
     if failed_count > 0:
         raise typer.Exit(1)
@@ -574,9 +587,9 @@ def deploy(
 @app.command()
 def test(
     deployment_id: Annotated[
-        str,
-        typer.Argument(help="Deployment ID to test")
-    ],
+        Optional[str],
+        typer.Argument(help="Deployment ID to test (defaults to most recent successful deployment)")
+    ] = None,
 ) -> None:
     """
     Test an existing deployment.
@@ -587,8 +600,11 @@ def test(
     - Basic database operations
     - Plugin verification (GDS, Bloom if configured)
 
-    Example:
-        uv run test-arm.py test d681f330-499d-4523-ba5b-42e28d2b7d12
+    If no deployment ID is provided, tests the most recent successful deployment.
+
+    Examples:
+        uv run test-arm.py test                                       # Test most recent
+        uv run test-arm.py test d681f330-499d-4523-ba5b-42e28d2b7d12  # Test specific deployment
     """
     from pathlib import Path as PathLib
 
@@ -612,6 +628,27 @@ def test(
         password_manager=password_manager,
         resource_group_manager=rg_manager,
     )
+
+    # If no deployment_id provided, use most recent successful deployment
+    if deployment_id is None:
+        all_deployments = rg_manager.load_all_deployment_states()
+
+        # Filter for successful deployments and sort by created_at
+        successful_deployments = [
+            d for d in all_deployments
+            if d.status == "succeeded"
+        ]
+
+        if not successful_deployments:
+            console.print("[red]Error: No successful deployments found.[/red]")
+            console.print("[yellow]Deploy first with: uv run test-arm.py deploy --scenario <scenario-name>[/yellow]")
+            raise typer.Exit(1)
+
+        # Sort by created_at (most recent first)
+        successful_deployments.sort(key=lambda d: d.created_at, reverse=True)
+        deployment_id = successful_deployments[0].deployment_id
+
+        console.print(f"[dim]Using most recent successful deployment: {deployment_id}[/dim]\n")
 
     console.print(f"[cyan]Testing deployment: {deployment_id}[/cyan]\n")
 
@@ -709,32 +746,110 @@ def cleanup(
         bool,
         typer.Option("--force", "-f", help="Skip confirmation prompts")
     ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Preview cleanup without executing")
+    ] = False,
 ) -> None:
     """
     Clean up Azure resources from test deployments.
+
+    Cleanup modes:
+    - immediate: Delete resources immediately after deployment
+    - on-success: Delete only if tests passed (keep failures for debugging)
+    - manual: Never auto-delete (only via explicit cleanup command)
+    - scheduled: Delete when expiration time is reached
 
     Examples:
         uv run test-arm.py cleanup --deployment abc123
         uv run test-arm.py cleanup --all
         uv run test-arm.py cleanup --older-than 24h
         uv run test-arm.py cleanup --all --force
+        uv run test-arm.py cleanup --all --dry-run
     """
-    check_initialized()
+    from src.cleanup import CleanupManager
+    from src.resource_groups import ResourceGroupManager
+
+    config_manager = check_initialized()
 
     if not deployment and not all_deployments and not older_than:
         console.print("[red]Error: Must specify --deployment, --all, or --older-than[/red]")
+        console.print("\n[cyan]Examples:[/cyan]")
+        console.print("  uv run test-arm.py cleanup --deployment abc123")
+        console.print("  uv run test-arm.py cleanup --all")
+        console.print("  uv run test-arm.py cleanup --older-than 24h")
         raise typer.Exit(1)
 
-    console.print("[yellow]Cleanup command not yet implemented[/yellow]")
+    # Initialize components
+    rg_manager = ResourceGroupManager()
+    cleanup_manager = CleanupManager(rg_manager)
+
+    # Load all deployments
+    all_states = rg_manager.load_all_deployment_states()
+
+    if not all_states:
+        console.print("[yellow]No deployments found in state file[/yellow]")
+        raise typer.Exit(0)
+
+    # Filter deployments based on criteria
+    deployments_to_cleanup = []
 
     if deployment:
-        console.print(f"[cyan]Would clean up deployment:[/cyan] {deployment}")
-    if all_deployments:
-        console.print(f"[cyan]Would clean up:[/cyan] All deployments")
-    if older_than:
-        console.print(f"[cyan]Would clean up deployments older than:[/cyan] {older_than}")
-    if force:
-        console.print(f"[cyan]Force mode:[/cyan] Skip confirmations")
+        # Clean up specific deployment by ID (partial match supported)
+        matching = [
+            d for d in all_states
+            if d.deployment_id.startswith(deployment) or deployment in d.deployment_id
+        ]
+
+        if not matching:
+            console.print(f"[red]Error: No deployment found matching '{deployment}'[/red]")
+            console.print("\n[yellow]Run 'uv run test-arm.py status' to see available deployments[/yellow]")
+            raise typer.Exit(1)
+
+        if len(matching) > 1:
+            console.print(f"[yellow]Warning: Multiple deployments match '{deployment}':[/yellow]")
+            for d in matching:
+                console.print(f"  - {d.deployment_id} ({d.scenario_name})")
+            console.print("\n[yellow]Please provide a more specific deployment ID[/yellow]")
+            raise typer.Exit(1)
+
+        deployments_to_cleanup = matching
+
+    elif older_than:
+        # Clean up deployments older than specified duration
+        filtered = cleanup_manager.filter_deployments_by_age(all_states, older_than)
+
+        if not filtered:
+            console.print(f"[yellow]No deployments found older than {older_than}[/yellow]")
+            raise typer.Exit(0)
+
+        deployments_to_cleanup = filtered
+
+    elif all_deployments:
+        # Clean up all deployments (excluding already deleted)
+        deployments_to_cleanup = [
+            d for d in all_states
+            if d.status != "deleted"
+        ]
+
+        if not deployments_to_cleanup:
+            console.print("[yellow]No active deployments to clean up[/yellow]")
+            raise typer.Exit(0)
+
+    # Execute cleanup
+    summary = cleanup_manager.cleanup_deployments(
+        deployments=deployments_to_cleanup,
+        dry_run=dry_run,
+        force=force,
+        no_wait=True,
+    )
+
+    # Display summary
+    cleanup_manager.display_cleanup_summary(summary, dry_run=dry_run)
+
+    # Exit with error if any failed
+    if summary.failed > 0:
+        raise typer.Exit(1)
 
 
 @app.command()

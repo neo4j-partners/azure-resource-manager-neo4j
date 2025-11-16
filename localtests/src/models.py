@@ -138,6 +138,9 @@ class DeploymentState(BaseModel):
     test_status: Optional[Literal["passed", "failed", "not-run"]] = Field(
         None, description="Test result status"
     )
+    test_result: Optional[dict[str, Any]] = Field(
+        None, description="Full test result data"
+    )
 
 
 class ActiveDeployments(BaseModel):
