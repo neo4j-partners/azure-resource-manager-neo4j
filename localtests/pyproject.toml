@@ -1,0 +1,17 @@
+[project]
+name = "neo4j-arm-testing"
+version = "0.1.0"
+description = "Automated testing framework for Neo4j Enterprise Azure Resource Manager templates"
+requires-python = ">=3.12"
+dependencies = [
+    "gitpython>=3.1.45",
+    "neo4j-driver>=5.28.2",
+    "pydantic>=2.12.4",
+    "pyyaml>=6.0.3",
+    "requests>=2.32.5",
+    "rich>=14.2.0",
+    "typer>=0.20.0",
+]
+
+[project.scripts]
+test-arm = "test-arm:main"
