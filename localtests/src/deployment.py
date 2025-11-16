@@ -223,12 +223,12 @@ class DeploymentEngine:
             set_param("readReplicaVmSize", scenario.read_replica_vm_size)
             set_param("readReplicaDiskSize", scenario.read_replica_disk_size)
 
-        # Plugins
-        set_param("installGraphDataScience", scenario.install_graph_data_science)
+        # Plugins (ARM template expects "Yes"/"No" strings, not booleans)
+        set_param("installGraphDataScience", "Yes" if scenario.install_graph_data_science else "No")
         if scenario.install_graph_data_science and scenario.graph_data_science_license_key != "None":
             set_param("graphDataScienceLicenseKey", scenario.graph_data_science_license_key)
 
-        set_param("installBloom", scenario.install_bloom)
+        set_param("installBloom", "Yes" if scenario.install_bloom else "No")
         if scenario.install_bloom and scenario.bloom_license_key != "None":
             set_param("bloomLicenseKey", scenario.bloom_license_key)
 

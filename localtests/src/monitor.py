@@ -9,6 +9,7 @@ Handles:
 """
 
 import json
+import sys
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -170,7 +171,7 @@ class DeploymentMonitor:
 
         Args:
             deployment_states: List of deployment states to monitor
-            show_live_dashboard: If True, show live updating dashboard
+            show_live_dashboard: If True, show live updating dashboard (auto-disabled if not TTY)
 
         Returns:
             Dictionary mapping deployment_id to final status
@@ -178,6 +179,15 @@ class DeploymentMonitor:
         console.print(
             f"[cyan]Monitoring {len(deployment_states)} deployment(s)...[/cyan]\n"
         )
+        sys.stdout.flush()  # Force flush to avoid buffering
+
+        # Auto-detect if we're in a TTY/interactive mode
+        # Rich Live display doesn't work in non-TTY mode (background, pipes, etc.)
+        is_tty = sys.stdout.isatty()
+        if show_live_dashboard and not is_tty:
+            console.print("[dim]Non-interactive mode detected - using simple status updates[/dim]\n")
+            sys.stdout.flush()
+            show_live_dashboard = False
 
         # Track start times
         start_times = {
@@ -188,6 +198,9 @@ class DeploymentMonitor:
         # Track which deployments are still running
         active_deployments = {state.deployment_id: state for state in deployment_states}
         final_statuses = {}
+
+        # Track last status update time for simple mode
+        last_status_time = datetime.now(timezone.utc)
 
         if show_live_dashboard:
             # Monitor with live dashboard
@@ -247,17 +260,28 @@ class DeploymentMonitor:
                         time.sleep(self.poll_interval)
 
         else:
-            # Monitor without live dashboard (simple polling)
+            # Monitor without live dashboard (simple polling with periodic status messages)
+            poll_count = 0
             while active_deployments:
+                poll_count += 1
+                current_time = datetime.now(timezone.utc)
+
+                # Show periodic status update every poll
+                console.print(f"\n[dim]Poll #{poll_count} at {current_time.strftime('%H:%M:%S')} - {len(active_deployments)} deployment(s) running...[/dim]")
+                sys.stdout.flush()
+
                 for deployment_id in list(active_deployments.keys()):
                     state = active_deployments[deployment_id]
+                    elapsed = (current_time - start_times[deployment_id]).total_seconds()
+                    elapsed_min = int(elapsed / 60)
+                    elapsed_sec = int(elapsed % 60)
 
                     # Check timeout
-                    elapsed = (datetime.now(timezone.utc) - start_times[deployment_id]).total_seconds()
                     if elapsed > self.timeout_seconds:
                         console.print(
-                            f"[red]✗ Deployment timed out: {state.deployment_name}[/red]"
+                            f"[red]✗ Deployment timed out: {state.deployment_name} (after {elapsed_min}m {elapsed_sec}s)[/red]"
                         )
+                        sys.stdout.flush()
                         self.rg_manager.update_deployment_status(deployment_id, "failed")
                         final_statuses[deployment_id] = "Timeout"
                         del active_deployments[deployment_id]
@@ -269,6 +293,17 @@ class DeploymentMonitor:
                         state.deployment_name
                     )
 
+                    # Show current status
+                    if status:
+                        console.print(
+                            f"  [cyan]{state.scenario_name}[/cyan]: {status} (elapsed: {elapsed_min}m {elapsed_sec}s)"
+                        )
+                    else:
+                        console.print(
+                            f"  [cyan]{state.scenario_name}[/cyan]: Checking... (elapsed: {elapsed_min}m {elapsed_sec}s)"
+                        )
+                    sys.stdout.flush()
+
                     if status in ["Succeeded", "Failed", "Canceled"]:
                         self.rg_manager.update_deployment_status(
                             deployment_id,
@@ -277,24 +312,32 @@ class DeploymentMonitor:
 
                         if status == "Succeeded":
                             console.print(
-                                f"[green]✓ Deployment succeeded: {state.deployment_name}[/green]"
+                                f"[green]✓ Deployment succeeded: {state.deployment_name} (total: {elapsed_min}m {elapsed_sec}s)[/green]"
                             )
                         elif status == "Failed":
                             console.print(
-                                f"[red]✗ Deployment failed: {state.deployment_name}[/red]"
+                                f"[red]✗ Deployment failed: {state.deployment_name} (total: {elapsed_min}m {elapsed_sec}s)[/red]"
                             )
                             self.display_deployment_errors(
                                 state.resource_group_name,
                                 state.deployment_name
                             )
+                        else:
+                            console.print(
+                                f"[yellow]⚠ Deployment canceled: {state.deployment_name}[/yellow]"
+                            )
 
+                        sys.stdout.flush()
                         final_statuses[deployment_id] = status
                         del active_deployments[deployment_id]
 
                 if active_deployments:
+                    console.print(f"[dim]Waiting {self.poll_interval}s before next poll...[/dim]")
+                    sys.stdout.flush()
                     time.sleep(self.poll_interval)
 
         console.print("\n[cyan]All deployments completed[/cyan]")
+        sys.stdout.flush()
         return final_statuses
 
     def _generate_status_table(

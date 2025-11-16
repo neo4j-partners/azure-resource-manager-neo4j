@@ -398,11 +398,14 @@ def deploy(
     from src.models import CleanupMode, DeploymentState
     from src.monitor import DeploymentMonitor
     from src.orchestrator import DeploymentOrchestrator
+    from src.password import PasswordManager
     from src.resource_groups import ResourceGroupManager
+    from src.tester import Neo4jTester
     from src.utils import get_git_branch
 
     # Initialize components
     rg_manager = ResourceGroupManager()
+    password_manager = PasswordManager(settings)
     orchestrator = DeploymentOrchestrator(
         template_file=engine.template_file,
         resource_group_manager=rg_manager,
@@ -411,6 +414,10 @@ def deploy(
         resource_group_manager=rg_manager,
         poll_interval=30,
         timeout_seconds=settings.deployment_timeout,
+    )
+    tester = Neo4jTester(
+        password_manager=password_manager,
+        resource_group_manager=rg_manager,
     )
 
     # Determine cleanup mode
@@ -527,6 +534,23 @@ def deploy(
                             conn_info,
                             state.scenario_name,
                         )
+
+                        # Run post-deployment tests
+                        console.print(f"\n[cyan]Running post-deployment tests for {state.scenario_name}...[/cyan]")
+                        try:
+                            test_result = tester.test_deployment(
+                                conn_info=conn_info,
+                                scenario_name=state.scenario_name,
+                                license_type=scenario.license_type,
+                                deployment_id=state.deployment_id,
+                            )
+
+                            if test_result.passed:
+                                console.print(f"[green]✓ All tests passed for {state.scenario_name}[/green]\n")
+                            else:
+                                console.print(f"[red]✗ Tests failed for {state.scenario_name}[/red]\n")
+                        except Exception as e:
+                            console.print(f"[yellow]Warning: Failed to run tests for {state.scenario_name}: {e}[/yellow]\n")
         else:
             failed_count += 1
 
@@ -562,10 +586,84 @@ def test(
     - Correct edition (Community/Enterprise/Evaluation)
     - Basic database operations
     - Plugin verification (GDS, Bloom if configured)
+
+    Example:
+        uv run test-arm.py test d681f330-499d-4523-ba5b-42e28d2b7d12
     """
-    check_initialized()
-    console.print(f"[yellow]Test command not yet implemented[/yellow]")
-    console.print(f"[cyan]Would test deployment:[/cyan] {deployment_id}")
+    from pathlib import Path as PathLib
+
+    from src.constants import RESULTS_DIR
+    from src.password import PasswordManager
+    from src.resource_groups import ResourceGroupManager
+    from src.tester import Neo4jTester
+
+    config_manager = check_initialized()
+    settings = config_manager.load_settings()
+    scenarios = config_manager.load_scenarios()
+
+    if not settings or not scenarios:
+        console.print("[red]Error: Configuration not loaded. Run setup first.[/red]")
+        raise typer.Exit(1)
+
+    # Initialize components
+    rg_manager = ResourceGroupManager()
+    password_manager = PasswordManager(settings)
+    tester = Neo4jTester(
+        password_manager=password_manager,
+        resource_group_manager=rg_manager,
+    )
+
+    console.print(f"[cyan]Testing deployment: {deployment_id}[/cyan]\n")
+
+    # Get deployment state
+    deployment_state = rg_manager.get_deployment_state(deployment_id)
+
+    if not deployment_state:
+        console.print(f"[red]Error: Deployment {deployment_id} not found[/red]")
+        console.print("[yellow]Run 'uv run test-arm.py status' to see available deployments[/yellow]")
+        raise typer.Exit(1)
+
+    console.print(f"[dim]Scenario: {deployment_state.scenario_name}[/dim]")
+    console.print(f"[dim]Resource Group: {deployment_state.resource_group_name}[/dim]")
+
+    # Find scenario configuration
+    scenario = next((s for s in scenarios if s.name == deployment_state.scenario_name), None)
+
+    if not scenario:
+        console.print(f"[red]Error: Scenario '{deployment_state.scenario_name}' not found in configuration[/red]")
+        raise typer.Exit(1)
+
+    # Load connection info
+    conn_info = tester.load_connection_info(PathLib(RESULTS_DIR), deployment_state.scenario_name)
+
+    if not conn_info:
+        console.print(f"[red]Error: No connection information found for {deployment_state.scenario_name}[/red]")
+        console.print("[yellow]Connection info is created after successful deployment[/yellow]")
+        raise typer.Exit(1)
+
+    # Run tests
+    console.print("\n[cyan]Executing tests...[/cyan]\n")
+
+    test_result = tester.test_deployment(
+        conn_info=conn_info,
+        scenario_name=deployment_state.scenario_name,
+        license_type=scenario.license_type,
+        deployment_id=deployment_id,
+    )
+
+    # Display results
+    console.print("\n" + "=" * 60)
+    console.print(f"\n[bold]Test Results[/bold]\n")
+
+    if test_result.passed:
+        console.print(f"[green]✓ All tests PASSED[/green]")
+        console.print(f"\n[dim]Log file: {test_result.log_file}[/dim]")
+    else:
+        console.print(f"[red]✗ Tests FAILED[/red]")
+        console.print(f"\n[red]Exit code: {test_result.exit_code}[/red]")
+        console.print(f"[red]Output: {test_result.output}[/red]")
+        console.print(f"\n[yellow]Log file: {test_result.log_file}[/yellow]")
+        raise typer.Exit(1)
 
 
 @app.command()

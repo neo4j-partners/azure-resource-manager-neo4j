@@ -168,3 +168,22 @@ class ConnectionInfo(BaseModel):
         default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp when connection info was extracted"
     )
+
+
+class TestResult(BaseModel):
+    """Test result from neo4jtester execution."""
+
+    deployment_id: str = Field(..., description="Deployment ID that was tested")
+    scenario_name: str = Field(..., description="Scenario name")
+
+    # Test results
+    passed: bool = Field(..., description="Whether the test passed")
+    exit_code: int = Field(..., description="neo4jtester exit code")
+    output: str = Field(..., description="Test output (truncated)")
+    log_file: Optional[str] = Field(None, description="Path to full log file")
+
+    # Metadata
+    tested_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="Timestamp when test was executed"
+    )

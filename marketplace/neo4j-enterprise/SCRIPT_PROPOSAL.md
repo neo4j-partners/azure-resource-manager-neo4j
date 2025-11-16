@@ -1,5 +1,18 @@
 # ARM Template Testing Script Proposal
 
+
+
+
+
+ az deployment group show \
+    --resource-group neo4j-test-standalone-v5-20251116-134446 \
+    --name neo4j-neo4j-deploy-standalone-v5-20251116-134446 \
+    --query properties.provisioningState \
+    --output tsv
+
+
+
+
 ## Implementation Status
 
 ### ✅ Completed Phases

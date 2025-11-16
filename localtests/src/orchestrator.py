@@ -45,11 +45,116 @@ class DeploymentOrchestrator:
         if not template_file.exists():
             raise FileNotFoundError(f"Template file not found: {template_file}")
 
+    def validate_deployment(
+        self,
+        resource_group: str,
+        parameter_file: Path,
+    ) -> tuple[bool, Optional[str]]:
+        """
+        Validate ARM template before deployment.
+
+        Args:
+            resource_group: Resource group name
+            parameter_file: Path to parameter file
+
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        template_path = self.template_file.resolve()
+        params_path = parameter_file.resolve()
+
+        # Run validation with --debug to get actual error messages
+        # when Azure CLI bug hides them
+        command = (
+            f"az deployment group validate "
+            f"--resource-group {resource_group} "
+            f"--template-file {template_path} "
+            f"--parameters {params_path} "
+            f"--debug"
+        )
+
+        try:
+            result = run_command(command, check=False)
+
+            # Check for validation success
+            if result.returncode == 0:
+                return True, None
+
+            # Parse actual error from debug output
+            stderr_content = result.stderr if result.stderr else ""
+            stdout_content = result.stdout if result.stdout else ""
+            combined_output = stderr_content + "\n" + stdout_content
+
+            # Extract the actual error message from debug output
+            error_msg = self._extract_validation_error(combined_output)
+
+            return False, error_msg
+
+        except Exception as e:
+            return False, f"Validation failed with exception: {e}"
+
+    def _extract_validation_error(self, debug_output: str) -> str:
+        """
+        Extract actual error message from Azure CLI debug output.
+
+        Args:
+            debug_output: Combined stderr/stdout from validation command
+
+        Returns:
+            Extracted error message
+        """
+        # Look for common error patterns in debug output
+        error_patterns = [
+            # Authorization errors
+            (r"Authorization failed.*?does not have permission to perform action '([^']+)'",
+             "Authorization Error: Missing permission for action '{}'"),
+
+            # Invalid template errors
+            (r"InvalidTemplateDeployment.*?Message: ([^\n]+)",
+             "Template Error: {}"),
+
+            # Response status errors
+            (r"Response status: (\d+)",
+             "Azure returned status code: {}"),
+        ]
+
+        import re
+
+        # Try to extract specific error details
+        for pattern, message_template in error_patterns:
+            match = re.search(pattern, debug_output, re.IGNORECASE | re.DOTALL)
+            if match:
+                if len(match.groups()) > 0:
+                    return message_template.format(match.group(1))
+
+        # Check for authorization errors specifically
+        if "Authorization failed" in debug_output:
+            # Extract the authorization error details
+            auth_match = re.search(
+                r"does not have permission to perform action '([^']+)'.*?at scope",
+                debug_output,
+                re.DOTALL
+            )
+            if auth_match:
+                action = auth_match.group(1)
+                return (
+                    f"Authorization Error: Your Azure account lacks permission to perform '{action}'.\n"
+                    f"This template requires Owner or User Access Administrator role on the subscription.\n"
+                    f"Contact your Azure administrator to grant the necessary permissions."
+                )
+
+        # If no specific pattern matched, return generic error
+        if "InvalidTemplateDeployment" in debug_output:
+            return "Template validation failed. Run with --debug to see full error details."
+
+        return "Deployment validation failed with unknown error."
+
     def submit_deployment(
         self,
         deployment_state: DeploymentState,
         parameter_file: Path,
         wait: bool = False,
+        skip_validation: bool = False,
     ) -> bool:
         """
         Submit an ARM template deployment to Azure.
@@ -58,6 +163,7 @@ class DeploymentOrchestrator:
             deployment_state: Deployment state tracking object
             parameter_file: Path to parameter file
             wait: If True, wait for deployment to complete (default: False)
+            skip_validation: If True, skip pre-deployment validation (default: False)
 
         Returns:
             True if deployment submitted successfully, False otherwise
@@ -66,6 +172,28 @@ class DeploymentOrchestrator:
             f"[cyan]Submitting deployment: {deployment_state.deployment_name}[/cyan]"
         )
 
+        # Validate template before deployment (unless skipped)
+        if not skip_validation:
+            console.print("[dim]Validating template...[/dim]")
+            is_valid, error_msg = self.validate_deployment(
+                deployment_state.resource_group_name,
+                parameter_file
+            )
+
+            if not is_valid:
+                console.print(
+                    f"[red]✗ Template validation failed: {deployment_state.deployment_name}[/red]"
+                )
+                console.print(f"[red]{error_msg}[/red]")
+
+                # Update state to failed
+                self.rg_manager.update_deployment_status(
+                    deployment_state.deployment_id, "failed"
+                )
+                return False
+
+            console.print("[green]✓ Template validation passed[/green]")
+
         # Build Azure CLI command
         wait_flag = "" if wait else "--no-wait"
 
@@ -73,13 +201,17 @@ class DeploymentOrchestrator:
         template_path = self.template_file.resolve()
         params_path = parameter_file.resolve()
 
+        # Note: Don't use @ symbol with local files - it causes Azure CLI errors
+        # The @ symbol is only for inline JSON or URIs
+        # Use --only-show-errors to suppress Azure CLI logging bugs
         command = (
             f"az deployment group create "
             f"--resource-group {deployment_state.resource_group_name} "
             f"--name {deployment_state.deployment_name} "
             f"--template-file {template_path} "
-            f"--parameters @{params_path} "
+            f"--parameters {params_path} "
             f"{wait_flag} "
+            f"--only-show-errors "
             f"--output json"
         )
 
@@ -93,8 +225,13 @@ class DeploymentOrchestrator:
             stdout_content = result.stdout if result.stdout else ""
             stderr_content = result.stderr if result.stderr else ""
 
+            # Azure CLI bug: Sometimes shows "content already consumed" error even on success
+            # However, if validation passed and we see this error, we need to verify
+            # the deployment was actually created
+            is_spurious_error = "The content for this response was already consumed" in stderr_content
+
             if result.returncode == 0:
-                # Update deployment state to deploying
+                # Clean success
                 self.rg_manager.update_deployment_status(
                     deployment_state.deployment_id, "deploying"
                 )
@@ -108,8 +245,52 @@ class DeploymentOrchestrator:
                         f"[green]✓ Deployment submitted: {deployment_state.deployment_name}[/green]"
                     )
                 return True
+
+            elif is_spurious_error:
+                # Azure CLI bug - but validation passed, so check if deployment exists
+                console.print(
+                    f"[yellow]⚠ Azure CLI returned spurious error (known bug)[/yellow]"
+                )
+                console.print(
+                    f"[dim]Verifying deployment was created...[/dim]"
+                )
+
+                # Wait a moment for Azure to register the deployment
+                import time
+                time.sleep(3)
+
+                # Check if deployment exists
+                verify_cmd = (
+                    f"az deployment group show "
+                    f"--resource-group {deployment_state.resource_group_name} "
+                    f"--name {deployment_state.deployment_name} "
+                    f"--query name --output tsv"
+                )
+                verify_result = run_command(verify_cmd, check=False)
+
+                if verify_result.returncode == 0 and verify_result.stdout.strip():
+                    # Deployment was created successfully despite the error
+                    console.print(
+                        f"[green]✓ Deployment verified: {deployment_state.deployment_name}[/green]"
+                    )
+                    self.rg_manager.update_deployment_status(
+                        deployment_state.deployment_id, "deploying"
+                    )
+                    return True
+                else:
+                    # Deployment was not created - real failure
+                    console.print(
+                        f"[red]✗ Deployment was not created despite passing validation[/red]"
+                    )
+                    console.print(
+                        f"[red]This may be a transient Azure issue. Try again.[/red]"
+                    )
+                    self.rg_manager.update_deployment_status(
+                        deployment_state.deployment_id, "failed"
+                    )
+                    return False
             else:
-                # Parse error message using stored content
+                # Real error
                 error_msg = self._parse_deployment_error(stderr_content)
                 console.print(
                     f"[red]✗ Failed to submit deployment: {deployment_state.deployment_name}[/red]"

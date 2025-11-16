@@ -280,6 +280,26 @@ class ResourceGroupManager:
                 state.test_status = test_status  # type: ignore
             self.save_deployment_state(state)
 
+    def update_deployment_test_status(
+        self,
+        deployment_id: str,
+        passed: bool,
+        test_result: dict[str, Any],
+    ) -> None:
+        """
+        Update deployment with test results.
+
+        Args:
+            deployment_id: Deployment ID to update
+            passed: Whether the test passed
+            test_result: Full test result data
+        """
+        state = self.get_deployment_state(deployment_id)
+        if state:
+            state.test_status = "passed" if passed else "failed"  # type: ignore
+            state.test_result = test_result  # type: ignore
+            self.save_deployment_state(state)
+
     def list_managed_resource_groups(self) -> list[dict[str, Any]]:
         """
         List all resource groups managed by this script.
