@@ -664,7 +664,7 @@ def test(
     console.print(f"[dim]Resource Group: {deployment_state.resource_group_name}[/dim]")
 
     # Find scenario configuration
-    scenario = next((s for s in scenarios if s.name == deployment_state.scenario_name), None)
+    scenario = next((s for s in scenarios.scenarios if s.name == deployment_state.scenario_name), None)
 
     if not scenario:
         console.print(f"[red]Error: Scenario '{deployment_state.scenario_name}' not found in configuration[/red]")
