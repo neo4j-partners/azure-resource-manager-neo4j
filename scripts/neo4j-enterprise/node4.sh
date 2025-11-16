@@ -48,29 +48,6 @@ mount_data_disk() {
 }
 
 
-install_azure_from_dnf() {
-  # Import Microsoft signing key
-  sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
-
-  # Create Azure CLI repository directly (no packages-microsoft-prod.rpm needed)
-  cat <<EOF | sudo tee /etc/yum.repos.d/azure-cli.repo
-[azure-cli]
-name=Azure CLI
-baseurl=https://packages.microsoft.com/yumrepos/azure-cli
-enabled=1
-gpgcheck=1
-gpgkey=https://packages.microsoft.com/keys/microsoft.asc
-EOF
-
-  # Install Azure CLI
-  sudo dnf install -y azure-cli
-}
-
-perform_az_login() {
-  echo "Performing az login"
-  az login --identity -u "${azLoginIdentity}"
-}
-
 install_neo4j_from_yum() {
 
   echo "Adding neo4j yum repo..."
@@ -216,15 +193,27 @@ build_neo4j_conf_file() {
   else
     echo "Running on multiple nodes.  Configuring membership in neo4j.conf..."
     sed -i s/#dbms.mode=CORE/dbms.mode=CORE/g /etc/neo4j/neo4j.conf
-    coreMembers=$(az vmss nic list -g "${resourceGroup}" --vmss-name "${vmScaleSetsName}" | jq '.[] | .ipConfigurations[] | .privateIPAddress' | sed 's/"//g;s/$/:5000/g' | tr '\n' ',' | sed 's/,$//g')
+
+    # Use DNS-based discovery instead of Azure CLI
+    # VMSS instances have predictable internal hostnames: vm0, vm1, vm2, etc.
+    echo "Generating core members using DNS-based discovery"
+    coreMembers=""
+    for i in $(seq 0 $((nodeCount - 1))); do
+      if [ -n "$coreMembers" ]; then
+        coreMembers="${coreMembers},"
+      fi
+      # Internal VMSS hostname pattern: vm{instanceId}
+      coreMembers="${coreMembers}vm${i}:5000"
+    done
+    echo "Generated core members: ${coreMembers}"
+
     sed -i s/#causal_clustering.initial_discovery_members=localhost:5000,localhost:5001,localhost:5002/causal_clustering.initial_discovery_members=${coreMembers}/g /etc/neo4j/neo4j.conf
     set_cluster_configs
   fi
 }
 
 mount_data_disk
-install_azure_from_dnf
-perform_az_login
+# Azure CLI no longer needed - using DNS-based cluster discovery
 install_neo4j_from_yum
 install_apoc_plugin
 extension_config
