@@ -163,6 +163,13 @@ class ConnectionInfo(BaseModel):
     browser_url: str = Field(..., description="Neo4j Browser URL (http://...)")
     bloom_url: Optional[str] = Field(None, description="Bloom URL if installed")
 
+    # Credentials
+    username: str = Field(default="neo4j", description="Neo4j username")
+    password: str = Field(..., description="Neo4j admin password")
+
+    # License information
+    license_type: str = Field(default="Evaluation", description="License type (Evaluation or Enterprise)")
+
     # Deployment outputs (raw)
     outputs: dict[str, Any] = Field(..., description="Raw deployment outputs")
 

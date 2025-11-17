@@ -375,6 +375,8 @@ class DeploymentOrchestrator:
         outputs: dict,
         deployment_state: DeploymentState,
         scenario: TestScenario,
+        password: str,
+        username: str = "neo4j",
     ) -> Optional[ConnectionInfo]:
         """
         Parse deployment outputs to extract connection information.
@@ -383,6 +385,8 @@ class DeploymentOrchestrator:
             outputs: Raw deployment outputs from Azure
             deployment_state: Deployment state
             scenario: Test scenario
+            password: Neo4j admin password
+            username: Neo4j username (default: "neo4j")
 
         Returns:
             ConnectionInfo object or None if parsing failed
@@ -412,7 +416,7 @@ class DeploymentOrchestrator:
                 if bloom_url_value:
                     bloom_url = bloom_url_value
 
-            # Create connection info object
+            # Create connection info object with credentials
             conn_info = ConnectionInfo(
                 deployment_id=deployment_state.deployment_id,
                 scenario_name=deployment_state.scenario_name,
@@ -420,6 +424,9 @@ class DeploymentOrchestrator:
                 neo4j_uri=neo4j_uri,
                 browser_url=browser_url_value,
                 bloom_url=bloom_url,
+                username=username,
+                password=password,
+                license_type=scenario.license_type,
                 outputs=outputs,
             )
 

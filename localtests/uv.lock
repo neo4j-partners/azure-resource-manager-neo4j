@@ -155,7 +155,7 @@ wheels = [
 [[package]]
 name = "neo4j-arm-testing"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "gitpython" },
     { name = "neo4j-driver" },

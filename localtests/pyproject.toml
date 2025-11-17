@@ -15,3 +15,14 @@ dependencies = [
 
 [project.scripts]
 test-arm = "test-arm:main"
+validate_deploy = "src.validate_deploy:main"
+
+[tool.uv]
+package = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

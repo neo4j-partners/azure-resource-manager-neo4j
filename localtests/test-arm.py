@@ -523,40 +523,27 @@ def deploy(
                 # Find scenario for this deployment
                 scenario = next((s for s, _ in param_files if s.name == state.scenario_name), None)
                 if scenario:
-                    # Parse connection info
+                    # Get password for this scenario
+                    password = engine.password_manager.get_password(state.scenario_name)
+
+                    # Parse connection info with credentials
                     conn_info = orchestrator.parse_connection_info(
                         outputs,
                         state,
                         scenario,
+                        password,
                     )
 
                     if conn_info:
-                        # Save connection info
+                        # Save connection info (includes credentials)
                         orchestrator.save_connection_info(
                             conn_info,
                             state.scenario_name,
                         )
+                        console.print(f"[green]✓ Connection info saved for {state.scenario_name}[/green]\n")
 
-                        # Run post-deployment tests
-                        console.print(f"\n[cyan]Running post-deployment tests for {state.scenario_name}...[/cyan]")
-                        try:
-                            test_result = tester.test_deployment(
-                                conn_info=conn_info,
-                                scenario_name=state.scenario_name,
-                                license_type=scenario.license_type,
-                                deployment_id=state.deployment_id,
-                            )
-
-                            if test_result.passed:
-                                console.print(f"[green]✓ All tests passed for {state.scenario_name}[/green]\n")
-                            else:
-                                console.print(f"[red]✗ Tests failed for {state.scenario_name}[/red]\n")
-
-                            # Auto-cleanup after testing completes
-                            cleanup_manager.auto_cleanup_deployment(state, no_wait=True)
-
-                        except Exception as e:
-                            console.print(f"[yellow]Warning: Failed to run tests for {state.scenario_name}: {e}[/yellow]\n")
+                        # Auto-cleanup after successful deployment (if configured)
+                        cleanup_manager.auto_cleanup_deployment(state, no_wait=True)
         else:
             failed_count += 1
 
@@ -572,7 +559,13 @@ def deploy(
 
     if succeeded_count > 0:
         console.print("\n[cyan]Next steps:[/cyan]")
-        console.print("  - Test deployment: [bold]uv run test-arm.py test[/bold]")
+
+        # Show validation command for each successful deployment
+        for state in deployment_states:
+            final_status = final_statuses.get(state.deployment_id)
+            if final_status == "Succeeded":
+                console.print(f"  - Validate {state.scenario_name}: [bold]uv run validate_deploy {state.scenario_name}[/bold]")
+
         console.print("  - Check status: uv run test-arm.py status")
 
         if cleanup == CleanupMode.MANUAL:
