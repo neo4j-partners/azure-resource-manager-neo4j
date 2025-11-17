@@ -221,3 +221,8 @@ $RECYCLE.BIN/
 parameters.local.json
 *.parameters.local.json
 azuredeploy.parameters.*.json
+
+# Bicep generated files (source is .bicep, JSON is generated)
+*-compiled.json
+*-generated.json
+mainTemplate-*.json
