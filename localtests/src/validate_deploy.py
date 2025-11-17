@@ -1,8 +1,8 @@
 """
 Neo4j deployment validation using pure Python implementation.
 
-This module implements the same functionality as neo4jtester but in Python,
-allowing for direct Neo4j driver usage without external binaries.
+Validates Neo4j deployments by creating test datasets, verifying connectivity,
+and checking license types using the official Neo4j Python driver.
 """
 
 from typing import Optional
@@ -12,7 +12,7 @@ from rich.console import Console
 
 console = Console()
 
-# Cypher query constants (from neo4jtester)
+# Cypher query constants
 EVALUATION_LICENSE_CYPHER = "CALL dbms.acceptedLicenseAgreement();"
 
 MOVIES_CYPHER = """
@@ -63,10 +63,10 @@ MATCH (a)-[:ACTED_IN]->(m)<-[:DIRECTED]-(d) RETURN a,m,d LIMIT 10;
 
 class Neo4jValidator:
     """
-    Pure Python implementation of neo4jtester functionality.
+    Neo4j deployment validator.
 
-    This class replicates the behavior of the Go neo4jtester tool,
-    providing connection validation, dataset creation, and license verification.
+    Validates Neo4j deployments through connection testing, dataset operations,
+    and license verification.
     """
 
     def __init__(self, uri: str, username: str, password: str) -> None:

@@ -104,9 +104,6 @@ class Settings(BaseModel):
     deployment_timeout: int = Field(
         1800, description="Deployment timeout in seconds"
     )
-    max_parallel_deployments: int = Field(
-        3, ge=1, le=10, description="Maximum concurrent deployments"
-    )
 
     # User info
     owner_email: str = Field(..., description="Owner email for resource tagging")
@@ -134,12 +131,6 @@ class DeploymentState(BaseModel):
     cleanup_mode: CleanupMode = Field(..., description="Cleanup mode")
     status: Literal["pending", "deploying", "succeeded", "failed", "deleted"] = Field(
         "pending", description="Deployment status"
-    )
-    test_status: Optional[Literal["passed", "failed", "not-run"]] = Field(
-        None, description="Test result status"
-    )
-    test_result: Optional[dict[str, Any]] = Field(
-        None, description="Full test result data"
     )
 
 
@@ -177,23 +168,4 @@ class ConnectionInfo(BaseModel):
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp when connection info was extracted"
-    )
-
-
-class TestResult(BaseModel):
-    """Test result from neo4jtester execution."""
-
-    deployment_id: str = Field(..., description="Deployment ID that was tested")
-    scenario_name: str = Field(..., description="Scenario name")
-
-    # Test results
-    passed: bool = Field(..., description="Whether the test passed")
-    exit_code: int = Field(..., description="neo4jtester exit code")
-    output: str = Field(..., description="Test output (truncated)")
-    log_file: Optional[str] = Field(None, description="Path to full log file")
-
-    # Metadata
-    tested_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        description="Timestamp when test was executed"
     )

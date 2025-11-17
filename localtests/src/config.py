@@ -10,7 +10,6 @@ from rich.console import Console
 
 from .constants import (
     ARM_TESTING_DIR,
-    CACHE_DIR,
     CONFIG_DIR,
     LOGS_DIR,
     PARAMS_DIR,
@@ -52,7 +51,6 @@ class ConfigManager:
             PARAMS_DIR,
             RESULTS_DIR,
             LOGS_DIR,
-            CACHE_DIR,
             TEMPLATES_DIR,
         ]
 
@@ -154,7 +152,6 @@ class ConfigManager:
             "repository_name": "azure-resource-manager-neo4j",
             "password_strategy": "generate",
             "deployment_timeout": 1800,
-            "max_parallel_deployments": 3,
             "owner_email": "your-email@example.com",
         }
 

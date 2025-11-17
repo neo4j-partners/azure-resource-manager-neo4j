@@ -254,10 +254,6 @@ def deploy(
         bool,
         typer.Option("--dry-run", "-d", help="Preview deployment without executing")
     ] = False,
-    parallel: Annotated[
-        int,
-        typer.Option("--parallel", "-p", help="Maximum concurrent deployments", min=1, max=10)
-    ] = 3,
     artifacts_location: Annotated[
         Optional[str],
         typer.Option("--artifacts-location", help="Override Git-detected artifacts URL")
@@ -351,7 +347,6 @@ def deploy(
 
     console.print(table)
     console.print(f"\n[cyan]Total scenarios:[/cyan] {len(scenarios_to_deploy)}")
-    console.print(f"[cyan]Max parallel:[/cyan] {parallel}")
     console.print(f"[cyan]Dry run:[/cyan] {dry_run}")
     if artifacts_location:
         console.print(f"[cyan]Artifacts location:[/cyan] {artifacts_location}")
@@ -401,7 +396,6 @@ def deploy(
     from src.orchestrator import DeploymentOrchestrator
     from src.password import PasswordManager
     from src.resource_groups import ResourceGroupManager
-    from src.tester import Neo4jTester
     from src.utils import get_git_branch
 
     # Initialize components
@@ -415,10 +409,6 @@ def deploy(
         resource_group_manager=rg_manager,
         poll_interval=30,
         timeout_seconds=settings.deployment_timeout,
-    )
-    tester = Neo4jTester(
-        password_manager=password_manager,
-        resource_group_manager=rg_manager,
     )
     cleanup_manager = CleanupManager(rg_manager)
 
@@ -585,13 +575,13 @@ def test(
     ] = None,
 ) -> None:
     """
-    Test an existing deployment.
+    Test an existing deployment using validate_deploy.
 
     Connects to the deployed Neo4j instance and runs validation tests:
-    - Database connectivity
-    - Correct edition (Community/Enterprise/Evaluation)
-    - Basic database operations
-    - Plugin verification (GDS, Bloom if configured)
+    - Creates test dataset
+    - Verifies database connectivity
+    - Checks license type
+    - Cleans up test data
 
     If no deployment ID is provided, tests the most recent successful deployment.
 
@@ -599,12 +589,8 @@ def test(
         uv run test-arm.py test                                       # Test most recent
         uv run test-arm.py test d681f330-499d-4523-ba5b-42e28d2b7d12  # Test specific deployment
     """
-    from pathlib import Path as PathLib
-
-    from src.constants import RESULTS_DIR
-    from src.password import PasswordManager
     from src.resource_groups import ResourceGroupManager
-    from src.tester import Neo4jTester
+    from src.validate_deploy import validate_deployment
 
     config_manager = check_initialized()
     settings = config_manager.load_settings()
@@ -616,11 +602,6 @@ def test(
 
     # Initialize components
     rg_manager = ResourceGroupManager()
-    password_manager = PasswordManager(settings)
-    tester = Neo4jTester(
-        password_manager=password_manager,
-        resource_group_manager=rg_manager,
-    )
 
     # If no deployment_id provided, use most recent successful deployment
     if deployment_id is None:
@@ -654,7 +635,7 @@ def test(
         raise typer.Exit(1)
 
     console.print(f"[dim]Scenario: {deployment_state.scenario_name}[/dim]")
-    console.print(f"[dim]Resource Group: {deployment_state.resource_group_name}[/dim]")
+    console.print(f"[dim]Resource Group: {deployment_state.resource_group_name}[/dim]\n")
 
     # Find scenario configuration
     scenario = next((s for s in scenarios.scenarios if s.name == deployment_state.scenario_name), None)
@@ -663,36 +644,41 @@ def test(
         console.print(f"[red]Error: Scenario '{deployment_state.scenario_name}' not found in configuration[/red]")
         raise typer.Exit(1)
 
-    # Load connection info
-    conn_info = tester.load_connection_info(PathLib(RESULTS_DIR), deployment_state.scenario_name)
+    # Load connection info from .arm-testing/results
+    from src.validate_deploy import load_connection_info_from_scenario
 
-    if not conn_info:
+    conn_data = load_connection_info_from_scenario(deployment_state.scenario_name)
+    if not conn_data:
         console.print(f"[red]Error: No connection information found for {deployment_state.scenario_name}[/red]")
         console.print("[yellow]Connection info is created after successful deployment[/yellow]")
         raise typer.Exit(1)
 
-    # Run tests
-    console.print("\n[cyan]Executing tests...[/cyan]\n")
+    # Extract connection details
+    uri = conn_data.get("neo4j_uri")
+    username = conn_data.get("username", "neo4j")
+    password = conn_data.get("password")
 
-    test_result = tester.test_deployment(
-        conn_info=conn_info,
-        scenario_name=deployment_state.scenario_name,
-        license_type=scenario.license_type,
-        deployment_id=deployment_id,
-    )
+    if not uri or not password:
+        console.print("[red]Error: Connection info is incomplete[/red]")
+        raise typer.Exit(1)
 
-    # Display results
-    console.print("\n" + "=" * 60)
-    console.print(f"\n[bold]Test Results[/bold]\n")
+    # Run validation
+    console.print(f"[cyan]Running validation...[/cyan]\n")
 
-    if test_result.passed:
-        console.print(f"[green]✓ All tests PASSED[/green]")
-        console.print(f"\n[dim]Log file: {test_result.log_file}[/dim]")
-    else:
-        console.print(f"[red]✗ Tests FAILED[/red]")
-        console.print(f"\n[red]Exit code: {test_result.exit_code}[/red]")
-        console.print(f"[red]Output: {test_result.output}[/red]")
-        console.print(f"\n[yellow]Log file: {test_result.log_file}[/yellow]")
+    try:
+        success = validate_deployment(uri, username, password, scenario.license_type)
+
+        console.print("\n" + "=" * 60)
+        console.print(f"\n[bold]Test Results[/bold]\n")
+
+        if success:
+            console.print(f"[green]✓ All tests PASSED[/green]")
+        else:
+            console.print(f"[red]✗ Tests FAILED[/red]")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f"\n[red]✗ Test execution failed: {e}[/red]")
         raise typer.Exit(1)
 
 

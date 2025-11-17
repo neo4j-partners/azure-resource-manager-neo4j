@@ -12,7 +12,6 @@ STATE_DIR: Final[Path] = ARM_TESTING_DIR / "state"
 PARAMS_DIR: Final[Path] = ARM_TESTING_DIR / "params"
 RESULTS_DIR: Final[Path] = ARM_TESTING_DIR / "results"
 LOGS_DIR: Final[Path] = ARM_TESTING_DIR / "logs"
-CACHE_DIR: Final[Path] = ARM_TESTING_DIR / "cache"
 TEMPLATES_DIR: Final[Path] = ARM_TESTING_DIR / "templates"
 
 # Configuration files
@@ -52,14 +51,6 @@ DEFAULT_CLEANUP_MODE: Final[str] = "on-success"
 
 # Default deployment timeout (in seconds)
 DEFAULT_DEPLOYMENT_TIMEOUT: Final[int] = 1800  # 30 minutes
-
-# Default max parallel deployments
-DEFAULT_MAX_PARALLEL: Final[int] = 3
-
-# Neo4jtester download URL
-NEO4JTESTER_URL: Final[str] = (
-    "https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux"
-)
 
 # Azure resource tags
 RESOURCE_TAGS: Final[dict[str, str]] = {
