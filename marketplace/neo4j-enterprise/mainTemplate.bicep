@@ -48,8 +48,8 @@ param location string = resourceGroup().location
 @description('Optional UTC value for testing. Leave empty for deterministic deployments.')
 param utcValue string = ''
 
-// Base URL for installation scripts (will be replaced with cloud-init in Phase 3)
-var scriptsBaseUrl = 'https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/main/'
+// Load cloud-init configuration
+var cloudInitStandalone = loadTextContent('../../scripts/neo4j-enterprise/cloud-init/standalone.yaml')
 
 var deploymentUniqueId = uniqueString(resourceGroup().id, deployment().name)
 // Use utcValue if provided (for testing), otherwise use deterministic deploymentUniqueId
@@ -59,6 +59,11 @@ var loadBalancerBackendAddressPools = [
     id: resourceId('Microsoft.Network/loadBalancers/backendAddressPools', loadBalancerName, 'backend')
   }
 ]
+// Prepare cloud-init with parameter substitution
+var licenseAgreement = (licenseType == 'Evaluation') ? 'eval' : 'yes'
+var cloudInitData = replace(replace(replace(replace(cloudInitStandalone, '\${unique_string}', deploymentUniqueId), '\${location}', location), '\${admin_password}', adminPassword), '\${license_agreement}', licenseAgreement)
+var cloudInitBase64 = base64(cloudInitData)
+
 var networkSGName = 'nsg-neo4j-${location}-${resourceSuffix}'
 var vnetName = 'vnet-neo4j-${location}-${resourceSuffix}'
 var loadBalancerName = 'lb-neo4j-${location}-${resourceSuffix}'
@@ -66,13 +71,7 @@ var publicIpName = 'ip-neo4j-${location}-${resourceSuffix}'
 var vmScaleSetsName = 'vmss-neo4j-${location}-${resourceSuffix}'
 var readReplicaVmScaleSetsName = 'read-replica-vmss-neo4j-${location}-${resourceSuffix}'
 var userAssignedIdentityName = 'usermanaged-neo4j-${location}-${resourceSuffix}'
-var azLoginIdentity = '/subscriptions/${subscription().subscriptionId}/resourceGroups/${resourceGroup().name}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${userAssignedIdentityName}'
-var scriptName = ((graphDatabaseVersion == '5')
-  ? 'scripts/neo4j-enterprise/node.sh'
-  : 'scripts/neo4j-enterprise/node4.sh')
-var bashCommand = ((graphDatabaseVersion == '5') ? 'bash node.sh ' : 'bash node4.sh ')
 var adminUsername = string('neo4j')
-var doubleQuote = '"'
 var readReplicaEnabledCondition = ((readReplicaCount >= 1) && (graphDatabaseVersion == '4.4'))
 var loadBalancerCondition = ((nodeCount >= 3) || readReplicaEnabledCondition)
 // Dependencies handled implicitly by Bicep through resource references
@@ -356,6 +355,7 @@ resource vmScaleSets 'Microsoft.Compute/virtualMachineScaleSets@2018-06-01' = {
         computerNamePrefix: 'node'
         adminUsername: adminUsername
         adminPassword: adminPassword
+        customData: (nodeCount == 1) ? cloudInitBase64 : null
       }
       networkProfile: {
         networkInterfaceConfigurations: [
@@ -375,7 +375,7 @@ resource vmScaleSets 'Microsoft.Compute/virtualMachineScaleSets@2018-06-01' = {
                       properties: {
                         idleTimeoutInMinutes: 30
                         dnsSettings: {
-                          domainNameLabel: 'node-${deploymentUniqueId}'
+                          domainNameLabel: 'neo4j-${deploymentUniqueId}'
                         }
                       }
                     }
@@ -390,7 +390,7 @@ resource vmScaleSets 'Microsoft.Compute/virtualMachineScaleSets@2018-06-01' = {
         ]
       }
       extensionProfile: {
-        extensions: [
+        extensions: (nodeCount == 1) ? [] : [
           {
             name: 'extension'
             properties: {
@@ -400,11 +400,11 @@ resource vmScaleSets 'Microsoft.Compute/virtualMachineScaleSets@2018-06-01' = {
               autoUpgradeMinorVersion: true
               settings: {
                 fileUris: [
-                  '${scriptsBaseUrl}${scriptName}'
+                  'https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/main/scripts/neo4j-enterprise/node.sh'
                 ]
               }
               protectedSettings: {
-                commandToExecute: '${bashCommand}${adminUsername} ${doubleQuote}${adminPassword}${doubleQuote} ${deploymentUniqueId} ${location} ${graphDatabaseVersion} ${installGraphDataScience} ${graphDataScienceLicenseKey} ${installBloom} ${bloomLicenseKey} ${nodeCount} ${((graphDatabaseVersion=='4.4')?'${readReplicaCount} ':'')}${(loadBalancerCondition?publicIp!.properties.ipAddress:'-')} ${azLoginIdentity} ${resourceGroup().name} ${vmScaleSetsName} ${((graphDatabaseVersion=='5')?licenseType:'')}'
+                commandToExecute: 'bash node.sh ${adminUsername} "${adminPassword}" ${deploymentUniqueId} ${location} ${graphDatabaseVersion} ${installGraphDataScience} ${graphDataScienceLicenseKey} ${installBloom} ${bloomLicenseKey} ${nodeCount} ${(loadBalancerCondition?publicIp!.properties.ipAddress:'-')} /subscriptions/${subscription().subscriptionId}/resourceGroups/${resourceGroup().name}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${userAssignedIdentityName} ${resourceGroup().name} ${vmScaleSetsName} ${licenseType}'
               }
             }
           }
@@ -507,11 +507,11 @@ resource readReplicaVmScaleSets 'Microsoft.Compute/virtualMachineScaleSets@2018-
               autoUpgradeMinorVersion: true
               settings: {
                 fileUris: [
-                  '${scriptsBaseUrl}scripts/neo4j-enterprise/readreplica4.sh'
+                  'https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/main/scripts/neo4j-enterprise/readreplica4.sh'
                 ]
               }
               protectedSettings: {
-                commandToExecute: 'bash readreplica4.sh ${doubleQuote}${adminPassword}${doubleQuote} ${azLoginIdentity} ${resourceGroup().name} ${vmScaleSetsName} ${installGraphDataScience} ${graphDataScienceLicenseKey} ${installBloom} ${bloomLicenseKey}'
+                commandToExecute: 'bash readreplica4.sh "${adminPassword}" /subscriptions/${subscription().subscriptionId}/resourceGroups/${resourceGroup().name}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${userAssignedIdentityName} ${resourceGroup().name} ${vmScaleSetsName} ${installGraphDataScience} ${graphDataScienceLicenseKey} ${installBloom} ${bloomLicenseKey}'
               }
             }
           }
@@ -524,8 +524,8 @@ resource readReplicaVmScaleSets 'Microsoft.Compute/virtualMachineScaleSets@2018-
   ]
 }
 
-output Neo4jBrowserURL string = uri('http://vm0.node-${deploymentUniqueId}.${location}.cloudapp.azure.com:7474', '')
-output Neo4jClusterBrowserURL string = uri('http://${publicIp!.properties.ipAddress}:7474', '')
-output Neo4jClusterBloomURL string = uri('http://${publicIp!.properties.ipAddress}:7474', 'bloom')
-output Neo4jBloomURL string = uri('http://vm0.node-${deploymentUniqueId}.${location}.cloudapp.azure.com:7474', 'bloom')
+output Neo4jBrowserURL string = uri('http://vm0.neo4j-${deploymentUniqueId}.${location}.cloudapp.azure.com:7474', '')
+output Neo4jClusterBrowserURL string = loadBalancerCondition ? uri('http://${publicIp!.properties.ipAddress}:7474', '') : ''
+output Neo4jClusterBloomURL string = loadBalancerCondition ? uri('http://${publicIp!.properties.ipAddress}:7474', 'bloom') : ''
+output Neo4jBloomURL string = uri('http://vm0.neo4j-${deploymentUniqueId}.${location}.cloudapp.azure.com:7474', 'bloom')
 output Username string = 'neo4j'

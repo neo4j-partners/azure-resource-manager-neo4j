@@ -37,8 +37,5 @@
   },
   "licenseType": {
     "value": "Evaluation"
-  },
-  "_artifactsLocation": {
-    "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/main/"
   }
 }

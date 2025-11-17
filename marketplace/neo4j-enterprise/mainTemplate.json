@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.38.33.27573",
-      "templateHash": "6371182267077307639"
+      "templateHash": "14744704730481047189"
     }
   },
   "parameters": {
@@ -96,7 +96,7 @@
     }
   },
   "variables": {
-    "scriptsBaseUrl": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/main/",
+    "cloudInitStandalone": "#cloud-config\n# Neo4j Enterprise 5 Standalone Deployment\n# This cloud-init configuration installs and configures Neo4j on a single Azure VM\n\n# Disable firewalld\nbootcmd:\n  - systemctl stop firewalld\n  - systemctl disable firewalld\n\n# Format and mount data disk\ndisk_setup:\n  /dev/disk/azure/scsi1/lun0:\n    table_type: gpt\n    layout: true\n    overwrite: false\n\nfs_setup:\n  - device: /dev/disk/azure/scsi1/lun0\n    partition: 1\n    filesystem: xfs\n\nmounts:\n  - [\"/dev/disk/azure/scsi1/lun0-part1\", \"/var/lib/neo4j\", \"xfs\", \"defaults\", \"0\", \"0\"]\n\n# Install Neo4j\nyum_repos:\n  neo4j:\n    name: Neo4j Yum Repo\n    baseurl: https://yum.neo4j.com/stable/5\n    enabled: true\n    gpgcheck: true\n    gpgkey: https://debian.neo4j.com/neotechnology.gpg.key\n\n# Run configuration commands\nruncmd:\n  # Install Neo4j with license acceptance\n  - export NEO4J_ACCEPT_LICENSE_AGREEMENT=${license_agreement}\n  - dnf install -y neo4j-enterprise\n  # Get instance metadata\n  - INSTANCE_METADATA=$(curl -H Metadata:true \"http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01\")\n  - NODE_INDEX=$(echo $INSTANCE_METADATA | jq -r \".name\" | sed 's/.*_//')\n  - PRIVATE_IP=$(hostname -i | awk '{print $NF}')\n  - UNIQUE_STRING=\"${unique_string}\"\n  - LOCATION=\"${location}\"\n  - PUBLIC_HOSTNAME=\"vm${NODE_INDEX}.neo4j-${UNIQUE_STRING}.${LOCATION}.cloudapp.azure.com\"\n\n  # Install APOC plugin\n  - mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins/\n\n  # Configure Neo4j network settings\n  - sed -i 's/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf\n  - sed -i \"s/#server.default_advertised_address=localhost/server.default_advertised_address=${PUBLIC_HOSTNAME}/g\" /etc/neo4j/neo4j.conf\n  - sed -i \"s/#server.bolt.advertised_address=:7687/server.bolt.advertised_address=${PUBLIC_HOSTNAME}:7687/g\" /etc/neo4j/neo4j.conf\n  - sed -i 's/#server.bolt.listen_address=:7687/server.bolt.listen_address=0.0.0.0:7687/g' /etc/neo4j/neo4j.conf\n\n  # Configure extensions and security\n  - sed -i 's~#server.unmanaged_extension_classes=org.neo4j.examples.server.unmanaged=/examples/unmanaged~server.unmanaged_extension_classes=com.neo4j.bloom.server=/bloom,semantics.extension=/rdf~g' /etc/neo4j/neo4j.conf\n  - sed -i 's/#dbms.security.procedures.unrestricted=my.extensions.example,my.procedures.*/dbms.security.procedures.unrestricted=gds.*,apoc.*/g' /etc/neo4j/neo4j.conf\n  - echo \"dbms.security.http_auth_allowlist=/,/browser.*,/bloom.*\" >> /etc/neo4j/neo4j.conf\n  - echo \"dbms.security.procedures.allowlist=apoc.*,gds.*,bloom.*\" >> /etc/neo4j/neo4j.conf\n\n  # Add memory recommendations\n  - neo4j-admin server memory-recommendation >> /etc/neo4j/neo4j.conf\n\n  # Add metrics configuration\n  - echo \"server.metrics.enabled=true\" >> /etc/neo4j/neo4j.conf\n  - echo \"server.metrics.jmx.enabled=true\" >> /etc/neo4j/neo4j.conf\n  - echo \"server.metrics.prefix=neo4j\" >> /etc/neo4j/neo4j.conf\n  - echo \"server.metrics.filter=*\" >> /etc/neo4j/neo4j.conf\n  - echo \"server.metrics.csv.interval=5s\" >> /etc/neo4j/neo4j.conf\n  - echo \"dbms.routing.default_router=SERVER\" >> /etc/neo4j/neo4j.conf\n\n  # SSRF protection\n  - echo \"internal.dbms.cypher_ip_blocklist=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.169.0/24,fc00::/7,fe80::/10,ff00::/8\" >> /etc/neo4j/neo4j.conf\n\n  # Set initial password BEFORE first start\n  - neo4j-admin dbms set-initial-password \"${admin_password}\"\n\n  # Enable and start Neo4j\n  - systemctl enable neo4j\n  - systemctl start neo4j\n\n  # Wait for Neo4j to be fully ready\n  - |\n    until curl -s -o /dev/null -w '%{http_code}' http://localhost:7474 | grep -q \"200\"; do\n      echo \"Waiting for Neo4j to be ready...\"\n      sleep 5\n    done\n  - echo \"Neo4j is ready!\"\n\nwrite_files:\n  - path: /var/log/neo4j-cloud-init.log\n    content: |\n      Neo4j cloud-init started at $(date)\n    append: true\n",
     "deploymentUniqueId": "[uniqueString(resourceGroup().id, deployment().name)]",
     "resourceSuffix": "[if(not(equals(parameters('utcValue'), '')), parameters('utcValue'), variables('deploymentUniqueId'))]",
     "loadBalancerBackendAddressPools": [
@@ -104,6 +104,9 @@
         "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('loadBalancerName'), 'backend')]"
       }
     ],
+    "licenseAgreement": "[if(equals(parameters('licenseType'), 'Evaluation'), 'eval', 'yes')]",
+    "cloudInitData": "[replace(replace(replace(replace(variables('cloudInitStandalone'), '${unique_string}', variables('deploymentUniqueId')), '${location}', parameters('location')), '${admin_password}', parameters('adminPassword')), '${license_agreement}', variables('licenseAgreement'))]",
+    "cloudInitBase64": "[base64(variables('cloudInitData'))]",
     "networkSGName": "[format('nsg-neo4j-{0}-{1}', parameters('location'), variables('resourceSuffix'))]",
     "vnetName": "[format('vnet-neo4j-{0}-{1}', parameters('location'), variables('resourceSuffix'))]",
     "loadBalancerName": "[format('lb-neo4j-{0}-{1}', parameters('location'), variables('resourceSuffix'))]",
@@ -111,11 +114,7 @@
     "vmScaleSetsName": "[format('vmss-neo4j-{0}-{1}', parameters('location'), variables('resourceSuffix'))]",
     "readReplicaVmScaleSetsName": "[format('read-replica-vmss-neo4j-{0}-{1}', parameters('location'), variables('resourceSuffix'))]",
     "userAssignedIdentityName": "[format('usermanaged-neo4j-{0}-{1}', parameters('location'), variables('resourceSuffix'))]",
-    "azLoginIdentity": "[format('/subscriptions/{0}/resourceGroups/{1}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{2}', subscription().subscriptionId, resourceGroup().name, variables('userAssignedIdentityName'))]",
-    "scriptName": "[if(equals(parameters('graphDatabaseVersion'), '5'), 'scripts/neo4j-enterprise/node.sh', 'scripts/neo4j-enterprise/node4.sh')]",
-    "bashCommand": "[if(equals(parameters('graphDatabaseVersion'), '5'), 'bash node.sh ', 'bash node4.sh ')]",
     "adminUsername": "[string('neo4j')]",
-    "doubleQuote": "\"",
     "readReplicaEnabledCondition": "[and(greaterOrEquals(parameters('readReplicaCount'), 1), equals(parameters('graphDatabaseVersion'), '4.4'))]",
     "loadBalancerCondition": "[or(greaterOrEquals(parameters('nodeCount'), 3), variables('readReplicaEnabledCondition'))]"
   },
@@ -413,7 +412,8 @@
           "osProfile": {
             "computerNamePrefix": "node",
             "adminUsername": "[variables('adminUsername')]",
-            "adminPassword": "[parameters('adminPassword')]"
+            "adminPassword": "[parameters('adminPassword')]",
+            "customData": "[if(equals(parameters('nodeCount'), 1), variables('cloudInitBase64'), null())]"
           },
           "networkProfile": {
             "networkInterfaceConfigurations": [
@@ -433,7 +433,7 @@
                           "properties": {
                             "idleTimeoutInMinutes": 30,
                             "dnsSettings": {
-                              "domainNameLabel": "[format('node-{0}', variables('deploymentUniqueId'))]"
+                              "domainNameLabel": "[format('neo4j-{0}', variables('deploymentUniqueId'))]"
                             }
                           }
                         },
@@ -446,25 +446,7 @@
             ]
           },
           "extensionProfile": {
-            "extensions": [
-              {
-                "name": "extension",
-                "properties": {
-                  "publisher": "Microsoft.Azure.Extensions",
-                  "type": "CustomScript",
-                  "typeHandlerVersion": "2.0",
-                  "autoUpgradeMinorVersion": true,
-                  "settings": {
-                    "fileUris": [
-                      "[format('{0}{1}', variables('scriptsBaseUrl'), variables('scriptName'))]"
-                    ]
-                  },
-                  "protectedSettings": {
-                    "commandToExecute": "[format('{0}{1} {2}{3}{4} {5} {6} {7} {8} {9} {10} {11} {12} {13}{14} {15} {16} {17} {18}', variables('bashCommand'), variables('adminUsername'), variables('doubleQuote'), parameters('adminPassword'), variables('doubleQuote'), variables('deploymentUniqueId'), parameters('location'), parameters('graphDatabaseVersion'), parameters('installGraphDataScience'), parameters('graphDataScienceLicenseKey'), parameters('installBloom'), parameters('bloomLicenseKey'), parameters('nodeCount'), if(equals(parameters('graphDatabaseVersion'), '4.4'), format('{0} ', parameters('readReplicaCount')), ''), if(variables('loadBalancerCondition'), reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName')), '2022-05-01').ipAddress, '-'), variables('azLoginIdentity'), resourceGroup().name, variables('vmScaleSetsName'), if(equals(parameters('graphDatabaseVersion'), '5'), parameters('licenseType'), ''))]"
-                  }
-                }
-              }
-            ]
+            "extensions": "[if(equals(parameters('nodeCount'), 1), createArray(), createArray(createObject('name', 'extension', 'properties', createObject('publisher', 'Microsoft.Azure.Extensions', 'type', 'CustomScript', 'typeHandlerVersion', '2.0', 'autoUpgradeMinorVersion', true(), 'settings', createObject('fileUris', createArray('https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/main/scripts/neo4j-enterprise/node.sh')), 'protectedSettings', createObject('commandToExecute', format('bash node.sh {0} \"{1}\" {2} {3} {4} {5} {6} {7} {8} {9} {10} /subscriptions/{11}/resourceGroups/{12}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{13} {14} {15} {16}', variables('adminUsername'), parameters('adminPassword'), variables('deploymentUniqueId'), parameters('location'), parameters('graphDatabaseVersion'), parameters('installGraphDataScience'), parameters('graphDataScienceLicenseKey'), parameters('installBloom'), parameters('bloomLicenseKey'), parameters('nodeCount'), if(variables('loadBalancerCondition'), reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName')), '2022-05-01').ipAddress, '-'), subscription().subscriptionId, resourceGroup().name, variables('userAssignedIdentityName'), resourceGroup().name, variables('vmScaleSetsName'), parameters('licenseType')))))))]"
           }
         }
       },
@@ -568,11 +550,11 @@
                   "autoUpgradeMinorVersion": true,
                   "settings": {
                     "fileUris": [
-                      "[format('{0}scripts/neo4j-enterprise/readreplica4.sh', variables('scriptsBaseUrl'))]"
+                      "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/main/scripts/neo4j-enterprise/readreplica4.sh"
                     ]
                   },
                   "protectedSettings": {
-                    "commandToExecute": "[format('bash readreplica4.sh {0}{1}{2} {3} {4} {5} {6} {7} {8} {9}', variables('doubleQuote'), parameters('adminPassword'), variables('doubleQuote'), variables('azLoginIdentity'), resourceGroup().name, variables('vmScaleSetsName'), parameters('installGraphDataScience'), parameters('graphDataScienceLicenseKey'), parameters('installBloom'), parameters('bloomLicenseKey'))]"
+                    "commandToExecute": "[format('bash readreplica4.sh \"{0}\" /subscriptions/{1}/resourceGroups/{2}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{3} {4} {5} {6} {7} {8} {9}', parameters('adminPassword'), subscription().subscriptionId, resourceGroup().name, variables('userAssignedIdentityName'), resourceGroup().name, variables('vmScaleSetsName'), parameters('installGraphDataScience'), parameters('graphDataScienceLicenseKey'), parameters('installBloom'), parameters('bloomLicenseKey'))]"
                   }
                 }
               }
@@ -589,19 +571,19 @@
   "outputs": {
     "Neo4jBrowserURL": {
       "type": "string",
-      "value": "[uri(format('http://vm0.node-{0}.{1}.cloudapp.azure.com:7474', variables('deploymentUniqueId'), parameters('location')), '')]"
+      "value": "[uri(format('http://vm0.neo4j-{0}.{1}.cloudapp.azure.com:7474', variables('deploymentUniqueId'), parameters('location')), '')]"
     },
     "Neo4jClusterBrowserURL": {
       "type": "string",
-      "value": "[uri(format('http://{0}:7474', reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName')), '2022-05-01').ipAddress), '')]"
+      "value": "[if(variables('loadBalancerCondition'), uri(format('http://{0}:7474', reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName')), '2022-05-01').ipAddress), ''), '')]"
     },
     "Neo4jClusterBloomURL": {
       "type": "string",
-      "value": "[uri(format('http://{0}:7474', reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName')), '2022-05-01').ipAddress), 'bloom')]"
+      "value": "[if(variables('loadBalancerCondition'), uri(format('http://{0}:7474', reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName')), '2022-05-01').ipAddress), 'bloom'), '')]"
     },
     "Neo4jBloomURL": {
       "type": "string",
-      "value": "[uri(format('http://vm0.node-{0}.{1}.cloudapp.azure.com:7474', variables('deploymentUniqueId'), parameters('location')), 'bloom')]"
+      "value": "[uri(format('http://vm0.neo4j-{0}.{1}.cloudapp.azure.com:7474', variables('deploymentUniqueId'), parameters('location')), 'bloom')]"
     },
     "Username": {
       "type": "string",

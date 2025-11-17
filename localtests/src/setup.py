@@ -74,26 +74,23 @@ class SetupWizard:
         # Step 5: Cleanup behavior
         cleanup_mode = self._select_cleanup_mode()
 
-        # Step 6: Cost safety limits
-        max_cost = self._configure_cost_limits()
-
-        # Step 7: Test scenarios
+        # Step 6: Test scenarios
         create_scenarios = Confirm.ask(
             "Create default test scenarios?", default=True
         )
 
-        # Step 8: Git integration
-        git_url = get_git_remote_url()
-        github_info = parse_github_url(git_url) if git_url else None
-        auto_detect_branch = self._configure_git_integration(github_info)
-
-        # Step 9: Password configuration
+        # Step 7: Password configuration
         password_strategy = self._configure_password_strategy()
 
-        # Step 10: Finalize and save
+        # Step 8: Finalize
         owner_email = get_git_user_email() or Prompt.ask(
             "Enter your email for resource tagging"
         )
+
+        # Auto-detect Git info without prompting
+        git_url = get_git_remote_url()
+        github_info = parse_github_url(git_url) if git_url else None
+        auto_detect_branch = True if github_info else False
 
         # Create Settings object
         settings = Settings(
@@ -102,7 +99,7 @@ class SetupWizard:
             default_region=default_region,
             resource_group_prefix=resource_group_prefix,
             default_cleanup_mode=CleanupMode(cleanup_mode),
-            max_cost_per_deployment=max_cost,
+            max_cost_per_deployment=None,  # Disabled
             auto_detect_branch=auto_detect_branch,
             repository_org=github_info[0] if github_info else None,
             repository_name=github_info[1] if github_info else None,
@@ -110,13 +107,11 @@ class SetupWizard:
             owner_email=owner_email,
         )
 
-        # Show summary and confirm
+        # Show summary
         self._show_summary(settings)
-        if not Confirm.ask("Save configuration?", default=True):
-            console.print("[yellow]Configuration not saved.[/yellow]")
-            return False
 
-        # Create directories and save configuration
+        # Auto-save configuration
+        console.print("\n[cyan]Saving configuration...[/cyan]")
         self.config_manager.initialize_directories()
         self.config_manager.save_settings(settings)
 
@@ -147,9 +142,8 @@ class SetupWizard:
 This wizard will help you configure the testing environment:
 • Azure subscription and region settings
 • Resource naming conventions
-• Cleanup behavior and cost limits
+• Cleanup behavior
 • Test scenario configuration
-• Git integration for automatic artifact location
 • Password management strategy
 
 All configuration will be stored in [cyan].arm-testing/config/[/cyan]
@@ -249,15 +243,13 @@ You can run this setup again anytime with: [cyan]uv run test-arm.py setup[/cyan]
         console.print("\n[bold]Step 5: Default Cleanup Behavior[/bold]")
         console.print("Available cleanup modes:")
         console.print("  1. [cyan]immediate[/cyan]  - Delete resources right after test")
-        console.print(
-            "  2. [cyan]on-success[/cyan] - Delete only if tests pass (recommended)"
-        )
-        console.print("  3. [cyan]manual[/cyan]     - Never auto-delete")
+        console.print("  2. [cyan]on-success[/cyan] - Delete only if tests pass")
+        console.print("  3. [cyan]manual[/cyan]     - Never auto-delete (recommended)")
         console.print(
             "  4. [cyan]scheduled[/cyan]  - Tag resources to expire after N hours"
         )
 
-        choice = IntPrompt.ask("Enter choice", default=2, choices=["1", "2", "3", "4"])
+        choice = IntPrompt.ask("Enter choice", default=3, choices=["1", "2", "3", "4"])
 
         mode_map = {
             1: "immediate",
@@ -268,52 +260,9 @@ You can run this setup again anytime with: [cyan]uv run test-arm.py setup[/cyan]
 
         return mode_map[choice]
 
-    def _configure_cost_limits(self) -> Optional[float]:
-        """Configure cost safety limits."""
-        console.print("\n[bold]Step 6: Cost Safety Limits[/bold]")
-
-        if not Confirm.ask(
-            "Set maximum estimated cost per deployment?", default=True
-        ):
-            return None
-
-        max_cost = IntPrompt.ask(
-            "Maximum cost in USD per deployment", default=50
-        )
-
-        console.print(
-            f"[green]Deployments estimated over ${max_cost} will require confirmation[/green]"
-        )
-
-        return float(max_cost)
-
-    def _configure_git_integration(
-        self, github_info: Optional[tuple[str, str]]
-    ) -> bool:
-        """Configure Git integration."""
-        console.print("\n[bold]Step 8: Git Integration[/bold]")
-
-        if github_info:
-            org, repo = github_info
-            console.print(f"Detected repository: [cyan]{org}/{repo}[/cyan]")
-
-        use_auto_detect = Confirm.ask(
-            "Use automatic branch detection for artifact location?", default=True
-        )
-
-        if use_auto_detect:
-            console.print(
-                "[green]The script will automatically construct URLs like:[/green]"
-            )
-            console.print(
-                f"[cyan]https://raw.githubusercontent.com/{github_info[0] if github_info else 'ORG'}/{github_info[1] if github_info else 'REPO'}/BRANCH/[/cyan]"
-            )
-
-        return use_auto_detect
-
     def _configure_password_strategy(self) -> PasswordStrategy:
         """Configure password provisioning strategy."""
-        console.print("\n[bold]Step 9: Neo4j Password Configuration[/bold]")
+        console.print("\n[bold]Step 6: Neo4j Password Configuration[/bold]")
         console.print("How should admin passwords be provided?")
         console.print("  1. [cyan]Generate[/cyan] random secure password per deployment (recommended)")
         console.print("  2. [cyan]Environment[/cyan] variable NEO4J_ADMIN_PASSWORD")
@@ -374,16 +323,10 @@ You can run this setup again anytime with: [cyan]uv run test-arm.py setup[/cyan]
         table.add_row("Default Region", settings.default_region)
         table.add_row("Resource Prefix", settings.resource_group_prefix)
         table.add_row("Cleanup Mode", settings.default_cleanup_mode.value)
-        if settings.max_cost_per_deployment:
-            table.add_row(
-                "Max Cost", f"${settings.max_cost_per_deployment:.2f}"
-            )
-        table.add_row(
-            "Auto Branch Detection",
-            "✓" if settings.auto_detect_branch else "✗",
-        )
         table.add_row("Password Strategy", settings.password_strategy.value)
         table.add_row("Owner Email", settings.owner_email)
+        if settings.repository_org and settings.repository_name:
+            table.add_row("Repository", f"{settings.repository_org}/{settings.repository_name}")
 
         console.print(table)
 

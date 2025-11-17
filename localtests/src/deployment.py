@@ -49,14 +49,23 @@ class DeploymentEngine:
         self.base_template_dir = base_template_dir
         self.password_manager = PasswordManager(settings)
 
-        # Paths to template files
-        self.template_file = base_template_dir / "mainTemplate.json"
+        # Paths to template files (Bicep first, fallback to JSON)
+        self.template_file_bicep = base_template_dir / "mainTemplate.bicep"
+        self.template_file_json = base_template_dir / "mainTemplate.json"
         self.base_params_file = base_template_dir / "parameters.json"
 
-        # Validate template files exist
-        if not self.template_file.exists():
+        # Determine which template to use
+        if self.template_file_bicep.exists():
+            self.template_file = self.template_file_bicep
+            self.is_bicep = True
+            console.print("[dim]Using Bicep template (mainTemplate.bicep)[/dim]")
+        elif self.template_file_json.exists():
+            self.template_file = self.template_file_json
+            self.is_bicep = False
+            console.print("[dim]Using ARM JSON template (mainTemplate.json)[/dim]")
+        else:
             raise FileNotFoundError(
-                f"ARM template not found: {self.template_file}\n"
+                f"ARM template not found: {self.template_file_bicep} or {self.template_file_json}\n"
                 f"Ensure you're running from the repository root"
             )
 
@@ -70,7 +79,6 @@ class DeploymentEngine:
         self,
         scenario: TestScenario,
         region: Optional[str] = None,
-        artifacts_location: Optional[str] = None,
     ) -> Path:
         """
         Generate ARM template parameter file for a scenario.
@@ -78,7 +86,6 @@ class DeploymentEngine:
         Args:
             scenario: Test scenario configuration
             region: Override region (uses default from settings if None)
-            artifacts_location: Override artifacts URL (auto-detects if None)
 
         Returns:
             Path to generated parameter file
@@ -93,19 +100,6 @@ class DeploymentEngine:
         # Load base parameters
         base_params = self._load_base_parameters()
 
-        # Get artifacts location
-        if not artifacts_location:
-            artifacts_location = self._get_artifacts_location()
-
-        # Validate artifacts location
-        if artifacts_location:
-            is_valid, error = validate_artifact_url(artifacts_location)
-            if not is_valid:
-                console.print(f"[yellow]Warning: {error}[/yellow]")
-                console.print(
-                    "[yellow]Deployment may fail if scripts are not accessible[/yellow]"
-                )
-
         # Get password
         password = self.password_manager.get_password(scenario.name)
 
@@ -115,7 +109,7 @@ class DeploymentEngine:
         )
 
         # Inject dynamic values
-        params = self._inject_dynamic_values(params, artifacts_location, password)
+        params = self._inject_dynamic_values(params, password)
 
         # Validate parameters
         self._validate_parameters(params, scenario)
@@ -141,42 +135,6 @@ class DeploymentEngine:
         else:
             # Old format or invalid - wrap it
             return {"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#", "contentVersion": "1.0.0.0", "parameters": params}
-
-    def _get_artifacts_location(self) -> str:
-        """
-        Get artifacts location URL from Git context or settings.
-
-        Returns:
-            Artifacts location URL
-
-        Raises:
-            ValueError: If URL cannot be constructed
-        """
-        # Try auto-detection if enabled
-        if self.settings.auto_detect_branch:
-            url = construct_artifact_url(
-                org=self.settings.repository_org,
-                repo=self.settings.repository_name,
-            )
-
-            if url:
-                console.print(f"[dim]Auto-detected artifacts location: {url}[/dim]")
-                return url
-
-        # Fallback: construct from settings
-        if self.settings.repository_org and self.settings.repository_name:
-            # Use main branch as fallback
-            url = f"https://raw.githubusercontent.com/{self.settings.repository_org}/{self.settings.repository_name}/main/"
-            console.print(f"[dim]Using default artifacts location: {url}[/dim]")
-            return url
-
-        raise ValueError(
-            "Could not determine artifacts location.\n"
-            "Either:\n"
-            "  1. Run from a Git repository with remote configured, or\n"
-            "  2. Specify --artifacts-location on command line, or\n"
-            "  3. Configure repository_org and repository_name in settings"
-        )
 
     def _apply_scenario_overrides(
         self,
@@ -237,7 +195,6 @@ class DeploymentEngine:
     def _inject_dynamic_values(
         self,
         params: dict[str, Any],
-        artifacts_location: str,
         password: str,
     ) -> dict[str, Any]:
         """
@@ -245,7 +202,6 @@ class DeploymentEngine:
 
         Args:
             params: Parameters dictionary
-            artifacts_location: Artifacts URL
             password: Admin password
 
         Returns:
@@ -258,11 +214,12 @@ class DeploymentEngine:
                 p[key] = {}
             p[key]["value"] = value
 
-        # Artifacts location (must end with /)
-        if not artifacts_location.endswith("/"):
-            artifacts_location = artifacts_location + "/"
-
-        set_param("_artifactsLocation", artifacts_location)
+        # Bicep templates use embedded cloud-init (no external scripts)
+        node_count = p.get("nodeCount", {}).get("value", 1)
+        if node_count == 1:
+            console.print("[dim]Standalone Bicep deployment - using embedded cloud-init[/dim]")
+        else:
+            console.print("[dim]Cluster Bicep deployment - using cloud-init[/dim]")
 
         # Admin password
         set_param("adminPassword", password)
@@ -308,7 +265,7 @@ class DeploymentEngine:
             )
 
         # Check required parameters are present
-        required = ["location", "adminPassword", "_artifactsLocation"]
+        required = ["location", "adminPassword"]
         for key in required:
             if key not in p or not p[key].get("value"):
                 raise ValueError(f"Required parameter '{key}' is missing or empty")
