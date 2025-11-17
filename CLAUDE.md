@@ -21,12 +21,18 @@ Each edition has its own subdirectory:
 
 ## Key Architecture Points
 
-### ARM Template Structure
+### Bicep Template Structure (Enterprise Edition)
 
-Each marketplace template includes:
-- **mainTemplate.json** - The primary ARM template defining all Azure resources (VMs, networks, load balancers, etc.)
+**Enterprise edition** now uses Azure Bicep templates:
+- **mainTemplate.bicep** - The primary Bicep template defining all Azure resources (VMSS, networks, load balancers, etc.)
 - **createUiDefinition.json** - Defines the Azure Portal UI for template deployment
 - **parameters.json** - Default/test parameters for template deployment
+- **mainTemplate.json** - Generated from Bicep during archive creation for marketplace publishing
+
+**Community edition** still uses ARM JSON templates (migration planned for Phase 2.5):
+- **mainTemplate.json** - ARM template for Community edition
+- **createUiDefinition.json** - Azure Portal UI definition
+- **parameters.json** - Default/test parameters
 
 ### Deployment Configurations
 
@@ -57,17 +63,25 @@ The `scripts/` directory contains bash scripts that run on the VMs:
 
 These scripts handle disk mounting, Neo4j installation, cluster configuration, plugin installation, and Azure integration.
 
-### Template Artifact Location
+### Script URLs in Bicep Templates
 
-ARM templates reference scripts via the `_artifactsLocation` parameter. This points to raw GitHub URLs and must be updated when testing branches other than main. The parameter is automatically set during marketplace deployment but must be manually configured for local testing.
+**Enterprise Edition (Bicep):**
+Scripts are referenced via the `scriptsBaseUrl` variable that points to GitHub raw URLs:
+```bicep
+var scriptsBaseUrl = 'https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/main/'
+```
 
-## Testing ARM Templates
+This replaces the previous `_artifactsLocation` parameter pattern. Scripts are downloaded during VM provisioning via CustomScript extension.
+
+**Future (Phase 3):** Scripts will be replaced with cloud-init YAML embedded directly in Bicep templates using `loadTextContent()` function.
+
+## Testing Templates
 
 ### Running Tests via GitHub Actions
 
 Two workflow files exist that test template deployments:
-- `.github/workflows/enterprise.yml` - Tests Enterprise templates with multiple configurations
-- `.github/workflows/community.yml` - Tests Community templates
+- `.github/workflows/enterprise.yml` - Tests Enterprise Bicep templates with multiple configurations
+- `.github/workflows/community.yml` - Tests Community ARM templates
 
 Both workflows can be triggered via:
 - Pull requests affecting template files
@@ -75,74 +89,124 @@ Both workflows can be triggered via:
 
 The workflows:
 1. Create temporary Azure resource groups
-2. Deploy ARM templates with test parameters
-3. Run neo4jtester to validate the deployment
-4. Clean up resources (always runs, even on failure)
+2. Deploy templates with test parameters (Bicep for Enterprise, ARM JSON for Community)
+3. Run `validate_deploy` to validate the deployment
+
+**Note:** Enterprise workflow will be updated to use Bicep in upcoming commits.
 
 ### Local Template Testing
 
-To test templates locally:
+**Enterprise Edition (Bicep):**
+```bash
+cd marketplace/neo4j-enterprise
+./deploy.sh <resource-group-name>
+```
 
-1. Update `_artifactsLocation` in `parameters.json` to point to your branch:
-   ```json
-   "_artifactsLocation": {
-     "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/<branch-name>/"
-   }
-   ```
+The deploy script automatically:
+1. Creates the resource group
+2. Compiles Bicep to ARM JSON
+3. Deploys using Azure CLI
+4. Displays deployment status
 
-2. Deploy using the provided script:
-   ```bash
-   cd marketplace/neo4j-enterprise  # or neo4j-community
-   ./deploy.sh <resource-group-name>
-   ```
+**Community Edition (ARM JSON):**
+```bash
+cd marketplace/neo4j-community
+./deploy.sh <resource-group-name>
+```
 
-3. Clean up after testing:
-   ```bash
-   ./delete.sh <resource-group-name>
-   ```
+**Validation:**
+After deployment, validate using:
+```bash
+cd localtests
+uv run validate_deploy <scenario-name>
+```
+
+Where `<scenario-name>` matches your deployment (e.g., `standalone-v5`, `cluster-3node-v5`)
+
+**Cleanup:**
+```bash
+./delete.sh <resource-group-name>
+```
 
 ### Template Deployment Parameters
 
-Enterprise templates accept these key parameters via CLI override:
+Enterprise Bicep templates accept these key parameters via CLI override:
 - `nodeCount` - Number of cluster nodes (1, 3-10)
 - `graphDatabaseVersion` - "5" or "4.4"
 - `licenseType` - "Enterprise" or "Evaluation"
 - `readReplicaCount` - Number of read replicas (0-10)
-- `_artifactsLocation` - Base URL for script artifacts
+- `vmSize` - Azure VM size for cluster nodes
+- `diskSize` - Data disk size in GB
 
-Example from workflow:
+Example deployment:
 ```bash
 az deployment group create \
-  --template-file ./marketplace/neo4j-enterprise/mainTemplate.json \
+  --template-file ./marketplace/neo4j-enterprise/mainTemplate.bicep \
   --parameters ./marketplace/neo4j-enterprise/parameters.json \
   nodeCount="3" \
   graphDatabaseVersion="5" \
-  _artifactsLocation="https://raw.githubusercontent.com/org/repo/branch/"
+  licenseType="Evaluation"
 ```
+
+**Note:** Script URLs are hardcoded in the Bicep template (`scriptsBaseUrl` variable) and will be replaced with cloud-init in Phase 3.
 
 ## Publishing to Azure Marketplace
 
 To update marketplace listings (Neo4j employees only):
 
-1. Run the archive script:
-   ```bash
-   cd marketplace/neo4j-enterprise  # or neo4j-community
-   ./makeArchive.sh
-   ```
+**Enterprise Edition (Bicep):**
+```bash
+cd marketplace/neo4j-enterprise
+./makeArchive.sh
+```
 
-2. Upload the resulting `archive.zip` to [Azure Partner Portal](https://partner.microsoft.com/en-us/dashboard/commercial-marketplace/overview)
+The script automatically:
+1. Compiles `mainTemplate.bicep` to `mainTemplate.json`
+2. Packages ARM template, scripts, and UI definition into `archive.zip`
+3. Cleans up temporary files
 
-## Azure CLI Requirements
+**Community Edition (ARM JSON):**
+```bash
+cd marketplace/neo4j-community
+./makeArchive.sh
+```
 
-Working with this repository requires Azure CLI (`az`) for:
+**Upload:**
+Upload the resulting `archive.zip` to [Azure Partner Portal](https://partner.microsoft.com/en-us/dashboard/commercial-marketplace/overview)
+
+## Azure CLI and Bicep Requirements
+
+Working with this repository requires:
+
+**Azure CLI** (`az`) for:
 - Testing template deployments
 - Managing resource groups
 - Building VM images
 - Generating SAS URIs for marketplace VM images
 
+**Bicep CLI** (bundled with Azure CLI 2.20.0+) for:
+- Compiling Bicep templates to ARM JSON
+- Template validation and linting
+- Local development and testing
+
+Verify Bicep is installed:
+```bash
+az bicep version
+```
+
+See [docs/DEVELOPMENT_SETUP.md](docs/DEVELOPMENT_SETUP.md) for full setup instructions.
+
 ## Template Validation
 
-Test outputs are validated using [neo4jtester](https://github.com/neo4j/neo4jtester), which connects to the deployed Neo4j instance and verifies:
-- Database connectivity via Neo4j protocol
-- Correct edition (Community, Enterprise, or Evaluation)
-- Basic database operations
+Deployments are validated using `validate_deploy` (in `localtests/`), which:
+- Connects to the deployed Neo4j instance via Bolt protocol
+- Creates and verifies a test dataset (Movies graph)
+- Checks license type (Evaluation vs Enterprise)
+- Validates basic database operations
+- Cleans up test data
+
+Usage:
+```bash
+cd localtests
+uv run validate_deploy <scenario-name>
+```
