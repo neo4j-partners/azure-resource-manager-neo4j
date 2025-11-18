@@ -1,0 +1,49 @@
+Subject: Azure AD Permission Request - GitHub Actions Service Principal
+
+Hello,
+
+I need to set up automated deployments for the Neo4j Azure project using GitHub Actions. To do this, I need to create a service principal for authentication.
+
+Current Status:
+• Name: Ryan Knight
+• Email: ryan.knight@neo4j.com
+• User Object ID: a71089ec-01fb-4111-9a41-1d07425368c8
+• Subscription: Business Development (47fd4ce5-a912-480e-bb81-95fbd59bb6c5)
+
+What I Need:
+
+1. Azure AD Role Assignment
+   Please grant me ONE of these roles in Azure Active Directory:
+
+   Option A (Recommended): Application Developer
+   - Minimum permissions needed
+   - Can create and manage app registrations
+   - Cannot manage other users' apps
+
+   OR
+
+   Option B: Application Administrator
+   - Can manage all app registrations
+   - More permissions than needed but commonly used
+
+   How to grant this:
+   • Azure Portal → Azure Active Directory → Roles and administrators
+   • Search for "Application Developer" or "Application Administrator"
+   • Click the role → Add assignments → Add my user
+
+2. Verify Subscription Access
+   Please confirm I have "Contributor" or "Owner" role on subscription:
+   "Business Development" (47fd4ce5-a912-480e-bb81-95fbd59bb6c5)
+
+Purpose:
+This will allow me to create a service principal named "github-actions-neo4j-deploy"
+that GitHub Actions will use to deploy Neo4j resources to Azure automatically.
+
+Security Note:
+The service principal will only have "Contributor" access scoped to the
+specific subscription, following least-privilege principles.
+
+Please let me know once this is configured, and I can proceed with the setup.
+
+Thank you!
+Ryan Knight

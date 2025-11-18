@@ -226,3 +226,5 @@ azuredeploy.parameters.*.json
 *-compiled.json
 *-generated.json
 mainTemplate-*.json
+# Azure credentials (sensitive)
+azure-credentials.json
