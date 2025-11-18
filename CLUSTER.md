@@ -421,11 +421,24 @@ All servers should have role "PRIMARY"
 - ✅ Code is modular and clean (cluster.yaml is only +29 lines vs standalone.yaml)
 - ✅ Implementation follows the plan exactly as outlined
 
-**Critical Fix Applied (2025-11-18)**:
-- ✅ **SELinux disabled** - SELinux was blocking Neo4j from binding to port 5000 (Raft consensus port)
-- Added `setenforce 0` to bootcmd in both standalone.yaml and cluster.yaml
-- Added persistent SELinux configuration change to /etc/selinux/config
-- This was discovered during first cluster deployment test
+**Critical Fixes Applied (2025-11-18)**:
+1. ✅ **SELinux disabled** - SELinux was blocking Neo4j from binding to port 5000 (Raft consensus port)
+   - Added `setenforce 0` to bootcmd in both standalone.yaml and cluster.yaml
+   - Added persistent SELinux configuration change to /etc/selinux/config
+   - Discovered during first cluster deployment test
+
+2. ✅ **Port 5000 conflict resolved** - Both server.cluster.raft and server.discovery trying to bind to port 5000
+   - Removed `server.discovery.advertised_address` and `server.discovery.listen_address` from cluster.yaml
+   - In Neo4j 5.x, only Raft addresses should be configured, not separate discovery addresses
+   - Raft protocol handles both cluster communication and discovery
+   - Discovered during second cluster deployment test
+
+3. ✅ **Default advertised address conflict** - Neo4j was adding public DNS to discovery endpoints
+   - Changed `server.default_advertised_address` from `${PUBLIC_HOSTNAME}` to `${INTERNAL_HOSTNAME}`
+   - Neo4j automatically adds default advertised address to discovery endpoints, causing duplicate port binding
+   - Public DNS should only be used for `server.bolt.advertised_address` (external client connections)
+   - Internal hostname (node000000) should be used for all cluster communication including default advertised address
+   - Discovered during third cluster deployment test (found extra endpoint in logs: vm0.neo4j-*.cloudapp.azure.com:5000)
 
 **File Statistics**:
 - `cluster.yaml`: 124 lines

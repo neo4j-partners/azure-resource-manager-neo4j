@@ -65,9 +65,9 @@ runcmd:
   # Install APOC plugin
   - mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins/
 
-  # Configure Neo4j network settings for external access
+  # Configure Neo4j network settings
   - sed -i 's/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf
-  - sed -i "s/#server.default_advertised_address=localhost/server.default_advertised_address=${PUBLIC_HOSTNAME}/g" /etc/neo4j/neo4j.conf
+  - sed -i "s/#server.default_advertised_address=localhost/server.default_advertised_address=${INTERNAL_HOSTNAME}/g" /etc/neo4j/neo4j.conf
   - sed -i "s/#server.bolt.advertised_address=:7687/server.bolt.advertised_address=${PUBLIC_HOSTNAME}:7687/g" /etc/neo4j/neo4j.conf
   - sed -i 's/#server.bolt.listen_address=:7687/server.bolt.listen_address=0.0.0.0:7687/g' /etc/neo4j/neo4j.conf
 
@@ -77,8 +77,6 @@ runcmd:
   # Cluster communication (use internal hostname for cluster traffic)
   - echo "server.cluster.raft.advertised_address=${INTERNAL_HOSTNAME}:5000" >> /etc/neo4j/neo4j.conf
   - echo "server.cluster.raft.listen_address=0.0.0.0:5000" >> /etc/neo4j/neo4j.conf
-  - echo "server.discovery.advertised_address=${INTERNAL_HOSTNAME}:5000" >> /etc/neo4j/neo4j.conf
-  - echo "server.discovery.listen_address=0.0.0.0:5000" >> /etc/neo4j/neo4j.conf
 
   # Cluster discovery
   - echo "dbms.cluster.discovery.endpoints=${DISCOVERY_ENDPOINTS}" >> /etc/neo4j/neo4j.conf
