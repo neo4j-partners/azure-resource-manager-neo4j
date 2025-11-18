@@ -71,10 +71,8 @@ These hostnames are automatically resolvable within the Azure Virtual Network. *
 
      # Configure cluster mode
      - echo "server.cluster.system_database_mode=PRIMARY" >> /etc/neo4j/neo4j.conf
-     - echo "server.cluster.raft.advertised_address=${PUBLIC_HOSTNAME}:5000" >> /etc/neo4j/neo4j.conf
+     - echo "server.cluster.raft.advertised_address=${INTERNAL_HOSTNAME}:5000" >> /etc/neo4j/neo4j.conf
      - echo "server.cluster.raft.listen_address=0.0.0.0:5000" >> /etc/neo4j/neo4j.conf
-     - echo "server.discovery.advertised_address=${PUBLIC_HOSTNAME}:5000" >> /etc/neo4j/neo4j.conf
-     - echo "server.discovery.listen_address=0.0.0.0:5000" >> /etc/neo4j/neo4j.conf
      - echo "dbms.cluster.discovery.endpoints=${DISCOVERY_ENDPOINTS}" >> /etc/neo4j/neo4j.conf
      - echo "dbms.cluster.minimum_initial_system_primaries_count=${NODE_COUNT}" >> /etc/neo4j/neo4j.conf
    ```
@@ -241,9 +239,9 @@ runcmd:
 runcmd:
   # ... (after APOC installation) ...
 
-  # Configure Neo4j network settings for external access
+  # Configure Neo4j network settings
   - sed -i 's/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf
-  - sed -i "s/#server.default_advertised_address=localhost/server.default_advertised_address=${PUBLIC_HOSTNAME}/g" /etc/neo4j/neo4j.conf
+  - sed -i "s/#server.default_advertised_address=localhost/server.default_advertised_address=${INTERNAL_HOSTNAME}/g" /etc/neo4j/neo4j.conf
   - sed -i "s/#server.bolt.advertised_address=:7687/server.bolt.advertised_address=${PUBLIC_HOSTNAME}:7687/g" /etc/neo4j/neo4j.conf
   - sed -i 's/#server.bolt.listen_address=:7687/server.bolt.listen_address=0.0.0.0:7687/g' /etc/neo4j/neo4j.conf
 
@@ -253,8 +251,6 @@ runcmd:
   # Cluster communication (use internal hostname for cluster traffic)
   - echo "server.cluster.raft.advertised_address=${INTERNAL_HOSTNAME}:5000" >> /etc/neo4j/neo4j.conf
   - echo "server.cluster.raft.listen_address=0.0.0.0:5000" >> /etc/neo4j/neo4j.conf
-  - echo "server.discovery.advertised_address=${INTERNAL_HOSTNAME}:5000" >> /etc/neo4j/neo4j.conf
-  - echo "server.discovery.listen_address=0.0.0.0:5000" >> /etc/neo4j/neo4j.conf
 
   # Cluster discovery
   - echo "dbms.cluster.discovery.endpoints=${DISCOVERY_ENDPOINTS}" >> /etc/neo4j/neo4j.conf
@@ -310,17 +306,17 @@ runcmd:
 
 ### External vs Internal Hostnames
 
-**For external access (Bolt/HTTP from internet)**:
-- Use public DNS: `vm0.neo4j-{uniqueId}.{location}.cloudapp.azure.com`
-- Set in `server.default_advertised_address`
-- Set in `server.bolt.advertised_address`
-
-**For cluster communication (internal only)**:
+**For cluster and internal communication**:
 - Use internal hostname: `node000000`, `node000001`, etc.
+- Set in `server.default_advertised_address` - MUST use internal hostname to avoid duplicate discovery endpoints
 - Set in `server.cluster.raft.advertised_address`
-- Set in `server.discovery.advertised_address`
 - More secure (traffic stays on private network)
 - Faster (no NAT traversal)
+
+**For external client access only**:
+- Use public DNS: `vm0.neo4j-{uniqueId}.{location}.cloudapp.azure.com`
+- Set in `server.bolt.advertised_address` - Used by external Bolt clients to connect
+- This allows clients outside the Azure VNet to connect via public DNS
 
 ### Discovery Endpoints Pattern
 
@@ -395,7 +391,7 @@ All servers should have role "PRIMARY"
 - [x] Add conditional logic to select cloud-init based on nodeCount
 - [x] Add `node_count` parameter to cloud-init substitution
 - [x] Verify computerNamePrefix is 'node'
-- [x] Add cluster NSG rules (ports 5000, 7688)
+- [x] Add cluster NSG rules (ports 6000, 7000, 7688)
 - [x] Compile Bicep to verify no errors
 
 **Status**: Bicep template updated successfully
@@ -403,7 +399,7 @@ All servers should have role "PRIMARY"
 - Line 52-53: Load both standalone.yaml and cluster.yaml
 - Line 65: Conditional selection of cloud-init template based on nodeCount
 - Line 69-81: Added node_count to parameter substitution (improved formatting)
-- Line 157-184: Added ClusterRaft (port 5000) and ClusterDiscovery (port 7688) NSG rules (VirtualNetwork only)
+- Line 158-198: Added NSG rules for ClusterCommunication (port 6000), ClusterRaft (port 7000), and BoltRouting (port 7688)
 - Line 403: Changed customData to use cloudInitBase64 for all deployments (removed conditional)
 - Line 437-440: Removed old CustomScript extension (replaced with cloud-init)
 - Line 400: Verified computerNamePrefix is 'node'
@@ -416,7 +412,7 @@ All servers should have role "PRIMARY"
 - ✅ Bicep template compiles without errors or warnings
 - ✅ All template variables properly substituted (unique_string, location, admin_password, license_agreement, node_count)
 - ✅ Old CustomScript extension removed for main VMSS (line 437-440 simplified)
-- ✅ Cluster ports added to NSG (5000, 7688) with VirtualNetwork-only access
+- ✅ Cluster ports added to NSG (6000, 7000 with VirtualNetwork-only access; 7688 with Internet access)
 - ✅ computerNamePrefix verified as 'node' (matches discovery endpoint pattern)
 - ✅ Code is modular and clean (cluster.yaml is only +29 lines vs standalone.yaml)
 - ✅ Implementation follows the plan exactly as outlined
@@ -439,6 +435,98 @@ All servers should have role "PRIMARY"
    - Public DNS should only be used for `server.bolt.advertised_address` (external client connections)
    - Internal hostname (node000000) should be used for all cluster communication including default advertised address
    - Discovered during third cluster deployment test (found extra endpoint in logs: vm0.neo4j-*.cloudapp.azure.com:5000)
+
+4. ✅ **License agreement not persisting for systemd service** - Neo4j service couldn't start due to missing license
+   - License was only set via `export` during installation, not available when systemd starts Neo4j
+   - Created systemd drop-in file `/etc/systemd/system/neo4j.service.d/license.conf` to set environment variable
+   - Environment variable `NEO4J_ACCEPT_LICENSE_AGREEMENT` now persists for the Neo4j service
+   - Error was: "LICENSE AGREEMENT REQUIRED - In order to use Neo4j Enterprise Edition you must accept the license agreement"
+   - Discovered during fourth cluster deployment test
+
+5. ✅ **Migrated to V2 Discovery (port 6000)** - Separates discovery from Raft to avoid port conflicts
+   - Changed from V1 discovery (`dbms.cluster.discovery.endpoints`) to V2 (`initial.dbms.cluster.discovery.endpoints`)
+   - V2 discovery uses dedicated port 6000 instead of sharing port 5000 with Raft
+   - Updated NSG rule from port 7688 to port 6000 for ClusterDiscoveryV2
+   - Discovery endpoints now use port 6000: `node000000:6000,node000001:6000,node000002:6000`
+   - Raft continues to use port 5000 for consensus protocol
+   - V2 discovery is supported in Neo4j 5.23+ (deployed version is 5.26.16)
+   - Discovered during fifth cluster deployment test - port 5000 binding issue persisted even with correct configuration
+
+6. ✅ **GPG key import required before Neo4j installation** - Package installation failed due to GPG verification
+   - Neo4j RPM package couldn't be installed: "Public key for neo4j-enterprise-5.26.16-1.noarch.rpm is not installed"
+   - Added explicit `rpm --import https://debian.neo4j.com/neotechnology.gpg.key` before `dnf install`
+   - GPG key specified in yum_repos wasn't being automatically imported
+   - Without this, installation fails and Neo4j service is never created
+   - Discovered during sixth cluster deployment test - cloud-init stuck waiting for Neo4j that never installed
+
+7. ✅ **Incorrect V2 discovery setting name** - Configuration validation failed
+   - Used `initial.dbms.cluster.discovery.endpoints` but Neo4j 5.26.16 doesn't recognize this setting
+   - Error: "Unrecognized setting. No declared setting with name: initial.dbms.cluster.discovery.endpoints"
+   - Correct setting is `dbms.cluster.discovery.endpoints` (same as V1)
+   - V2 discovery is determined by having `server.discovery.advertised_address` and `server.discovery.listen_address` configured
+   - Endpoints use port 6000 instead of 5000, but setting name remains the same
+   - Discovered during seventh cluster deployment test - Neo4j failed startup validation
+
+8. ✅ **CRITICAL: Wrong ports - used Neo4j 4.x ports instead of 5.x** - Root cause of all port binding issues
+   - Was using port 5000 for Raft (Neo4j 4.x legacy), causing port binding conflicts
+   - **Neo4j 5.x uses completely different ports per official documentation:**
+     - Port **6000**: Cluster communication/transaction shipping (`server.cluster.advertised_address`)
+     - Port **7000**: Raft consensus protocol (`server.cluster.raft.advertised_address`)
+     - Port **7688**: Bolt routing connector (for cluster-aware drivers)
+     - Discovery endpoints: port **6000** (cluster communication port)
+   - Previous configurations mixed Neo4j 4.x (port 5000) and 5.x (port 6000/7000) causing internal conflicts
+   - Catchup-server and discovery were both trying to use same port because wrong ports were configured
+   - Updated NSG rules to allow ports 6000, 7000, and 7688
+   - Discovered after deep review of Neo4j 5.x operations manual
+   - **This explains all previous port binding failures**
+
+9. ✅ **Migrated to V2 Discovery setting** - Using recommended discovery configuration for Neo4j 5.23+
+   - Changed `dbms.cluster.discovery.endpoints` to `dbms.cluster.discovery.v2.endpoints`
+   - V1 discovery (`dbms.cluster.discovery.endpoints`) is deprecated in Neo4j 5.23
+   - V2 discovery is the recommended approach for Neo4j 5.23+ (deployed version is 5.26.16)
+   - Both use the same port (6000) and endpoint format, only the setting name differs
+   - Ensures forward compatibility with future Neo4j releases
+   - Reference: [Neo4j Cluster Discovery Documentation](https://neo4j.com/docs/operations-manual/5/clustering/setup/discovery/)
+
+10. ✅ **Added port 7688 NSG rule** - Enables cluster-aware driver routing
+   - Port 7688 is the Bolt routing connector for cluster topology discovery
+   - Allows external clients using `neo4j://` URI scheme to intelligently route queries
+   - Added NSG rule with Internet source to allow external cluster-aware drivers
+   - Essential for production deployments using Neo4j drivers with cluster awareness
+   - Reference: [Neo4j Ports Documentation](https://neo4j.com/docs/operations-manual/5/configuration/ports/)
+
+**Working Configuration Summary**:
+
+After all fixes, the correct cluster configuration is:
+```yaml
+# Network settings - Internal hostname for cluster, public DNS for external Bolt only
+server.default_listen_address=0.0.0.0
+server.default_advertised_address=${INTERNAL_HOSTNAME}           # node000000 (NOT public DNS)
+server.bolt.advertised_address=${PUBLIC_HOSTNAME}:7687           # vm0.neo4j-*.cloudapp.azure.com
+server.bolt.listen_address=0.0.0.0:7687
+
+# Cluster mode
+server.cluster.system_database_mode=PRIMARY
+
+# Neo4j 5.x Cluster Communication - Internal hostname, port 6000
+server.cluster.advertised_address=${INTERNAL_HOSTNAME}:6000       # node000000:6000
+server.cluster.listen_address=0.0.0.0:6000
+
+# Neo4j 5.x Raft Consensus - Internal hostname, port 7000
+server.cluster.raft.advertised_address=${INTERNAL_HOSTNAME}:7000  # node000000:7000
+server.cluster.raft.listen_address=0.0.0.0:7000
+
+# Cluster discovery endpoints - Use V2 discovery (recommended for Neo4j 5.23+)
+dbms.cluster.discovery.v2.endpoints=node000000:6000,node000001:6000,node000002:6000
+dbms.cluster.minimum_initial_system_primaries_count=3
+```
+
+**Neo4j 5.x Cluster Ports:**
+- Port **6000**: Cluster communication/transaction shipping
+- Port **7000**: Raft consensus protocol
+- Port **7688**: Bolt routing connector (for cluster-aware drivers)
+
+Key principle: **All cluster communication uses internal hostnames. Only external Bolt client connections use public DNS.**
 
 **File Statistics**:
 - `cluster.yaml`: 124 lines
@@ -477,7 +565,8 @@ All servers should have role "PRIMARY"
 
 **What was implemented**:
 1. **cluster.yaml cloud-init** - Full cluster configuration for Neo4j 5
-   - Cluster discovery using internal VMSS hostnames (node000000:5000, etc.)
+   - Cluster discovery using internal VMSS hostnames (node000000:6000, etc.)
+   - V2 discovery configuration (recommended for Neo4j 5.23+)
    - Dual hostname strategy (internal for cluster, public for external access)
    - Deterministic endpoint generation (no runtime queries needed)
    - All cluster-specific Neo4j configuration (raft, discovery, system_database_mode)
@@ -485,7 +574,7 @@ All servers should have role "PRIMARY"
 2. **mainTemplate.bicep updates** - Conditional cloud-init selection
    - Loads both standalone.yaml and cluster.yaml
    - Selects appropriate template based on nodeCount (1 = standalone, >1 = cluster)
-   - Adds cluster communication ports to NSG (5000, 7688, VirtualNetwork-only)
+   - Adds cluster communication ports to NSG (6000, 7000 VirtualNetwork-only; 7688 Internet)
    - Removes old CustomScript extension (replaced with cloud-init)
    - Improved parameter substitution formatting
 
@@ -526,8 +615,9 @@ Test scenario updates will be completed after successful cluster deployment test
    - Not necessary - VMSS pattern is predictable
 
 3. **Don't forget to set cluster ports in NSG**
-   - Port 5000 must be open within VirtualNetwork
-   - But should NOT be open to Internet
+   - Neo4j 5.x requires ports 6000 (cluster communication) and 7000 (Raft) within VirtualNetwork
+   - Port 7688 (Bolt routing) should be open to Internet for cluster-aware drivers
+   - Cluster ports 6000 and 7000 should NOT be open to Internet
 
 4. **Don't start Neo4j before setting password**
    - Password must be set before first start

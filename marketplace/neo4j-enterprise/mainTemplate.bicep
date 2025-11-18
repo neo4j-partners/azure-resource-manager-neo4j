@@ -93,7 +93,7 @@ var readReplicaEnabledCondition = ((readReplicaCount >= 1) && (graphDatabaseVers
 var loadBalancerCondition = ((nodeCount >= 3) || readReplicaEnabledCondition)
 // Dependencies handled implicitly by Bicep through resource references
 
-resource networkSG 'Microsoft.Network/networkSecurityGroups@2022-07-01' = {
+resource networkSG 'Microsoft.Network/networkSecurityGroups@2025-01-01' = {
   name: networkSGName
   location: location
   properties: {
@@ -155,12 +155,12 @@ resource networkSG 'Microsoft.Network/networkSecurityGroups@2022-07-01' = {
         }
       }
       {
-        name: 'ClusterRaft'
+        name: 'ClusterCommunication'
         properties: {
-          description: 'Cluster Raft consensus protocol (internal only)'
+          description: 'Cluster communication and transaction shipping (Neo4j 5.x)'
           protocol: 'Tcp'
           sourcePortRange: '*'
-          destinationPortRange: '5000'
+          destinationPortRange: '6000'
           sourceAddressPrefix: 'VirtualNetwork'
           destinationAddressPrefix: 'VirtualNetwork'
           access: 'Allow'
@@ -169,12 +169,12 @@ resource networkSG 'Microsoft.Network/networkSecurityGroups@2022-07-01' = {
         }
       }
       {
-        name: 'ClusterDiscovery'
+        name: 'ClusterRaft'
         properties: {
-          description: 'Cluster discovery and routing (internal only)'
+          description: 'Raft consensus protocol (Neo4j 5.x)'
           protocol: 'Tcp'
           sourcePortRange: '*'
-          destinationPortRange: '7688'
+          destinationPortRange: '7000'
           sourceAddressPrefix: 'VirtualNetwork'
           destinationAddressPrefix: 'VirtualNetwork'
           access: 'Allow'
@@ -182,11 +182,25 @@ resource networkSG 'Microsoft.Network/networkSecurityGroups@2022-07-01' = {
           direction: 'Inbound'
         }
       }
+      {
+        name: 'BoltRouting'
+        properties: {
+          description: 'Bolt routing connector for cluster-aware drivers'
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '7688'
+          sourceAddressPrefix: 'Internet'
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 106
+          direction: 'Inbound'
+        }
+      }
     ]
   }
 }
 
-resource vnet 'Microsoft.Network/virtualNetworks@2022-07-01' = {
+resource vnet 'Microsoft.Network/virtualNetworks@2025-01-01' = {
   name: vnetName
   location: location
   properties: {
@@ -209,7 +223,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2022-07-01' = {
   }
 }
 
-resource publicIp 'Microsoft.Network/publicIPAddresses@2022-05-01' = if (loadBalancerCondition) {
+resource publicIp 'Microsoft.Network/publicIPAddresses@2025-01-01' = if (loadBalancerCondition) {
   name: publicIpName
   location: location
   sku: {
@@ -233,7 +247,7 @@ resource publicIp 'Microsoft.Network/publicIPAddresses@2022-05-01' = if (loadBal
   }
 }
 
-resource loadBalancer 'Microsoft.Network/loadBalancers@2022-05-01' = if (loadBalancerCondition) {
+resource loadBalancer 'Microsoft.Network/loadBalancers@2025-01-01' = if (loadBalancerCondition) {
   name: loadBalancerName
   location: location
   sku: {
@@ -338,12 +352,12 @@ resource loadBalancer 'Microsoft.Network/loadBalancers@2022-05-01' = if (loadBal
   }
 }
 
-resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-11-30' = {
+resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2024-11-30' = {
   name: userAssignedIdentityName
   location: location
 }
 
-resource vmScaleSets 'Microsoft.Compute/virtualMachineScaleSets@2018-06-01' = {
+resource vmScaleSets 'Microsoft.Compute/virtualMachineScaleSets@2025-04-01' = {
   name: vmScaleSetsName
   location: location
   tags: {
@@ -443,7 +457,7 @@ resource vmScaleSets 'Microsoft.Compute/virtualMachineScaleSets@2018-06-01' = {
   // Dependencies inferred automatically by Bicep from resource references
 }
 
-resource readReplicaVmScaleSets 'Microsoft.Compute/virtualMachineScaleSets@2018-06-01' = if (readReplicaEnabledCondition) {
+resource readReplicaVmScaleSets 'Microsoft.Compute/virtualMachineScaleSets@2025-04-01' = if (readReplicaEnabledCondition) {
   name: readReplicaVmScaleSetsName
   location: location
   identity: {

@@ -35,9 +35,20 @@ yum_repos:
 
 # Run configuration commands
 runcmd:
-  # Install Neo4j with license acceptance
+  # Import Neo4j GPG key and install
+  - rpm --import https://debian.neo4j.com/neotechnology.gpg.key
   - export NEO4J_ACCEPT_LICENSE_AGREEMENT=${license_agreement}
   - dnf install -y neo4j-enterprise
+
+  # Set license agreement for Neo4j service
+  - mkdir -p /etc/systemd/system/neo4j.service.d
+  - |
+    cat > /etc/systemd/system/neo4j.service.d/license.conf <<EOF
+    [Service]
+    Environment="NEO4J_ACCEPT_LICENSE_AGREEMENT=${license_agreement}"
+    EOF
+  - systemctl daemon-reload
+
   # Get instance metadata
   - INSTANCE_METADATA=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01")
   - NODE_INDEX=$(echo $INSTANCE_METADATA | jq -r ".name" | sed 's/.*_//')

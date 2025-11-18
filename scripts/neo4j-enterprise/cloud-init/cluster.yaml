@@ -35,9 +35,19 @@ yum_repos:
 
 # Run configuration commands
 runcmd:
-  # Install Neo4j with license acceptance
+  # Import Neo4j GPG key and install
+  - rpm --import https://debian.neo4j.com/neotechnology.gpg.key
   - export NEO4J_ACCEPT_LICENSE_AGREEMENT=${license_agreement}
   - dnf install -y neo4j-enterprise
+
+  # Set license agreement for Neo4j service
+  - mkdir -p /etc/systemd/system/neo4j.service.d
+  - |
+    cat > /etc/systemd/system/neo4j.service.d/license.conf <<EOF
+    [Service]
+    Environment="NEO4J_ACCEPT_LICENSE_AGREEMENT=${license_agreement}"
+    EOF
+  - systemctl daemon-reload
 
   # Get instance metadata
   - INSTANCE_METADATA=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01")
@@ -51,14 +61,14 @@ runcmd:
   # Public DNS for external access
   - PUBLIC_HOSTNAME="vm${NODE_INDEX}.neo4j-${UNIQUE_STRING}.${LOCATION}.cloudapp.azure.com"
 
-  # Generate cluster discovery endpoints (using internal hostnames)
+  # Generate cluster discovery endpoints using port 6000 (Neo4j 5.x cluster communication port)
   - |
     DISCOVERY_ENDPOINTS=""
     for i in $(seq 0 $((NODE_COUNT - 1))); do
       if [ -n "$DISCOVERY_ENDPOINTS" ]; then
         DISCOVERY_ENDPOINTS="${DISCOVERY_ENDPOINTS},"
       fi
-      DISCOVERY_ENDPOINTS="${DISCOVERY_ENDPOINTS}node$(printf '%06d' $i):5000"
+      DISCOVERY_ENDPOINTS="${DISCOVERY_ENDPOINTS}node$(printf '%06d' $i):6000"
     done
     echo "Generated cluster discovery endpoints: $DISCOVERY_ENDPOINTS"
 
@@ -74,12 +84,17 @@ runcmd:
   # Configure cluster mode
   - echo "server.cluster.system_database_mode=PRIMARY" >> /etc/neo4j/neo4j.conf
 
-  # Cluster communication (use internal hostname for cluster traffic)
-  - echo "server.cluster.raft.advertised_address=${INTERNAL_HOSTNAME}:5000" >> /etc/neo4j/neo4j.conf
-  - echo "server.cluster.raft.listen_address=0.0.0.0:5000" >> /etc/neo4j/neo4j.conf
+  # Neo4j 5.x Cluster Configuration (correct ports per official docs)
+  # Cluster communication / transaction shipping - port 6000
+  - echo "server.cluster.advertised_address=${INTERNAL_HOSTNAME}:6000" >> /etc/neo4j/neo4j.conf
+  - echo "server.cluster.listen_address=0.0.0.0:6000" >> /etc/neo4j/neo4j.conf
 
-  # Cluster discovery
-  - echo "dbms.cluster.discovery.endpoints=${DISCOVERY_ENDPOINTS}" >> /etc/neo4j/neo4j.conf
+  # Raft consensus protocol - port 7000
+  - echo "server.cluster.raft.advertised_address=${INTERNAL_HOSTNAME}:7000" >> /etc/neo4j/neo4j.conf
+  - echo "server.cluster.raft.listen_address=0.0.0.0:7000" >> /etc/neo4j/neo4j.conf
+
+  # Cluster discovery endpoints - use V2 discovery (recommended for Neo4j 5.23+)
+  - echo "dbms.cluster.discovery.v2.endpoints=${DISCOVERY_ENDPOINTS}" >> /etc/neo4j/neo4j.conf
   - echo "dbms.cluster.minimum_initial_system_primaries_count=${NODE_COUNT}" >> /etc/neo4j/neo4j.conf
 
   # Configure extensions and security

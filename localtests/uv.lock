@@ -153,12 +153,24 @@ wheels = [
 ]
 
 [[package]]
+name = "neo4j"
+version = "5.28.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytz" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/50/69/4862fabc082f2447131aada5c91736155349d77ebf443af7f59553b7b789/neo4j-5.28.2.tar.gz", hash = "sha256:7d38e27e4f987a45cc9052500c6ee27325cb23dae6509037fe31dd7ddaed70c7", size = 231874, upload-time = "2025-07-30T06:04:34.669Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/04/00/1f74089c06aec1fac9390e2300a6a6b2381e0dac281783d64ccca9d681fd/neo4j-5.28.2-py3-none-any.whl", hash = "sha256:5c53b5c3eee6dee7e920c9724391aa38d7135a651e71b766da00533b92a91a94", size = 313156, upload-time = "2025-07-30T06:04:31.438Z" },
+]
+
+[[package]]
 name = "neo4j-arm-testing"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "gitpython" },
-    { name = "neo4j-driver" },
+    { name = "neo4j" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "requests" },
@@ -169,24 +181,12 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "gitpython", specifier = ">=3.1.45" },
-    { name = "neo4j-driver", specifier = ">=5.28.2" },
+    { name = "neo4j", specifier = "==5.28.2" },
     { name = "pydantic", specifier = ">=2.12.4" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "requests", specifier = ">=2.32.5" },
     { name = "rich", specifier = ">=14.2.0" },
     { name = "typer", specifier = ">=0.20.0" },
-]
-
-[[package]]
-name = "neo4j-driver"
-version = "5.28.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pytz" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/bc/f7/5555a7f342e2105068356a2efd0d9ca6ca425d010fb2549028c002d09089/neo4j_driver-5.28.2.tar.gz", hash = "sha256:decb08428dfb79c98e21966ec700cbfc81f66f1eda292e00316c5bba65fc8310", size = 232048, upload-time = "2025-07-30T06:04:33.505Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ae/6c/81959fa5d3f1f2984ceedb90d169b7fb04d6ac881af42a65c941d13841ea/neo4j_driver-5.28.2-py3-none-any.whl", hash = "sha256:c35230a499893608750a3a8c40bb477ab5b219e115cd78366e64bbbff6a2e270", size = 313377, upload-time = "2025-07-30T06:04:29.279Z" },
 ]
 
 [[package]]
