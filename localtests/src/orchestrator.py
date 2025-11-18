@@ -427,6 +427,7 @@ class DeploymentOrchestrator:
                 username=username,
                 password=password,
                 license_type=scenario.license_type,
+                node_count=scenario.node_count,
                 outputs=outputs,
             )
 

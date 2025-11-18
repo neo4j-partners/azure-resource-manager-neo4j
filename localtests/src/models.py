@@ -161,6 +161,9 @@ class ConnectionInfo(BaseModel):
     # License information
     license_type: str = Field(default="Evaluation", description="License type (Evaluation or Enterprise)")
 
+    # Cluster information
+    node_count: Optional[int] = Field(None, description="Number of cluster nodes (None for standalone)")
+
     # Deployment outputs (raw)
     outputs: dict[str, Any] = Field(..., description="Raw deployment outputs")
 

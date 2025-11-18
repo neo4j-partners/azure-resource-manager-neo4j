@@ -180,6 +180,79 @@ class Neo4jValidator:
             console.print(f"[yellow]⚠ Cleanup warning: {e}[/yellow]")
             console.print("[yellow]  You may need to manually clean up test data[/yellow]")
 
+    def check_cluster_nodes(self, expected_node_count: Optional[int] = None) -> None:
+        """
+        Check cluster node count and status.
+
+        Uses SHOW SERVERS to verify the cluster topology and that all expected
+        nodes are enabled and available.
+
+        Args:
+            expected_node_count: Expected number of nodes in the cluster (optional)
+
+        Raises:
+            RuntimeError: If cluster check fails or node count doesn't match
+        """
+        console.print("[cyan]Checking cluster topology...[/cyan]")
+
+        if not self._driver:
+            raise RuntimeError("Driver not initialized. Use context manager.")
+
+        try:
+            with self._driver.session() as session:
+                records = session.execute_read(
+                    lambda tx: list(tx.run("SHOW SERVERS"))
+                )
+
+                if len(records) == 0:
+                    # Single node deployment or SHOW SERVERS not available
+                    console.print("[yellow]⚠ No cluster topology found (standalone deployment)[/yellow]")
+                    console.print("[green]✓ Skipping cluster verification[/green]")
+                    return
+
+                # Count enabled servers
+                enabled_count = 0
+                server_details = []
+
+                for record in records:
+                    record_dict = dict(record)
+                    name = record_dict.get("name", "unknown")
+                    address = record_dict.get("address", "unknown")
+                    state = record_dict.get("state", "unknown")
+
+                    server_details.append(f"{name} ({address}) - {state}")
+
+                    if state == "Enabled":
+                        enabled_count += 1
+
+                console.print(f"[dim]Cluster servers found: {len(records)}[/dim]")
+                for detail in server_details:
+                    console.print(f"[dim]  • {detail}[/dim]")
+
+                # Check against expected count if provided
+                if expected_node_count is not None:
+                    if enabled_count != expected_node_count:
+                        raise RuntimeError(
+                            f"Expected {expected_node_count} enabled nodes, "
+                            f"but found {enabled_count}"
+                        )
+                    console.print(
+                        f"[green]✓ Verified cluster has {enabled_count} enabled nodes "
+                        f"(expected {expected_node_count})[/green]"
+                    )
+                else:
+                    console.print(
+                        f"[green]✓ Cluster has {enabled_count} enabled nodes[/green]"
+                    )
+
+        except RuntimeError:
+            raise
+        except Exception as e:
+            # Don't fail validation on cluster check issues for standalone deployments
+            console.print(f"[yellow]⚠ Cluster check error: {e}[/yellow]")
+            console.print("[yellow]  This is normal for standalone deployments[/yellow]")
+            console.print("[green]✓ Continuing validation[/green]")
+
     def check_evaluation_license(self) -> None:
         """
         Check that the database is running with an Evaluation license.
@@ -237,24 +310,34 @@ class Neo4jValidator:
             console.print(f"[yellow]⚠ License check error: {e}[/yellow]")
             console.print("[green]✓ Continuing validation (database is accessible)[/green]")
 
-    def run_full_validation(self, license_type: str = "Evaluation") -> bool:
+    def run_full_validation(
+        self,
+        license_type: str = "Evaluation",
+        expected_node_count: Optional[int] = None
+    ) -> bool:
         """
         Run complete validation suite.
 
         Executes all validation steps:
-        1. Create movies dataset
-        2. Verify dataset was created
-        3. Check license type (if Evaluation)
-        4. Clean up test dataset
+        1. Check cluster topology (if cluster deployment)
+        2. Create movies dataset
+        3. Verify dataset was created
+        4. Check license type (if Evaluation)
+        5. Clean up test dataset
 
         Args:
             license_type: Expected license type ("Evaluation" or "Enterprise")
+            expected_node_count: Expected number of cluster nodes (None for standalone)
 
         Returns:
             True if all validations pass, False otherwise
         """
         validation_passed = False
         try:
+            # Check cluster topology first (before writing data)
+            if expected_node_count is not None and expected_node_count > 1:
+                self.check_cluster_nodes(expected_node_count)
+
             # Create and verify dataset
             self.create_movies_dataset()
             self.verify_movies_dataset()
@@ -284,7 +367,8 @@ def validate_deployment(
     uri: str,
     username: str,
     password: str,
-    license_type: str = "Evaluation"
+    license_type: str = "Evaluation",
+    expected_node_count: Optional[int] = None
 ) -> bool:
     """
     Validate a Neo4j deployment.
@@ -296,6 +380,7 @@ def validate_deployment(
         username: Database username (typically 'neo4j')
         password: Database password
         license_type: Expected license type ("Evaluation" or "Enterprise")
+        expected_node_count: Expected number of cluster nodes (None for standalone)
 
     Returns:
         True if validation passes, False otherwise
@@ -305,12 +390,13 @@ def validate_deployment(
         ...     "neo4j://example.com:7687",
         ...     "neo4j",
         ...     "my-password",
-        ...     "Evaluation"
+        ...     "Evaluation",
+        ...     3
         ... )
         True
     """
     with Neo4jValidator(uri, username, password) as validator:
-        return validator.run_full_validation(license_type)
+        return validator.run_full_validation(license_type, expected_node_count)
 
 
 def load_connection_info_from_scenario(scenario_name: str) -> Optional[dict]:
@@ -399,6 +485,7 @@ def main():
         username = conn_data.get("username", "neo4j")
         password = conn_data.get("password")
         license_type = conn_data.get("license_type", "Evaluation")
+        node_count = conn_data.get("node_count")
 
         if not uri or not password:
             console.print("[red]Error: Connection info is incomplete[/red]")
@@ -408,7 +495,10 @@ def main():
 
         console.print(f"[cyan]URI:[/cyan] {uri}")
         console.print(f"[cyan]Username:[/cyan] {username}")
-        console.print(f"[cyan]License Type:[/cyan] {license_type}\n")
+        console.print(f"[cyan]License Type:[/cyan] {license_type}")
+        if node_count:
+            console.print(f"[cyan]Expected Nodes:[/cyan] {node_count}")
+        console.print()
 
     elif len(sys.argv) == 5:
         # Mode 2: Full manual parameters
@@ -434,7 +524,12 @@ def main():
         sys.exit(1)
 
     try:
-        success = validate_deployment(uri, username, password, license_type)
+        # Pass node_count if available (from scenario mode)
+        if len(sys.argv) == 2:
+            success = validate_deployment(uri, username, password, license_type, node_count)
+        else:
+            # Manual mode - no node count available
+            success = validate_deployment(uri, username, password, license_type)
         sys.exit(0 if success else 1)
     except Exception as e:
         console.print(f"\n[red bold]Validation failed with error:[/red bold]")

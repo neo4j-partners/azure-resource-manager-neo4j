@@ -94,6 +94,7 @@ runcmd:
   - echo "server.cluster.raft.listen_address=0.0.0.0:7000" >> /etc/neo4j/neo4j.conf
 
   # Cluster discovery endpoints - use V2 discovery (recommended for Neo4j 5.23+)
+  - echo "dbms.cluster.discovery.version=V2_ONLY" >> /etc/neo4j/neo4j.conf
   - echo "dbms.cluster.discovery.v2.endpoints=${DISCOVERY_ENDPOINTS}" >> /etc/neo4j/neo4j.conf
   - echo "dbms.cluster.minimum_initial_system_primaries_count=${NODE_COUNT}" >> /etc/neo4j/neo4j.conf
 
