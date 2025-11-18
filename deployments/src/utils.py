@@ -1,5 +1,5 @@
 """
-Utility functions for the ARM template testing suite.
+Utility functions for the Neo4j Azure deployment tools.
 """
 
 import json

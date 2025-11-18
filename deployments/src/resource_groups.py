@@ -2,7 +2,7 @@
 Resource group lifecycle management.
 
 Handles creation, tagging, tracking, and cleanup of Azure resource groups
-used for ARM template testing.
+used for Neo4j Azure deployments.
 """
 
 import json
@@ -189,7 +189,7 @@ class ResourceGroupManager:
             "created": created,
             "owner": owner_email,
             "deployment-id": deployment_id,
-            "managed-by": "test-arm-script",
+            "managed-by": "neo4j-deploy",
             "cleanup-mode": cleanup_mode.value,
         }
 
@@ -287,7 +287,7 @@ class ResourceGroupManager:
         try:
             result = run_command(
                 "az group list "
-                "--tag managed-by=test-arm-script "
+                "--tag managed-by=neo4j-deploy "
                 "--output json",
                 check=False,
             )

@@ -553,8 +553,8 @@ Key principle: **All cluster communication uses internal hostnames. Only externa
 - [ ] Test failover (stop one node, verify cluster still works)
 
 ### Step 5: Update test scenarios ⏳ PENDING USER TESTING
-- [ ] Add cluster-3node-v5 scenario to test-arm.py
-- [ ] Add cluster-5node-v5 scenario to test-arm.py
+- [ ] Add cluster-3node-v5 scenario to neo4j-deploy
+- [ ] Add cluster-5node-v5 scenario to neo4j-deploy
 - [ ] Update validate_deploy to support cluster validation
 
 ---

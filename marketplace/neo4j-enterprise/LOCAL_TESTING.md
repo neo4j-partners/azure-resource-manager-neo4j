@@ -459,15 +459,15 @@ The script is designed in **10 implementation phases**:
 
 ### Directory Structure
 
-The testing script resides in `localtests/` with all working files in `localtests/.arm-testing/`:
-- `localtests/test-arm.py` - Main testing script
-- `localtests/pyproject.toml` - Python project configuration with uv
-- `localtests/.arm-testing/config/` - User settings and scenario definitions
-- `localtests/.arm-testing/state/` - Active deployment tracking
-- `localtests/.arm-testing/params/` - Generated parameter files
-- `localtests/.arm-testing/results/` - Test outputs and reports
-- `localtests/.arm-testing/logs/` - Execution logs
-- `localtests/.arm-testing/cache/` - Downloaded binaries
+The deployment tools reside in `deployments/` with all working files in `deployments/.arm-testing/`:
+- `deployments/neo4j-deploy.py` - Main deployment and testing script
+- `deployments/pyproject.toml` - Python project configuration with uv
+- `deployments/.arm-testing/config/` - User settings and scenario definitions
+- `deployments/.arm-testing/state/` - Active deployment tracking
+- `deployments/.arm-testing/params/` - Generated parameter files
+- `deployments/.arm-testing/results/` - Test outputs and reports
+- `deployments/.arm-testing/logs/` - Execution logs
+- `deployments/.arm-testing/cache/` - Downloaded binaries
 
 The `.arm-testing/` directory is already in the repository `.gitignore`.
 

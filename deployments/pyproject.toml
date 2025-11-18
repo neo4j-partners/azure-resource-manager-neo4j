@@ -1,7 +1,7 @@
 [project]
-name = "neo4j-arm-testing"
+name = "neo4j-azure-deploy"
 version = "0.1.0"
-description = "Automated testing framework for Neo4j Enterprise Azure Resource Manager templates"
+description = "Automated deployment and testing framework for Neo4j Enterprise on Azure"
 requires-python = ">=3.12"
 dependencies = [
     "gitpython>=3.1.45",
@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.scripts]
-test-arm = "test-arm:main"
+neo4j-deploy = "neo4j-deploy:main"
 validate_deploy = "src.validate_deploy:main"
 
 [tool.uv]

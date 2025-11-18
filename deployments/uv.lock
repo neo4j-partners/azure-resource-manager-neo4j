@@ -165,7 +165,7 @@ wheels = [
 ]
 
 [[package]]
-name = "neo4j-arm-testing"
+name = "neo4j-azure-deploy"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

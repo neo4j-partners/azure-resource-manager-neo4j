@@ -220,7 +220,7 @@ class CleanupManager:
         # Safety check: verify resource group has managed-by tag (skip if force=True)
         if not force and not self._verify_managed_resource_group(rg_name):
             error_msg = (
-                f"Resource group {rg_name} is not managed by test-arm-script. "
+                f"Resource group {rg_name} is not managed by neo4j-deploy. "
                 f"Refusing to delete for safety. Use --force to override."
             )
             console.print(f"[red]✗ {error_msg}[/red]")

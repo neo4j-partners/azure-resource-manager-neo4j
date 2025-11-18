@@ -1,30 +1,30 @@
-# Neo4j ARM Template Testing Suite
+# Neo4j Azure Deployment Tools
 
-Automated testing framework for Neo4j Enterprise Azure Resource Manager templates.
+Automated deployment and testing framework for Neo4j Enterprise on Azure.
 
 ## Quick Start
 
 ```bash
-# First-time setup (already completed)
-uv run test-arm.py setup
+# First-time setup
+uv run neo4j-deploy setup
 
 # Validate templates
-uv run test-arm.py validate
+uv run neo4j-deploy validate
 
 # Deploy all scenarios
-uv run test-arm.py deploy --all
+uv run neo4j-deploy deploy --all
 
 # Deploy specific scenario
-uv run test-arm.py deploy --scenario standalone-v5
+uv run neo4j-deploy deploy --scenario standalone-v5
 
 # Check deployment status
-uv run test-arm.py status
+uv run neo4j-deploy status
 
 # Generate test report
-uv run test-arm.py report
+uv run neo4j-deploy report
 
 # Clean up resources
-uv run test-arm.py cleanup --all
+uv run neo4j-deploy cleanup --all
 ```
 
 ## Configuration

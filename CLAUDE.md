@@ -117,7 +117,7 @@ cd marketplace/neo4j-community
 **Validation:**
 After deployment, validate using:
 ```bash
-cd localtests
+cd deployments
 uv run validate_deploy <scenario-name>
 ```
 
@@ -198,7 +198,7 @@ See [docs/DEVELOPMENT_SETUP.md](docs/DEVELOPMENT_SETUP.md) for full setup instru
 
 ## Template Validation
 
-Deployments are validated using `validate_deploy` (in `localtests/`), which:
+Deployments are validated using `validate_deploy` (in `deployments/`), which:
 - Connects to the deployed Neo4j instance via Bolt protocol
 - Creates and verifies a test dataset (Movies graph)
 - Checks license type (Evaluation vs Enterprise)
@@ -207,6 +207,6 @@ Deployments are validated using `validate_deploy` (in `localtests/`), which:
 
 Usage:
 ```bash
-cd localtests
+cd deployments
 uv run validate_deploy <scenario-name>
 ```

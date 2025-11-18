@@ -1,5 +1,5 @@
 """
-Configuration management for the ARM template testing suite.
+Configuration management for the Neo4j Azure deployment tools.
 """
 
 from pathlib import Path
@@ -35,7 +35,7 @@ class ConfigManager:
 
     def is_initialized(self) -> bool:
         """
-        Check if the testing suite has been initialized.
+        Check if the deployment tools have been initialized.
 
         Returns:
             True if .arm-testing directory and config files exist
@@ -43,7 +43,7 @@ class ConfigManager:
         return ARM_TESTING_DIR.exists() and SETTINGS_FILE.exists()
 
     def initialize_directories(self) -> None:
-        """Create all necessary directories for the testing suite."""
+        """Create all necessary directories for the deployment tools."""
         directories = [
             ARM_TESTING_DIR,
             CONFIG_DIR,

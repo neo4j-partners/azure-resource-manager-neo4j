@@ -1,11 +1,11 @@
 """
-Constants and default values for the ARM template testing suite.
+Constants and default values for the Neo4j Azure deployment tools.
 """
 
 from pathlib import Path
 from typing import Final
 
-# Directory paths (relative to localtests/)
+# Directory paths (relative to deployments/)
 ARM_TESTING_DIR: Final[Path] = Path(".arm-testing")
 CONFIG_DIR: Final[Path] = ARM_TESTING_DIR / "config"
 STATE_DIR: Final[Path] = ARM_TESTING_DIR / "state"
@@ -54,8 +54,8 @@ DEFAULT_DEPLOYMENT_TIMEOUT: Final[int] = 1800  # 30 minutes
 
 # Azure resource tags
 RESOURCE_TAGS: Final[dict[str, str]] = {
-    "purpose": "arm-template-testing",
-    "managed-by": "test-arm-script",
+    "purpose": "neo4j-deployment",
+    "managed-by": "neo4j-deploy",
 }
 
 # Timestamp format

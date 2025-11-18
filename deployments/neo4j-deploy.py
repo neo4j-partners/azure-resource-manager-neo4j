@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Neo4j ARM Template Testing Suite
+Neo4j Azure Deployment Tools
 
-Main entry point for the testing framework.
+Main entry point for the deployment and testing framework.
 """
 
 import sys
@@ -21,8 +21,8 @@ from src.setup import SetupWizard
 
 # Create Typer app
 app = typer.Typer(
-    name="test-arm",
-    help="Neo4j ARM Template Testing Suite - Automated testing framework for Neo4j Enterprise ARM templates",
+    name="neo4j-deploy",
+    help="Neo4j Azure Deployment Tools - Automated deployment and testing framework for Neo4j Enterprise on Azure",
     add_completion=False,
     rich_markup_mode="rich",
 )
@@ -32,7 +32,7 @@ console = Console()
 
 def check_initialized() -> ConfigManager:
     """
-    Check if the testing suite is initialized.
+    Check if the deployment tools are initialized.
 
     Returns:
         ConfigManager instance
@@ -44,7 +44,7 @@ def check_initialized() -> ConfigManager:
 
     if not config_manager.is_initialized():
         console.print(
-            "[yellow]Testing suite not initialized. Running setup wizard...[/yellow]\n"
+            "[yellow]Deployment tools not initialized. Running setup wizard...[/yellow]\n"
         )
         wizard = SetupWizard()
         success = wizard.run()
@@ -77,7 +77,7 @@ def setup(
     config_manager = ConfigManager()
 
     if config_manager.is_initialized() and not force:
-        console.print("[yellow]Testing suite is already configured.[/yellow]")
+        console.print("[yellow]Deployment tools are already configured.[/yellow]")
         if not typer.confirm("Re-run setup wizard?", default=False):
             console.print("[cyan]Setup cancelled.[/cyan]")
             raise typer.Exit(0)
@@ -155,7 +155,7 @@ def validate(
         success = rg_manager.create_resource_group(
             validation_rg,
             settings.default_region,
-            tags={"purpose": "arm-template-validation", "managed-by": "test-arm-script"},
+            tags={"purpose": "arm-template-validation", "managed-by": "neo4j-deploy"},
         )
         if not success:
             console.print(
@@ -261,10 +261,10 @@ def deploy(
     You must specify either --scenario or --all.
 
     Examples:
-        uv run test-arm.py deploy --all
-        uv run test-arm.py deploy --scenario standalone-v5
-        uv run test-arm.py deploy --scenario cluster-v5 --region eastus2
-        uv run test-arm.py deploy --all --dry-run
+        uv run neo4j-deploy deploy --all
+        uv run neo4j-deploy deploy --scenario standalone-v5
+        uv run neo4j-deploy deploy --scenario cluster-v5 --region eastus2
+        uv run neo4j-deploy deploy --all --dry-run
     """
     from pathlib import Path as PathLib
     from rich.table import Table
@@ -288,8 +288,8 @@ def deploy(
         for s in scenarios.scenarios:
             console.print(f"  - {s.name}")
         console.print("\n[cyan]Examples:[/cyan]")
-        console.print("  uv run test-arm.py deploy --scenario standalone-v5")
-        console.print("  uv run test-arm.py deploy --all")
+        console.print("  uv run neo4j-deploy deploy --scenario standalone-v5")
+        console.print("  uv run neo4j-deploy deploy --all")
         raise typer.Exit(1)
 
     if scenario and all_scenarios:
@@ -311,7 +311,7 @@ def deploy(
         scenarios_to_deploy = scenarios.scenarios
 
     # Initialize deployment engine
-    # Assume we're running from localtests/, so marketplace is ../marketplace
+    # Assume we're running from deployments/, so marketplace is ../marketplace
     base_template_dir = PathLib("../marketplace/neo4j-enterprise").resolve()
 
     try:
@@ -549,10 +549,10 @@ def deploy(
             if final_status == "Succeeded":
                 console.print(f"  - Validate {state.scenario_name}: [bold]uv run validate_deploy {state.scenario_name}[/bold]")
 
-        console.print("  - Check status: uv run test-arm.py status")
+        console.print("  - Check status: uv run neo4j-deploy status")
 
         if cleanup == CleanupMode.MANUAL:
-            console.print("  - Clean up resources with: uv run test-arm.py cleanup --all")
+            console.print("  - Clean up resources with: uv run neo4j-deploy cleanup --all")
         else:
             console.print(f"  - Cleanup mode: {cleanup.value} (auto-cleanup {'enabled' if cleanup != CleanupMode.MANUAL else 'disabled'})")
 
@@ -579,8 +579,8 @@ def test(
     If no deployment ID is provided, tests the most recent successful deployment.
 
     Examples:
-        uv run test-arm.py test                                       # Test most recent
-        uv run test-arm.py test d681f330-499d-4523-ba5b-42e28d2b7d12  # Test specific deployment
+        uv run neo4j-deploy test                                       # Test most recent
+        uv run neo4j-deploy test d681f330-499d-4523-ba5b-42e28d2b7d12  # Test specific deployment
     """
     from src.resource_groups import ResourceGroupManager
     from src.validate_deploy import validate_deployment
@@ -608,7 +608,7 @@ def test(
 
         if not successful_deployments:
             console.print("[red]Error: No successful deployments found.[/red]")
-            console.print("[yellow]Deploy first with: uv run test-arm.py deploy --scenario <scenario-name>[/yellow]")
+            console.print("[yellow]Deploy first with: uv run neo4j-deploy deploy --scenario <scenario-name>[/yellow]")
             raise typer.Exit(1)
 
         # Sort by created_at (most recent first)
@@ -624,7 +624,7 @@ def test(
 
     if not deployment_state:
         console.print(f"[red]Error: Deployment {deployment_id} not found[/red]")
-        console.print("[yellow]Run 'uv run test-arm.py status' to see available deployments[/yellow]")
+        console.print("[yellow]Run 'uv run neo4j-deploy status' to see available deployments[/yellow]")
         raise typer.Exit(1)
 
     console.print(f"[dim]Scenario: {deployment_state.scenario_name}[/dim]")
@@ -705,7 +705,7 @@ def status(
     if not deployments:
         console.print("[yellow]No deployments found[/yellow]")
         console.print("\n[cyan]Deploy a scenario:[/cyan]")
-        console.print("  uv run test-arm.py deploy --scenario standalone-v5")
+        console.print("  uv run neo4j-deploy deploy --scenario standalone-v5")
         raise typer.Exit(0)
 
     # Filter out deleted deployments unless verbose
@@ -786,8 +786,8 @@ def status(
     if active_count > 0:
         console.print(f"[cyan]Active deployments:[/cyan] {active_count}")
         console.print("\n[dim]To clean up:[/dim]")
-        console.print("  uv run test-arm.py cleanup --deployment <id> --force")
-        console.print("  uv run test-arm.py cleanup --all --force")
+        console.print("  uv run neo4j-deploy cleanup --deployment <id> --force")
+        console.print("  uv run neo4j-deploy cleanup --all --force")
 
 
 @app.command()
@@ -823,10 +823,10 @@ def cleanup(
     - scheduled: Delete when expiration time is reached
 
     Examples:
-        uv run test-arm.py cleanup --deployment 2c4ca18c --force
-        uv run test-arm.py cleanup --all --force
-        uv run test-arm.py cleanup --older-than 24h
-        uv run test-arm.py cleanup --all --dry-run
+        uv run neo4j-deploy cleanup --deployment 2c4ca18c --force
+        uv run neo4j-deploy cleanup --all --force
+        uv run neo4j-deploy cleanup --older-than 24h
+        uv run neo4j-deploy cleanup --all --dry-run
     """
     from src.cleanup import CleanupManager
     from src.resource_groups import ResourceGroupManager
@@ -836,9 +836,9 @@ def cleanup(
     if not deployment and not all_deployments and not older_than:
         console.print("[red]Error: Must specify --deployment, --all, or --older-than[/red]")
         console.print("\n[cyan]Examples:[/cyan]")
-        console.print("  uv run test-arm.py cleanup --deployment 2c4ca18c --force")
-        console.print("  uv run test-arm.py cleanup --all --force")
-        console.print("  uv run test-arm.py cleanup --older-than 24h")
+        console.print("  uv run neo4j-deploy cleanup --deployment 2c4ca18c --force")
+        console.print("  uv run neo4j-deploy cleanup --all --force")
+        console.print("  uv run neo4j-deploy cleanup --older-than 24h")
         raise typer.Exit(1)
 
     # Initialize components
@@ -864,7 +864,7 @@ def cleanup(
 
         if not matching:
             console.print(f"[red]Error: No deployment found matching '{deployment}'[/red]")
-            console.print("\n[yellow]Run 'uv run test-arm.py status' to see available deployments[/yellow]")
+            console.print("\n[yellow]Run 'uv run neo4j-deploy status' to see available deployments[/yellow]")
             raise typer.Exit(1)
 
         if len(matching) > 1:
@@ -934,9 +934,9 @@ def report(
     If no deployment_id specified, generates a summary report of all deployments.
 
     Examples:
-        uv run test-arm.py report
-        uv run test-arm.py report abc123
-        uv run test-arm.py report --format json --output report.json
+        uv run neo4j-deploy report
+        uv run neo4j-deploy report abc123
+        uv run neo4j-deploy report --format json --output report.json
     """
     check_initialized()
     console.print("[yellow]Report command not yet implemented[/yellow]")

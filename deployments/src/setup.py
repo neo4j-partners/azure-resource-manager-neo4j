@@ -128,16 +128,16 @@ class SetupWizard:
 
         console.print("\n[bold green]✓ Setup complete![/bold green]")
         console.print("\nYou can now run:")
-        console.print("  [cyan]uv run test-arm.py validate[/cyan]     - Validate templates")
-        console.print("  [cyan]uv run test-arm.py deploy --all[/cyan] - Deploy all scenarios")
-        console.print("  [cyan]uv run test-arm.py status[/cyan]       - Check deployment status")
+        console.print("  [cyan]uv run neo4j-deploy validate[/cyan]     - Validate templates")
+        console.print("  [cyan]uv run neo4j-deploy deploy --all[/cyan] - Deploy all scenarios")
+        console.print("  [cyan]uv run neo4j-deploy status[/cyan]       - Check deployment status")
 
         return True
 
     def _show_welcome(self) -> bool:
         """Show welcome message and get confirmation to continue."""
         welcome_text = """
-[bold]Welcome to the Neo4j ARM Template Testing Suite Setup[/bold]
+[bold]Welcome to the Neo4j Azure Deployment Tools Setup[/bold]
 
 This wizard will help you configure the testing environment:
 • Azure subscription and region settings
@@ -150,7 +150,7 @@ All configuration will be stored in [cyan].arm-testing/config/[/cyan]
 Working files (logs, results, state) will be in [cyan].arm-testing/[/cyan]
 The [cyan].arm-testing/[/cyan] directory is already git-ignored.
 
-You can run this setup again anytime with: [cyan]uv run test-arm.py setup[/cyan]
+You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan]
         """
 
         console.print(Panel(welcome_text, title="Setup Wizard", border_style="blue"))
@@ -331,34 +331,34 @@ You can run this setup again anytime with: [cyan]uv run test-arm.py setup[/cyan]
         console.print(table)
 
     def _update_readme(self) -> None:
-        """Create or update README.md in localtests directory."""
-        readme_content = """# Neo4j ARM Template Testing Suite
+        """Create or update README.md in deployments directory."""
+        readme_content = """# Neo4j Azure Deployment Tools
 
-Automated testing framework for Neo4j Enterprise Azure Resource Manager templates.
+Automated deployment and testing framework for Neo4j Enterprise on Azure.
 
 ## Quick Start
 
 ```bash
 # First-time setup (already completed)
-uv run test-arm.py setup
+uv run neo4j-deploy setup
 
 # Validate templates
-uv run test-arm.py validate
+uv run neo4j-deploy validate
 
 # Deploy all scenarios
-uv run test-arm.py deploy --all
+uv run neo4j-deploy deploy --all
 
 # Deploy specific scenario
-uv run test-arm.py deploy --scenario standalone-v5
+uv run neo4j-deploy deploy --scenario standalone-v5
 
 # Check deployment status
-uv run test-arm.py status
+uv run neo4j-deploy status
 
 # Generate test report
-uv run test-arm.py report
+uv run neo4j-deploy report
 
 # Clean up resources
-uv run test-arm.py cleanup --all
+uv run neo4j-deploy cleanup --all
 ```
 
 ## Configuration
