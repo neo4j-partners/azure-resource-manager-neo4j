@@ -1,4 +1,16 @@
-name: Test ARM Template for Enterprise
+name: Test Bicep Template for Enterprise
+
+# This workflow validates Neo4j Enterprise deployments using:
+# - Bicep templates (compiled to ARM JSON)
+# - Python-based validation (validate_deploy)
+#
+# Test scenarios (Neo4j v5 only):
+# - Cluster (3 nodes) with Enterprise license
+# - Standalone with Enterprise license
+# - Cluster (3 nodes) with Evaluation license
+# - Standalone with Evaluation license
+#
+# Note: Neo4j v4.4 tests removed - not yet migrated to Bicep
 
 on:
   workflow_dispatch:
@@ -6,76 +18,138 @@ on:
     paths:
       - marketplace/neo4j-enterprise/**
       - scripts/neo4j-enterprise/**
+      - deployments/**
       - .github/**
-    branches:    
+    branches:
       - main
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  TEMPLATE_PATH: marketplace/neo4j-enterprise
+  DEPLOYMENTS_PATH: deployments
 
 jobs:
   test-template-cluster-v5:
     name: Test ARM (Neo4j Cluster)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
     env:
       ResourceGroupLocation: westeurope
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Azure Login
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
 
-    - name: Configure Resource Group and Deployment variables
-      id: variables
-      run: |
-        DATE=`echo $(date '+%Y%m%d-%S-%2N')`
-        RGNAME=`echo ghactions-rg-$DATE`
-        DEPNAME=`echo ghactions-dep-$DATE`
-        ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/`
-        if ${{ github.event_name == 'workflow_dispatch' }}; then
-          ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/`
-        fi
-        echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
-        echo "artifactsLocation=$ARTIFACTS_LOCATION" >> $GITHUB_OUTPUT
-        echo "depName=$DEPNAME" >> $GITHUB_OUTPUT
-        echo "Resource Group name: $RGNAME"
-        echo "Deployment name: $DEPNAME"
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/uv
+          key: ${{ runner.os }}-uv-0.5.x
 
-    - name: Create Resource Group
-      uses: Azure/CLI@v1
-      id: rgCreate
-      with:
-        inlineScript: |
-          #!/bin/bash
-          az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
-          echo "Azure resource group created"
-          echo "Artifacts Location = ${{ steps.variables.outputs.artifactsLocation }}"
+      - name: Install uv
+        run: |
+          set -euo pipefail
+          if [ ! -f ~/.cargo/bin/uv ]; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-    - name: Deploy ARM Template (Neo4j Cluster v5)
-      id: deployARM
-      uses: azure/arm-deploy@v1
-      with:
-        resourceGroupName: ${{ steps.variables.outputs.rgName }}
-        template: ./marketplace/neo4j-enterprise/mainTemplate.json
-        parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="3" graphDatabaseVersion="5" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
-        deploymentName: ${{ steps.variables.outputs.depName }}
+      - name: Verify uv installation
+        run: |
+          ~/.cargo/bin/uv --version
 
-    - name: Execute tests
-      run: |
-        URI=$(echo "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g') 
-        PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
-        curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
-        chmod +x ./neo4jtester_linux
-        ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}" "Enterprise"
+      - name: Install validation dependencies
+        run: |
+          set -euo pipefail
+          cd ${{ env.DEPLOYMENTS_PATH }}
+          ~/.cargo/bin/uv sync
 
-    - name: Delete Resource Group
-      if: always()
-      uses: Azure/CLI@v1
-      with:
-        inlineScript: |
-          #!/bin/bash
-          az group delete --name ${{ steps.variables.outputs.rgName }} --yes
-          echo "Azure resource group deleted !!"
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Configure Resource Group and Deployment variables
+        id: variables
+        run: |
+          set -euo pipefail
+          TIMESTAMP=$(date '+%Y%m%d-%H%M%S')
+          RGNAME="ghactions-rg-${TIMESTAMP}-${{ github.run_id }}-${{ github.run_attempt }}"
+          DEPNAME="ghactions-dep-${TIMESTAMP}"
+          ARTIFACTS_LOCATION="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
+          if ${{ github.event_name == 'workflow_dispatch' }}; then
+            ARTIFACTS_LOCATION="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/"
+          fi
+          echo "rgName=${RGNAME}" >> $GITHUB_OUTPUT
+          echo "artifactsLocation=${ARTIFACTS_LOCATION}" >> $GITHUB_OUTPUT
+          echo "depName=${DEPNAME}" >> $GITHUB_OUTPUT
+          echo "Resource Group name: ${RGNAME}"
+          echo "Deployment name: ${DEPNAME}"
+
+      - name: Create Resource Group
+        uses: Azure/CLI@v1
+        with:
+          inlineScript: |
+            set -euo pipefail
+            az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
+            echo "Azure resource group created"
+
+      - name: Compile Bicep template to ARM JSON
+        run: |
+          set -euo pipefail
+          cd ${{ env.TEMPLATE_PATH }}
+          az bicep build --file mainTemplate.bicep --outfile mainTemplate-generated.json
+          echo "Bicep template compiled successfully"
+
+      - name: Deploy ARM Template (Neo4j Cluster v5)
+        id: deployARM
+        uses: azure/arm-deploy@v1
+        with:
+          resourceGroupName: ${{ steps.variables.outputs.rgName }}
+          template: ./${{ env.TEMPLATE_PATH }}/mainTemplate-generated.json
+          parameters: ./${{ env.TEMPLATE_PATH }}/parameters.json nodeCount="3" graphDatabaseVersion="5" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
+          deploymentName: ${{ steps.variables.outputs.depName }}
+
+      - name: Validate deployment
+        run: |
+          set -euo pipefail
+
+          # Validate deployment output exists
+          if [ -z "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" ]; then
+            echo "ERROR: Deployment output 'neo4jClusterBrowserURL' is missing"
+            exit 1
+          fi
+
+          # Transform URI
+          URI=$(echo "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g')
+
+          # Validate transformed URI
+          if [[ ! "$URI" =~ ^neo4j:// ]]; then
+            echo "ERROR: URI transformation failed. Got: $URI"
+            exit 1
+          fi
+
+          PASSWORD=$(cat ./${{ env.TEMPLATE_PATH }}/parameters.json | jq -r .adminPassword.value)
+
+          echo "Validating deployment at: $URI"
+          cd ${{ env.DEPLOYMENTS_PATH }}
+          ~/.cargo/bin/uv run validate_deploy "${URI}" "neo4j" "${PASSWORD}" "Enterprise" "3"
+
+      - name: Delete Resource Group
+        if: always()
+        uses: Azure/CLI@v1
+        with:
+          inlineScript: |
+            set -euo pipefail
+            az group delete --name ${{ steps.variables.outputs.rgName }} --yes
+            echo "Azure resource group deleted"
 
   test-template-standalone-v5:
     name: Test ARM (Neo4j Standalone)
@@ -85,6 +159,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install validation dependencies
+        run: |
+          cd deployments
+          ~/.cargo/bin/uv sync
 
       - name: Azure Login
         uses: azure/login@v1
@@ -117,22 +206,27 @@ jobs:
             echo "Azure resource group created"
             echo "Artifacts Location = ${{ steps.variables.outputs.artifactsLocation }}"
 
+      - name: Compile Bicep template to ARM JSON
+        run: |
+          cd marketplace/neo4j-enterprise
+          az bicep build --file mainTemplate.bicep --outfile mainTemplate-generated.json
+          echo "Bicep template compiled successfully"
+
       - name: Deploy ARM Template (Neo4j Standalone v5)
         id: deployARM
         uses: azure/arm-deploy@v1
         with:
           resourceGroupName: ${{ steps.variables.outputs.rgName }}
-          template: ./marketplace/neo4j-enterprise/mainTemplate.json
+          template: ./marketplace/neo4j-enterprise/mainTemplate-generated.json
           parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="1" graphDatabaseVersion="5" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
           deploymentName: ${{ steps.variables.outputs.depName }}
 
-      - name: Execute tests
+      - name: Validate deployment
         run: |
-          URI=$(echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g') 
+          URI=$(echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g')
           PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
-          curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
-          chmod +x ./neo4jtester_linux
-          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}" "Enterprise"
+          cd deployments
+          ~/.cargo/bin/uv run validate_deploy "${URI}" "neo4j" "${PASSWORD}" "Enterprise"
 
       - name: Delete Resource Group
         if: always()
@@ -152,6 +246,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install validation dependencies
+        run: |
+          cd deployments
+          ~/.cargo/bin/uv sync
+
       - name: Azure Login
         uses: azure/login@v1
         with:
@@ -183,22 +292,27 @@ jobs:
             echo "Azure resource group created"
             echo "Artifacts Location = ${{ steps.variables.outputs.artifactsLocation }}"
 
+      - name: Compile Bicep template to ARM JSON
+        run: |
+          cd marketplace/neo4j-enterprise
+          az bicep build --file mainTemplate.bicep --outfile mainTemplate-generated.json
+          echo "Bicep template compiled successfully"
+
       - name: Deploy ARM Template (Neo4j Cluster v5)
         id: deployARM
         uses: azure/arm-deploy@v1
         with:
           resourceGroupName: ${{ steps.variables.outputs.rgName }}
-          template: ./marketplace/neo4j-enterprise/mainTemplate.json
+          template: ./marketplace/neo4j-enterprise/mainTemplate-generated.json
           parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="3" graphDatabaseVersion="5" licenseType="Evaluation" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
           deploymentName: ${{ steps.variables.outputs.depName }}
 
-      - name: Execute tests
+      - name: Validate deployment
         run: |
-          URI=$(echo "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g') 
+          URI=$(echo "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g')
           PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
-          curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
-          chmod +x ./neo4jtester_linux
-          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}" "Evaluation"
+          cd deployments
+          ~/.cargo/bin/uv run validate_deploy "${URI}" "neo4j" "${PASSWORD}" "Evaluation" "3"
 
       - name: Delete Resource Group
         if: always()
@@ -218,6 +332,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install validation dependencies
+        run: |
+          cd deployments
+          ~/.cargo/bin/uv sync
+
       - name: Azure Login
         uses: azure/login@v1
         with:
@@ -248,155 +377,28 @@ jobs:
             az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
             echo "Azure resource group created"
             echo "Artifacts Location = ${{ steps.variables.outputs.artifactsLocation }}"
+
+      - name: Compile Bicep template to ARM JSON
+        run: |
+          cd marketplace/neo4j-enterprise
+          az bicep build --file mainTemplate.bicep --outfile mainTemplate-generated.json
+          echo "Bicep template compiled successfully"
 
       - name: Deploy ARM Template (Neo4j Standalone v5)
         id: deployARM
         uses: azure/arm-deploy@v1
         with:
           resourceGroupName: ${{ steps.variables.outputs.rgName }}
-          template: ./marketplace/neo4j-enterprise/mainTemplate.json
+          template: ./marketplace/neo4j-enterprise/mainTemplate-generated.json
           parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="1" graphDatabaseVersion="5" licenseType="Evaluation" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
           deploymentName: ${{ steps.variables.outputs.depName }}
 
-      - name: Execute tests
+      - name: Validate deployment
         run: |
-          URI=$(echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g') 
+          URI=$(echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g')
           PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
-          curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
-          chmod +x ./neo4jtester_linux
-          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}" "Evaluation"
-
-      - name: Delete Resource Group
-        if: always()
-        uses: Azure/CLI@v1
-        with:
-          inlineScript: |
-            #!/bin/bash
-            az group delete --name ${{ steps.variables.outputs.rgName }} --yes
-            echo "Azure resource group deleted !!"
-
-  test-template-cluster-v44:
-    name: Test ARM (Neo4j Cluster v4.4)
-    runs-on: ubuntu-latest
-    env:
-      ResourceGroupLocation: uksouth
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Configure Resource Group and Deployment variables
-        id: variables
-        run: |
-          DATE=`echo $(date '+%Y%m%d-%S-%2N')`
-          RGNAME=`echo ghactions-rg-$DATE`
-          DEPNAME=`echo ghactions-dep-$DATE`
-          ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/`
-          if ${{ github.event_name == 'workflow_dispatch' }}; then
-            ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/`
-          fi
-          echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
-          echo "artifactsLocation=$ARTIFACTS_LOCATION" >> $GITHUB_OUTPUT
-          echo "depName=$DEPNAME" >> $GITHUB_OUTPUT
-          echo "Resource Group name: $RGNAME"
-          echo "Deployment name: $DEPNAME"
-
-      - name: Create Resource Group
-        uses: Azure/CLI@v1
-        id: rgCreate
-        with:
-          inlineScript: |
-            #!/bin/bash
-            az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
-            echo "Azure resource group created"
-            echo "Artifacts Location = ${{ steps.variables.outputs.artifactsLocation }}"
-
-      - name: Deploy ARM Template (Neo4j Cluster v4.4)
-        id: deployARM
-        uses: azure/arm-deploy@v1
-        with:
-          resourceGroupName: ${{ steps.variables.outputs.rgName }}
-          template: ./marketplace/neo4j-enterprise/mainTemplate.json
-          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="3" graphDatabaseVersion="4.4" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
-          deploymentName: ${{ steps.variables.outputs.depName }}
-
-      - name: Execute tests
-        run: |
-          URI=$(echo "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g') 
-          PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
-          curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
-          chmod +x ./neo4jtester_linux
-          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}" "Enterprise"
-
-      - name: Delete Resource Group
-        if: always()
-        uses: Azure/CLI@v1
-        with:
-          inlineScript: |
-            #!/bin/bash
-            az group delete --name ${{ steps.variables.outputs.rgName }} --yes
-            echo "Azure resource group deleted !!"
-
-  test-template-standalone-v44:
-    name: Test ARM (Neo4j Standalone v4.4)
-    runs-on: ubuntu-latest
-    env:
-      ResourceGroupLocation: swedencentral
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Configure Resource Group and Deployment variables
-        id: variables
-        run: |
-          DATE=`echo $(date '+%Y%m%d-%S-%2N')`
-          RGNAME=`echo ghactions-rg-$DATE`
-          DEPNAME=`echo ghactions-dep-$DATE`
-          ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/`
-          if ${{ github.event_name == 'workflow_dispatch' }}; then
-            ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/`
-          fi
-          echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
-          echo "artifactsLocation=$ARTIFACTS_LOCATION" >> $GITHUB_OUTPUT
-          echo "depName=$DEPNAME" >> $GITHUB_OUTPUT
-          echo "Resource Group name: $RGNAME"
-          echo "Deployment name: $DEPNAME"
-
-      - name: Create Resource Group
-        uses: Azure/CLI@v1
-        id: rgCreate
-        with:
-          inlineScript: |
-            #!/bin/bash
-            az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
-            echo "Azure resource group created"
-            echo "Artifacts Location = ${{ steps.variables.outputs.artifactsLocation }}"
-
-      - name: Deploy ARM Template (Neo4j Standalone v4.4)
-        id: deployARM
-        uses: azure/arm-deploy@v1
-        with:
-          resourceGroupName: ${{ steps.variables.outputs.rgName }}
-          template: ./marketplace/neo4j-enterprise/mainTemplate.json
-          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="1" graphDatabaseVersion="4.4" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
-          deploymentName: ${{ steps.variables.outputs.depName }}
-
-      - name: Execute tests
-        run: |
-          URI=$(echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g') 
-          PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
-          curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
-          chmod +x ./neo4jtester_linux
-          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}" "Enterprise"
+          cd deployments
+          ~/.cargo/bin/uv run validate_deploy "${URI}" "neo4j" "${PASSWORD}" "Evaluation"
 
       - name: Delete Resource Group
         if: always()

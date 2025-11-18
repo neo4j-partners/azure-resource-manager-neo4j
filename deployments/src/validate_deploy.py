@@ -501,34 +501,51 @@ def main():
         console.print()
 
     elif len(sys.argv) == 5:
-        # Mode 2: Full manual parameters
+        # Mode 2: Full manual parameters (standalone)
         uri = sys.argv[1]
         username = sys.argv[2]
         password = sys.argv[3]
         license_type = sys.argv[4]
+        node_count = None
 
         console.print(f"\n[bold]Neo4j Deployment Validator[/bold]\n")
         console.print(f"[cyan]URI:[/cyan] {uri}")
         console.print(f"[cyan]Username:[/cyan] {username}")
         console.print(f"[cyan]License Type:[/cyan] {license_type}\n")
 
+    elif len(sys.argv) == 6:
+        # Mode 3: Full manual parameters with node count (cluster)
+        uri = sys.argv[1]
+        username = sys.argv[2]
+        password = sys.argv[3]
+        license_type = sys.argv[4]
+        node_count = int(sys.argv[5])
+
+        console.print(f"\n[bold]Neo4j Deployment Validator[/bold]\n")
+        console.print(f"[cyan]URI:[/cyan] {uri}")
+        console.print(f"[cyan]Username:[/cyan] {username}")
+        console.print(f"[cyan]License Type:[/cyan] {license_type}")
+        console.print(f"[cyan]Expected Nodes:[/cyan] {node_count}\n")
+
     else:
         console.print("[red]Error: Invalid arguments[/red]")
         console.print("\n[cyan]Usage (from deployment):[/cyan]")
         console.print("  validate_deploy <scenario_name>")
-        console.print("\n[cyan]Usage (manual):[/cyan]")
+        console.print("\n[cyan]Usage (manual - standalone):[/cyan]")
         console.print("  validate_deploy <uri> <username> <password> <license_type>")
+        console.print("\n[cyan]Usage (manual - cluster):[/cyan]")
+        console.print("  validate_deploy <uri> <username> <password> <license_type> <node_count>")
         console.print("\n[cyan]Examples:[/cyan]")
         console.print("  validate_deploy standalone-v5")
         console.print("  validate_deploy neo4j://example.com:7687 neo4j mypassword Evaluation")
+        console.print("  validate_deploy neo4j://cluster.example.com:7687 neo4j mypassword Enterprise 3")
         sys.exit(1)
 
     try:
-        # Pass node_count if available (from scenario mode)
-        if len(sys.argv) == 2:
+        # Pass node_count if available
+        if len(sys.argv) == 2 or len(sys.argv) == 5 or len(sys.argv) == 6:
             success = validate_deployment(uri, username, password, license_type, node_count)
         else:
-            # Manual mode - no node count available
             success = validate_deployment(uri, username, password, license_type)
         sys.exit(0 if success else 1)
     except Exception as e:
