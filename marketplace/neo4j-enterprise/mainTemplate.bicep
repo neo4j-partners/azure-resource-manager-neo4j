@@ -48,8 +48,9 @@ param location string = resourceGroup().location
 @description('Optional UTC value for testing. Leave empty for deterministic deployments.')
 param utcValue string = ''
 
-// Load cloud-init configuration
+// Load cloud-init configurations
 var cloudInitStandalone = loadTextContent('../../scripts/neo4j-enterprise/cloud-init/standalone.yaml')
+var cloudInitCluster = loadTextContent('../../scripts/neo4j-enterprise/cloud-init/cluster.yaml')
 
 var deploymentUniqueId = uniqueString(resourceGroup().id, deployment().name)
 // Use utcValue if provided (for testing), otherwise use deterministic deploymentUniqueId
@@ -59,9 +60,25 @@ var loadBalancerBackendAddressPools = [
     id: resourceId('Microsoft.Network/loadBalancers/backendAddressPools', loadBalancerName, 'backend')
   }
 ]
+
+// Select cloud-init template based on deployment type (standalone vs cluster)
+var cloudInitTemplate = (nodeCount == 1) ? cloudInitStandalone : cloudInitCluster
+
 // Prepare cloud-init with parameter substitution
 var licenseAgreement = (licenseType == 'Evaluation') ? 'eval' : 'yes'
-var cloudInitData = replace(replace(replace(replace(cloudInitStandalone, '\${unique_string}', deploymentUniqueId), '\${location}', location), '\${admin_password}', adminPassword), '\${license_agreement}', licenseAgreement)
+var cloudInitData = replace(
+  replace(
+    replace(
+      replace(
+        replace(cloudInitTemplate, '\${unique_string}', deploymentUniqueId),
+        '\${location}', location
+      ),
+      '\${admin_password}', adminPassword
+    ),
+    '\${license_agreement}', licenseAgreement
+  ),
+  '\${node_count}', string(nodeCount)
+)
 var cloudInitBase64 = base64(cloudInitData)
 
 var networkSGName = 'nsg-neo4j-${location}-${resourceSuffix}'
@@ -134,6 +151,34 @@ resource networkSG 'Microsoft.Network/networkSecurityGroups@2022-07-01' = {
           destinationAddressPrefix: '*'
           access: 'Allow'
           priority: 103
+          direction: 'Inbound'
+        }
+      }
+      {
+        name: 'ClusterRaft'
+        properties: {
+          description: 'Cluster Raft consensus protocol (internal only)'
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '5000'
+          sourceAddressPrefix: 'VirtualNetwork'
+          destinationAddressPrefix: 'VirtualNetwork'
+          access: 'Allow'
+          priority: 104
+          direction: 'Inbound'
+        }
+      }
+      {
+        name: 'ClusterDiscovery'
+        properties: {
+          description: 'Cluster discovery and routing (internal only)'
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '7688'
+          sourceAddressPrefix: 'VirtualNetwork'
+          destinationAddressPrefix: 'VirtualNetwork'
+          access: 'Allow'
+          priority: 105
           direction: 'Inbound'
         }
       }
@@ -355,7 +400,7 @@ resource vmScaleSets 'Microsoft.Compute/virtualMachineScaleSets@2018-06-01' = {
         computerNamePrefix: 'node'
         adminUsername: adminUsername
         adminPassword: adminPassword
-        customData: (nodeCount == 1) ? cloudInitBase64 : null
+        customData: cloudInitBase64
       }
       networkProfile: {
         networkInterfaceConfigurations: [
@@ -390,25 +435,8 @@ resource vmScaleSets 'Microsoft.Compute/virtualMachineScaleSets@2018-06-01' = {
         ]
       }
       extensionProfile: {
-        extensions: (nodeCount == 1) ? [] : [
-          {
-            name: 'extension'
-            properties: {
-              publisher: 'Microsoft.Azure.Extensions'
-              type: 'CustomScript'
-              typeHandlerVersion: '2.0'
-              autoUpgradeMinorVersion: true
-              settings: {
-                fileUris: [
-                  'https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/main/scripts/neo4j-enterprise/node.sh'
-                ]
-              }
-              protectedSettings: {
-                commandToExecute: 'bash node.sh ${adminUsername} "${adminPassword}" ${deploymentUniqueId} ${location} ${graphDatabaseVersion} ${installGraphDataScience} ${graphDataScienceLicenseKey} ${installBloom} ${bloomLicenseKey} ${nodeCount} ${(loadBalancerCondition?publicIp!.properties.ipAddress:'-')} /subscriptions/${subscription().subscriptionId}/resourceGroups/${resourceGroup().name}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${userAssignedIdentityName} ${resourceGroup().name} ${vmScaleSetsName} ${licenseType}'
-              }
-            }
-          }
-        ]
+        // No extensions needed - using cloud-init for all configuration
+        extensions: []
       }
     }
   }

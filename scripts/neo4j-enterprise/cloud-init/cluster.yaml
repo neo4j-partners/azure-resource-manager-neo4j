@@ -1,6 +1,6 @@
 #cloud-config
-# Neo4j Enterprise 5 Standalone Deployment
-# This cloud-init configuration installs and configures Neo4j on a single Azure VM
+# Neo4j Enterprise 5 Cluster Deployment
+# This cloud-init configuration installs and configures Neo4j in cluster mode
 
 # Disable firewalld and SELinux
 bootcmd:
@@ -38,22 +38,51 @@ runcmd:
   # Install Neo4j with license acceptance
   - export NEO4J_ACCEPT_LICENSE_AGREEMENT=${license_agreement}
   - dnf install -y neo4j-enterprise
+
   # Get instance metadata
   - INSTANCE_METADATA=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01")
   - NODE_INDEX=$(echo $INSTANCE_METADATA | jq -r ".name" | sed 's/.*_//')
+  - INTERNAL_HOSTNAME=$(hostname)
   - PRIVATE_IP=$(hostname -i | awk '{print $NF}')
   - UNIQUE_STRING="${unique_string}"
   - LOCATION="${location}"
+  - NODE_COUNT=${node_count}
+
+  # Public DNS for external access
   - PUBLIC_HOSTNAME="vm${NODE_INDEX}.neo4j-${UNIQUE_STRING}.${LOCATION}.cloudapp.azure.com"
+
+  # Generate cluster discovery endpoints (using internal hostnames)
+  - |
+    DISCOVERY_ENDPOINTS=""
+    for i in $(seq 0 $((NODE_COUNT - 1))); do
+      if [ -n "$DISCOVERY_ENDPOINTS" ]; then
+        DISCOVERY_ENDPOINTS="${DISCOVERY_ENDPOINTS},"
+      fi
+      DISCOVERY_ENDPOINTS="${DISCOVERY_ENDPOINTS}node$(printf '%06d' $i):5000"
+    done
+    echo "Generated cluster discovery endpoints: $DISCOVERY_ENDPOINTS"
 
   # Install APOC plugin
   - mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins/
 
-  # Configure Neo4j network settings
+  # Configure Neo4j network settings for external access
   - sed -i 's/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf
   - sed -i "s/#server.default_advertised_address=localhost/server.default_advertised_address=${PUBLIC_HOSTNAME}/g" /etc/neo4j/neo4j.conf
   - sed -i "s/#server.bolt.advertised_address=:7687/server.bolt.advertised_address=${PUBLIC_HOSTNAME}:7687/g" /etc/neo4j/neo4j.conf
   - sed -i 's/#server.bolt.listen_address=:7687/server.bolt.listen_address=0.0.0.0:7687/g' /etc/neo4j/neo4j.conf
+
+  # Configure cluster mode
+  - echo "server.cluster.system_database_mode=PRIMARY" >> /etc/neo4j/neo4j.conf
+
+  # Cluster communication (use internal hostname for cluster traffic)
+  - echo "server.cluster.raft.advertised_address=${INTERNAL_HOSTNAME}:5000" >> /etc/neo4j/neo4j.conf
+  - echo "server.cluster.raft.listen_address=0.0.0.0:5000" >> /etc/neo4j/neo4j.conf
+  - echo "server.discovery.advertised_address=${INTERNAL_HOSTNAME}:5000" >> /etc/neo4j/neo4j.conf
+  - echo "server.discovery.listen_address=0.0.0.0:5000" >> /etc/neo4j/neo4j.conf
+
+  # Cluster discovery
+  - echo "dbms.cluster.discovery.endpoints=${DISCOVERY_ENDPOINTS}" >> /etc/neo4j/neo4j.conf
+  - echo "dbms.cluster.minimum_initial_system_primaries_count=${NODE_COUNT}" >> /etc/neo4j/neo4j.conf
 
   # Configure extensions and security
   - sed -i 's~#server.unmanaged_extension_classes=org.neo4j.examples.server.unmanaged=/examples/unmanaged~server.unmanaged_extension_classes=com.neo4j.bloom.server=/bloom,semantics.extension=/rdf~g' /etc/neo4j/neo4j.conf
@@ -88,10 +117,10 @@ runcmd:
       echo "Waiting for Neo4j to be ready..."
       sleep 5
     done
-  - echo "Neo4j is ready!"
+  - echo "Neo4j cluster node is ready!"
 
 write_files:
   - path: /var/log/neo4j-cloud-init.log
     content: |
-      Neo4j cloud-init started at $(date)
+      Neo4j cluster cloud-init started at $(date)
     append: true
