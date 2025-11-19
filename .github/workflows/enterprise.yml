@@ -116,6 +116,10 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Wait for cluster to be ready
+          echo "Waiting 5 minutes for cluster to fully initialize..."
+          sleep 300
+
           # Validate deployment output exists
           if [ -z "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" ]; then
             echo "ERROR: Deployment output 'neo4jClusterBrowserURL' is missing"
@@ -148,30 +152,44 @@ jobs:
 
   test-template-standalone-v5:
     name: Test ARM (Neo4j Standalone)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       ResourceGroupLocation: eastus2
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
 
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/uv
+          key: ${{ runner.os }}-uv-0.9.x
+
       - name: Install uv
         run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          set -euo pipefail
+          if [ ! -f ~/.local/bin/uv ]; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Verify uv installation
+        run: |
+          uv --version
 
       - name: Install validation dependencies
         run: |
-          cd deployments
-          ~/.cargo/bin/uv sync
+          set -euo pipefail
+          cd ${{ env.DEPLOYMENTS_PATH }}
+          uv sync
 
       - name: Azure Login
-        uses: azure/login@v1
+        uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
@@ -212,10 +230,14 @@ jobs:
 
       - name: Validate deployment
         run: |
+          # Wait for standalone instance to be ready
+          echo "Waiting 5 minutes for Neo4j to fully initialize..."
+          sleep 300
+
           URI=$(echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g')
           PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
-          cd deployments
-          ~/.cargo/bin/uv run validate_deploy "${URI}" "neo4j" "${PASSWORD}" "Enterprise"
+          cd ${{ env.DEPLOYMENTS_PATH }}
+          uv run validate_deploy "${URI}" "neo4j" "${PASSWORD}" "Enterprise"
 
       - name: Delete Resource Group
         if: always()
@@ -228,30 +250,44 @@ jobs:
 
   test-template-cluster-v5-evaluation:
     name: Test ARM (Neo4j Cluster Evaluation)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       ResourceGroupLocation: westeurope
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
 
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/uv
+          key: ${{ runner.os }}-uv-0.9.x
+
       - name: Install uv
         run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          set -euo pipefail
+          if [ ! -f ~/.local/bin/uv ]; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Verify uv installation
+        run: |
+          uv --version
 
       - name: Install validation dependencies
         run: |
-          cd deployments
-          ~/.cargo/bin/uv sync
+          set -euo pipefail
+          cd ${{ env.DEPLOYMENTS_PATH }}
+          uv sync
 
       - name: Azure Login
-        uses: azure/login@v1
+        uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
@@ -292,10 +328,14 @@ jobs:
 
       - name: Validate deployment
         run: |
+          # Wait for cluster to be ready
+          echo "Waiting 5 minutes for cluster to fully initialize..."
+          sleep 300
+
           URI=$(echo "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g')
           PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
-          cd deployments
-          ~/.cargo/bin/uv run validate_deploy "${URI}" "neo4j" "${PASSWORD}" "Evaluation" "3"
+          cd ${{ env.DEPLOYMENTS_PATH }}
+          uv run validate_deploy "${URI}" "neo4j" "${PASSWORD}" "Evaluation" "3"
 
       - name: Delete Resource Group
         if: always()
@@ -308,30 +348,44 @@ jobs:
 
   test-template-standalone-v5-evaluation:
     name: Test ARM (Neo4j Standalone Evaluation)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       ResourceGroupLocation: eastus2
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
 
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/uv
+          key: ${{ runner.os }}-uv-0.9.x
+
       - name: Install uv
         run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          set -euo pipefail
+          if [ ! -f ~/.local/bin/uv ]; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Verify uv installation
+        run: |
+          uv --version
 
       - name: Install validation dependencies
         run: |
-          cd deployments
-          ~/.cargo/bin/uv sync
+          set -euo pipefail
+          cd ${{ env.DEPLOYMENTS_PATH }}
+          uv sync
 
       - name: Azure Login
-        uses: azure/login@v1
+        uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
@@ -372,10 +426,14 @@ jobs:
 
       - name: Validate deployment
         run: |
+          # Wait for standalone instance to be ready
+          echo "Waiting 5 minutes for Neo4j to fully initialize..."
+          sleep 300
+
           URI=$(echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g')
           PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
-          cd deployments
-          ~/.cargo/bin/uv run validate_deploy "${URI}" "neo4j" "${PASSWORD}" "Evaluation"
+          cd ${{ env.DEPLOYMENTS_PATH }}
+          uv run validate_deploy "${URI}" "neo4j" "${PASSWORD}" "Evaluation"
 
       - name: Delete Resource Group
         if: always()

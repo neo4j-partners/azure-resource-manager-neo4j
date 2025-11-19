@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "12057808021625130647"
+      "templateHash": "18392805599757055303"
     }
   },
   "parameters": {
@@ -939,7 +939,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "15721739623005138646"
+              "templateHash": "8860377408222492568"
             }
           },
           "parameters": {
@@ -1009,7 +1009,7 @@
                     "value": "[variables('storageClassYaml')]"
                   }
                 ],
-                "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating StorageClass...\"\n      echo \"$STORAGE_CLASS_YAML\" | kubectl apply -f -\n\n      echo \"Verifying StorageClass...\"\n      kubectl get storageclass ${storageClassName}\n\n      echo \"StorageClass created successfully\"\n    ",
+                "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Installing kubectl...\"\n      az aks install-cli\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating StorageClass...\"\n      echo \"$STORAGE_CLASS_YAML\" | kubectl apply -f -\n\n      echo \"Verifying StorageClass...\"\n      kubectl get storageclass ${storageClassName}\n\n      echo \"StorageClass created successfully\"\n    ",
                 "cleanupPreference": "OnSuccess"
               }
             }
