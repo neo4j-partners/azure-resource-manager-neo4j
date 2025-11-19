@@ -28,26 +28,50 @@ class PasswordStrategy(str, Enum):
     PROMPT = "prompt"
 
 
+class DeploymentType(str, Enum):
+    """Deployment platform type."""
+
+    VM = "vm"
+    AKS = "aks"
+
+
 class TestScenario(BaseModel):
     """Configuration for a single test scenario."""
 
     name: str = Field(..., description="Scenario name (e.g., 'standalone-v5')")
+
+    # Deployment platform
+    deployment_type: DeploymentType = Field(
+        DeploymentType.VM, description="Deployment platform (vm or aks)"
+    )
+
+    # Common Neo4j settings
     node_count: Literal[1, 3, 4, 5, 6, 7, 8, 9, 10] = Field(
         ..., description="Number of cluster nodes"
     )
     graph_database_version: Literal["5", "4.4"] = Field(
         ..., description="Neo4j version"
     )
-    vm_size: str = Field("Standard_E4s_v5", description="Azure VM size")
     disk_size: int = Field(32, ge=32, description="Disk size in GB")
-    read_replica_count: Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] = Field(
-        0, description="Number of read replicas (4.4 only)"
-    )
-    read_replica_vm_size: str = Field("Standard_E4s_v5", description="VM size for read replicas")
-    read_replica_disk_size: int = Field(32, ge=32, description="Disk size for read replicas")
     license_type: Literal["Enterprise", "Evaluation"] = Field(
         "Evaluation", description="License type"
     )
+
+    # VM-specific settings
+    vm_size: Optional[str] = Field(None, description="Azure VM size (VM deployments)")
+    read_replica_count: Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] = Field(
+        0, description="Number of read replicas (4.4 VM only)"
+    )
+    read_replica_vm_size: Optional[str] = Field(None, description="VM size for read replicas")
+    read_replica_disk_size: int = Field(32, ge=32, description="Disk size for read replicas")
+
+    # AKS-specific settings
+    kubernetes_version: Optional[str] = Field(None, description="Kubernetes version (AKS deployments)")
+    user_node_size: Optional[str] = Field(None, description="VM size for AKS user node pool")
+    user_node_count_min: int = Field(1, ge=1, le=10, description="Min user nodes (AKS)")
+    user_node_count_max: int = Field(10, ge=1, le=10, description="Max user nodes (AKS)")
+
+    # Plugin settings
     install_graph_data_science: bool = Field(False, description="Install GDS plugin")
     graph_data_science_license_key: str = Field("None", description="GDS license key")
     install_bloom: bool = Field(False, description="Install Bloom")
@@ -56,9 +80,40 @@ class TestScenario(BaseModel):
     @field_validator("read_replica_count")
     @classmethod
     def validate_read_replicas(cls, v: int, info) -> int:
-        """Validate that read replicas are only used with Neo4j 4.4."""
-        if v > 0 and info.data.get("graph_database_version") != "4.4":
-            raise ValueError("Read replicas are only supported with Neo4j 4.4")
+        """Validate that read replicas are only used with Neo4j 4.4 on VMs."""
+        data = info.data
+        if v > 0:
+            if data.get("deployment_type") == DeploymentType.AKS:
+                raise ValueError("Read replicas are not supported on AKS deployments")
+            if data.get("graph_database_version") != "4.4":
+                raise ValueError("Read replicas are only supported with Neo4j 4.4")
+        return v
+
+    @field_validator("vm_size")
+    @classmethod
+    def validate_vm_size(cls, v: Optional[str], info) -> Optional[str]:
+        """Ensure VM size is set for VM deployments."""
+        data = info.data
+        if data.get("deployment_type") == DeploymentType.VM and not v:
+            return "Standard_E4s_v5"  # Default
+        return v
+
+    @field_validator("user_node_size")
+    @classmethod
+    def validate_user_node_size(cls, v: Optional[str], info) -> Optional[str]:
+        """Ensure user node size is set for AKS deployments."""
+        data = info.data
+        if data.get("deployment_type") == DeploymentType.AKS and not v:
+            return "Standard_E4s_v5"  # Default
+        return v
+
+    @field_validator("kubernetes_version")
+    @classmethod
+    def validate_kubernetes_version(cls, v: Optional[str], info) -> Optional[str]:
+        """Ensure Kubernetes version is set for AKS deployments."""
+        data = info.data
+        if data.get("deployment_type") == DeploymentType.AKS and not v:
+            return "1.30"  # Default
         return v
 
 

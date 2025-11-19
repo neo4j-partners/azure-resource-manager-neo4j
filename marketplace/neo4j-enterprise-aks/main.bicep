@@ -177,6 +177,7 @@ module aksCluster 'modules/aks-cluster.bicep' = {
     systemSubnetId: network.outputs.systemSubnetId
     userSubnetId: network.outputs.userSubnetId
     identityId: identity.outputs.identityId
+    identityPrincipalId: identity.outputs.principalId
     systemNodeSize: systemNodeSize
     userNodeSize: userNodeSize
     userNodeCountMin: userNodeCountMin

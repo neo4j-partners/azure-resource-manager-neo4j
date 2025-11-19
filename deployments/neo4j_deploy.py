@@ -312,10 +312,19 @@ def deploy(
 
     # Initialize deployment engine
     # Assume we're running from deployments/, so marketplace is ../marketplace
-    base_template_dir = PathLib("../marketplace/neo4j-enterprise").resolve()
+    # Detect deployment type from first scenario (all scenarios should have same type in one deployment)
+    first_scenario = scenarios_to_deploy[0]
+    from src.models import DeploymentType
+
+    if first_scenario.deployment_type == DeploymentType.AKS:
+        base_template_dir = PathLib("../marketplace/neo4j-enterprise-aks").resolve()
+        deployment_type = "aks"
+    else:
+        base_template_dir = PathLib("../marketplace/neo4j-enterprise").resolve()
+        deployment_type = "vm"
 
     try:
-        engine = DeploymentEngine(settings, base_template_dir)
+        engine = DeploymentEngine(settings, base_template_dir, deployment_type=deployment_type)
         planner = DeploymentPlanner(settings.resource_group_prefix)
     except FileNotFoundError as e:
         console.print(f"[red]Error: {e}[/red]")
@@ -326,18 +335,26 @@ def deploy(
 
     table = Table(title="Scenarios to Deploy")
     table.add_column("Scenario", style="cyan")
+    table.add_column("Type", style="white")
     table.add_column("Nodes", style="white")
     table.add_column("Version", style="white")
-    table.add_column("VM Size", style="white")
+    table.add_column("Size", style="white")
     table.add_column("Region", style="green")
 
     for s in scenarios_to_deploy:
         target_region = region or settings.default_region
+        # Display appropriate size based on deployment type
+        if s.deployment_type == DeploymentType.AKS:
+            size_display = s.user_node_size or "Standard_E4s_v5"
+        else:
+            size_display = s.vm_size or "Standard_E4s_v5"
+
         table.add_row(
             s.name,
+            s.deployment_type.value,
             str(s.node_count),
             s.graph_database_version,
-            s.vm_size,
+            size_display,
             target_region,
         )
 

@@ -8,7 +8,7 @@ param location string
 param clusterName string
 
 @description('Kubernetes version')
-param kubernetesVersion string = '1.30'
+param kubernetesVersion string = '1.31'
 
 @description('Resource ID of the system subnet')
 param systemSubnetId string
@@ -18,6 +18,9 @@ param userSubnetId string
 
 @description('Resource ID of the managed identity')
 param identityId string
+
+@description('Principal ID of the managed identity')
+param identityPrincipalId string
 
 @description('VM size for system node pool')
 param systemNodeSize string = 'Standard_D2s_v5'
@@ -36,6 +39,9 @@ param userNodeCount int = 1
 
 @description('Tags to apply to all resources')
 param tags object = {}
+
+// Built-in Azure role definitions (GUIDs are constant across all subscriptions)
+var aksClusterUserRoleId = '4abbcc35-e782-43d8-92c5-2d3f1bd2253f' // Azure Kubernetes Service Cluster User Role
 
 // Log Analytics Workspace for monitoring
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
@@ -87,11 +93,6 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2024-02-01' = {
         vnetSubnetID: systemSubnetId
         enableAutoScaling: false
         type: 'VirtualMachineScaleSets'
-        availabilityZones: [
-          '1'
-          '2'
-          '3'
-        ]
         nodeTaints: [
           'CriticalAddonsOnly=true:NoSchedule'
         ]
@@ -111,11 +112,6 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2024-02-01' = {
         vnetSubnetID: userSubnetId
         enableAutoScaling: true
         type: 'VirtualMachineScaleSets'
-        availabilityZones: [
-          '1'
-          '2'
-          '3'
-        ]
         nodeLabels: {
           'nodepool-type': 'user'
           'workload': 'neo4j'
@@ -160,7 +156,7 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2024-02-01' = {
 }
 
 // Diagnostic settings for control plane logs
-resource diagnosticSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01' = {
+resource diagnosticSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
   name: '${clusterName}-diagnostics'
   scope: aksCluster
   properties: {
@@ -193,6 +189,17 @@ resource diagnosticSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01' =
         enabled: true
       }
     ]
+  }
+}
+
+// Role assignment for managed identity to access AKS cluster
+resource clusterUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(aksCluster.id, identityPrincipalId, 'aks-cluster-user')
+  scope: aksCluster
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', aksClusterUserRoleId)
+    principalId: identityPrincipalId
+    principalType: 'ServicePrincipal'
   }
 }
 

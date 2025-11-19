@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "4023878550762184861"
+      "templateHash": "12057808021625130647"
     }
   },
   "parameters": {
@@ -28,7 +28,7 @@
     },
     "kubernetesVersion": {
       "type": "string",
-      "defaultValue": "1.28",
+      "defaultValue": "1.30",
       "metadata": {
         "description": "Kubernetes version for the AKS cluster."
       }
@@ -587,6 +587,9 @@
           "identityId": {
             "value": "[reference('identity').outputs.identityId.value]"
           },
+          "identityPrincipalId": {
+            "value": "[reference('identity').outputs.principalId.value]"
+          },
           "systemNodeSize": {
             "value": "[parameters('systemNodeSize')]"
           },
@@ -613,7 +616,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "13149594396704211052"
+              "templateHash": "6753351069026095343"
             }
           },
           "parameters": {
@@ -631,7 +634,7 @@
             },
             "kubernetesVersion": {
               "type": "string",
-              "defaultValue": "1.28",
+              "defaultValue": "1.31",
               "metadata": {
                 "description": "Kubernetes version"
               }
@@ -652,6 +655,12 @@
               "type": "string",
               "metadata": {
                 "description": "Resource ID of the managed identity"
+              }
+            },
+            "identityPrincipalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Principal ID of the managed identity"
               }
             },
             "systemNodeSize": {
@@ -696,6 +705,9 @@
                 "description": "Tags to apply to all resources"
               }
             }
+          },
+          "variables": {
+            "aksClusterUserRoleId": "4abbcc35-e782-43d8-92c5-2d3f1bd2253f"
           },
           "resources": [
             {
@@ -745,11 +757,6 @@
                     "vnetSubnetID": "[parameters('systemSubnetId')]",
                     "enableAutoScaling": false,
                     "type": "VirtualMachineScaleSets",
-                    "availabilityZones": [
-                      "1",
-                      "2",
-                      "3"
-                    ],
                     "nodeTaints": [
                       "CriticalAddonsOnly=true:NoSchedule"
                     ],
@@ -769,11 +776,6 @@
                     "vnetSubnetID": "[parameters('userSubnetId')]",
                     "enableAutoScaling": true,
                     "type": "VirtualMachineScaleSets",
-                    "availabilityZones": [
-                      "1",
-                      "2",
-                      "3"
-                    ],
                     "nodeLabels": {
                       "nodepool-type": "user",
                       "workload": "neo4j"
@@ -813,7 +815,7 @@
             },
             {
               "type": "Microsoft.Insights/diagnosticSettings",
-              "apiVersion": "2021-05-01",
+              "apiVersion": "2021-05-01-preview",
               "scope": "[format('Microsoft.ContainerService/managedClusters/{0}', parameters('clusterName'))]",
               "name": "[format('{0}-diagnostics', parameters('clusterName'))]",
               "properties": {
@@ -850,6 +852,20 @@
               "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', parameters('clusterName'))]",
                 "[resourceId('Microsoft.OperationalInsights/workspaces', format('{0}-logs', parameters('clusterName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[format('Microsoft.ContainerService/managedClusters/{0}', parameters('clusterName'))]",
+              "name": "[guid(resourceId('Microsoft.ContainerService/managedClusters', parameters('clusterName')), parameters('identityPrincipalId'), 'aks-cluster-user')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('aksClusterUserRoleId'))]",
+                "principalId": "[parameters('identityPrincipalId')]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ContainerService/managedClusters', parameters('clusterName'))]"
               ]
             }
           ],

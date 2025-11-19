@@ -36,6 +36,7 @@ class DeploymentEngine:
         self,
         settings: Settings,
         base_template_dir: Path,
+        deployment_type: str = "vm",
     ) -> None:
         """
         Initialize the deployment engine.
@@ -43,10 +44,12 @@ class DeploymentEngine:
         Args:
             settings: Application settings
             base_template_dir: Path to marketplace template directory
-                (e.g., marketplace/neo4j-enterprise/)
+                (e.g., marketplace/neo4j-enterprise/ or marketplace/neo4j-enterprise-aks/)
+            deployment_type: Type of deployment ("vm" or "aks")
         """
         self.settings = settings
         self.base_template_dir = base_template_dir
+        self.deployment_type = deployment_type
         self.password_manager = PasswordManager(settings)
 
         # Template files
@@ -61,7 +64,7 @@ class DeploymentEngine:
                 f"Ensure you're running from the repository root"
             )
 
-        console.print("[dim]Using Bicep template: main.bicep[/dim]")
+        console.print(f"[dim]Using Bicep template: main.bicep ({deployment_type} deployment)[/dim]")
 
         if not self.base_params_file.exists():
             raise FileNotFoundError(
@@ -161,19 +164,32 @@ class DeploymentEngine:
                 p[key] = {}
             p[key]["value"] = value
 
-        # Apply scenario configuration
+        # Common parameters for all deployment types
         set_param("location", region)
         set_param("nodeCount", scenario.node_count)
         set_param("graphDatabaseVersion", scenario.graph_database_version)
-        set_param("vmSize", scenario.vm_size)
         set_param("diskSize", scenario.disk_size)
         set_param("licenseType", scenario.license_type)
 
-        # Read replicas (4.4 only)
-        if scenario.read_replica_count > 0:
-            set_param("readReplicaCount", scenario.read_replica_count)
-            set_param("readReplicaVmSize", scenario.read_replica_vm_size)
-            set_param("readReplicaDiskSize", scenario.read_replica_disk_size)
+        # Deployment-type specific parameters
+        if self.deployment_type == "vm":
+            # VM-specific parameters
+            set_param("vmSize", scenario.vm_size)
+
+            # Read replicas (4.4 VM only)
+            if scenario.read_replica_count > 0:
+                set_param("readReplicaCount", scenario.read_replica_count)
+                set_param("readReplicaVmSize", scenario.read_replica_vm_size)
+                set_param("readReplicaDiskSize", scenario.read_replica_disk_size)
+
+        elif self.deployment_type == "aks":
+            # AKS-specific parameters
+            if scenario.kubernetes_version:
+                set_param("kubernetesVersion", scenario.kubernetes_version)
+            if scenario.user_node_size:
+                set_param("userNodeSize", scenario.user_node_size)
+            set_param("userNodeCountMin", scenario.user_node_count_min)
+            set_param("userNodeCountMax", scenario.user_node_count_max)
 
         # Plugins (ARM template expects "Yes"/"No" strings, not booleans)
         set_param("installGraphDataScience", "Yes" if scenario.install_graph_data_science else "No")

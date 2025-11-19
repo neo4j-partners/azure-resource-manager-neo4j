@@ -6,7 +6,7 @@
       "value": "neo4j"
     },
     "kubernetesVersion": {
-      "value": "1.30"
+      "value": "1.31"
     },
     "nodeCount": {
       "value": 1
