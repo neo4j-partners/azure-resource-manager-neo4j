@@ -4,6 +4,23 @@ Automated deployment and testing framework for Neo4j Enterprise on Azure.
 
 ## Quick Start
 
+### Setup Azure Credentials for GitHub Actions
+
+```bash
+# Setup Azure Service Principal for GitHub Actions
+uv run setup-azure-credentials
+
+# With custom options
+uv run setup-azure-credentials --name "my-sp-name" --subscription "xxx-xxx"
+
+# Show help
+uv run setup-azure-credentials --help
+```
+
+See [../ENTRA.md](../ENTRA.md) for detailed documentation.
+
+### Deployment Testing
+
 ```bash
 # First-time setup (already completed)
 uv run neo4j-deploy setup
