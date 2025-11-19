@@ -105,7 +105,7 @@ jobs:
         run: |
           set -euo pipefail
           cd ${{ env.TEMPLATE_PATH }}
-          az bicep build --file mainTemplate.bicep --outfile mainTemplate-generated.json
+          az bicep build --file main.bicep --outfile mainTemplate-generated.json
           echo "Bicep template compiled successfully"
 
       - name: Deploy ARM Template (Neo4j Cluster v5)
@@ -209,7 +209,7 @@ jobs:
       - name: Compile Bicep template to ARM JSON
         run: |
           cd marketplace/neo4j-enterprise
-          az bicep build --file mainTemplate.bicep --outfile mainTemplate-generated.json
+          az bicep build --file main.bicep --outfile mainTemplate-generated.json
           echo "Bicep template compiled successfully"
 
       - name: Deploy ARM Template (Neo4j Standalone v5)
@@ -295,7 +295,7 @@ jobs:
       - name: Compile Bicep template to ARM JSON
         run: |
           cd marketplace/neo4j-enterprise
-          az bicep build --file mainTemplate.bicep --outfile mainTemplate-generated.json
+          az bicep build --file main.bicep --outfile mainTemplate-generated.json
           echo "Bicep template compiled successfully"
 
       - name: Deploy ARM Template (Neo4j Cluster v5)
@@ -381,7 +381,7 @@ jobs:
       - name: Compile Bicep template to ARM JSON
         run: |
           cd marketplace/neo4j-enterprise
-          az bicep build --file mainTemplate.bicep --outfile mainTemplate-generated.json
+          az bicep build --file main.bicep --outfile mainTemplate-generated.json
           echo "Bicep template compiled successfully"
 
       - name: Deploy ARM Template (Neo4j Standalone v5)
