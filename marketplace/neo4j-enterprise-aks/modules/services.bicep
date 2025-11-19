@@ -56,6 +56,10 @@ resource createServices 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
         value: aksResourceGroup
       }
       {
+        name: 'NAMESPACE_NAME'
+        value: namespaceName
+      }
+      {
         name: 'HEADLESS_SERVICE_YAML'
         value: headlessServiceYaml
       }
@@ -81,7 +85,7 @@ resource createServices 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       echo "$LOADBALANCER_SERVICE_YAML" | kubectl apply -f -
 
       echo "Verifying services..."
-      kubectl get service -n ${namespaceName}
+      kubectl get service -n $NAMESPACE_NAME
 
       echo "Services created successfully"
     '''

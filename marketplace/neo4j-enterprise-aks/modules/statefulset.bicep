@@ -74,6 +74,14 @@ resource createStatefulSet 'Microsoft.Resources/deploymentScripts@2023-08-01' = 
         value: aksResourceGroup
       }
       {
+        name: 'NAMESPACE_NAME'
+        value: namespaceName
+      }
+      {
+        name: 'STATEFULSET_NAME'
+        value: statefulSetName
+      }
+      {
         name: 'STATEFULSET_YAML'
         value: statefulSetYaml
       }
@@ -92,7 +100,7 @@ resource createStatefulSet 'Microsoft.Resources/deploymentScripts@2023-08-01' = 
       echo "$STATEFULSET_YAML" | kubectl apply -f -
 
       echo "Verifying StatefulSet..."
-      kubectl get statefulset ${statefulSetName} -n ${namespaceName}
+      kubectl get statefulset $STATEFULSET_NAME -n $NAMESPACE_NAME
 
       echo "StatefulSet created successfully"
     '''

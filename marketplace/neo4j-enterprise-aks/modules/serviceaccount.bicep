@@ -53,6 +53,14 @@ resource createServiceAccount 'Microsoft.Resources/deploymentScripts@2023-08-01'
         value: aksResourceGroup
       }
       {
+        name: 'NAMESPACE_NAME'
+        value: namespaceName
+      }
+      {
+        name: 'SERVICE_ACCOUNT_NAME'
+        value: serviceAccountName
+      }
+      {
         name: 'SERVICE_ACCOUNT_YAML'
         value: serviceAccountYaml
       }
@@ -71,7 +79,7 @@ resource createServiceAccount 'Microsoft.Resources/deploymentScripts@2023-08-01'
       echo "$SERVICE_ACCOUNT_YAML" | kubectl apply -f -
 
       echo "Verifying service account..."
-      kubectl get serviceaccount ${serviceAccountName} -n ${namespaceName}
+      kubectl get serviceaccount $SERVICE_ACCOUNT_NAME -n $NAMESPACE_NAME
 
       echo "Service account created successfully"
     '''

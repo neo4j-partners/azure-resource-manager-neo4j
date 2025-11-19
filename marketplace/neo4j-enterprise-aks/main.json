@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "2633507814488979761"
+      "templateHash": "8012616452955419738"
     }
   },
   "parameters": {
@@ -1112,7 +1112,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "8858434472508627736"
+              "templateHash": "14409015683459565450"
             }
           },
           "parameters": {
@@ -1290,7 +1290,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.39.26.7824",
-                      "templateHash": "12306353730769916109"
+                      "templateHash": "7016855788344390107"
                     }
                   },
                   "parameters": {
@@ -1355,11 +1355,15 @@
                             "value": "[parameters('aksResourceGroup')]"
                           },
                           {
+                            "name": "NAMESPACE_NAME",
+                            "value": "[parameters('namespaceName')]"
+                          },
+                          {
                             "name": "NAMESPACE_YAML",
                             "value": "[variables('namespaceYaml')]"
                           }
                         ],
-                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Installing kubectl...\"\n      az aks install-cli\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating namespace...\"\n      echo \"$NAMESPACE_YAML\" | kubectl apply -f -\n\n      echo \"Verifying namespace...\"\n      kubectl get namespace ${namespaceName}\n\n      echo \"Namespace created successfully\"\n    ",
+                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Installing kubectl...\"\n      az aks install-cli\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating namespace...\"\n      echo \"$NAMESPACE_YAML\" | kubectl apply -f -\n\n      echo \"Verifying namespace...\"\n      kubectl get namespace $NAMESPACE_NAME\n\n      echo \"Namespace created successfully\"\n    ",
                         "cleanupPreference": "OnSuccess"
                       }
                     }
@@ -1416,7 +1420,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.39.26.7824",
-                      "templateHash": "7286511812602167143"
+                      "templateHash": "5905007093947338573"
                     }
                   },
                   "parameters": {
@@ -1500,11 +1504,19 @@
                             "value": "[parameters('aksResourceGroup')]"
                           },
                           {
+                            "name": "NAMESPACE_NAME",
+                            "value": "[parameters('namespaceName')]"
+                          },
+                          {
+                            "name": "SERVICE_ACCOUNT_NAME",
+                            "value": "[parameters('serviceAccountName')]"
+                          },
+                          {
                             "name": "SERVICE_ACCOUNT_YAML",
                             "value": "[variables('serviceAccountYaml')]"
                           }
                         ],
-                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Installing kubectl...\"\n      az aks install-cli\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating service account...\"\n      echo \"$SERVICE_ACCOUNT_YAML\" | kubectl apply -f -\n\n      echo \"Verifying service account...\"\n      kubectl get serviceaccount ${serviceAccountName} -n ${namespaceName}\n\n      echo \"Service account created successfully\"\n    ",
+                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Installing kubectl...\"\n      az aks install-cli\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating service account...\"\n      echo \"$SERVICE_ACCOUNT_YAML\" | kubectl apply -f -\n\n      echo \"Verifying service account...\"\n      kubectl get serviceaccount $SERVICE_ACCOUNT_NAME -n $NAMESPACE_NAME\n\n      echo \"Service account created successfully\"\n    ",
                         "cleanupPreference": "OnSuccess"
                       }
                     }
@@ -1579,7 +1591,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.39.26.7824",
-                      "templateHash": "16288342732609841218"
+                      "templateHash": "3388707219842772234"
                     }
                   },
                   "parameters": {
@@ -1705,6 +1717,10 @@
                             "value": "[parameters('aksResourceGroup')]"
                           },
                           {
+                            "name": "NAMESPACE_NAME",
+                            "value": "[parameters('namespaceName')]"
+                          },
+                          {
                             "name": "CONFIGMAP_YAML",
                             "value": "[variables('configMapYaml')]"
                           },
@@ -1713,7 +1729,7 @@
                             "value": "[variables('secretYaml')]"
                           }
                         ],
-                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Installing kubectl...\"\n      az aks install-cli\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating ConfigMap...\"\n      echo \"$CONFIGMAP_YAML\" | kubectl apply -f -\n\n      echo \"Creating Secret...\"\n      echo \"$SECRET_YAML\" | kubectl apply -f -\n\n      echo \"Verifying resources...\"\n      kubectl get configmap neo4j-config -n ${namespaceName}\n      kubectl get secret neo4j-auth -n ${namespaceName}\n\n      echo \"Configuration created successfully\"\n    ",
+                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Installing kubectl...\"\n      az aks install-cli\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating ConfigMap...\"\n      echo \"$CONFIGMAP_YAML\" | kubectl apply -f -\n\n      echo \"Creating Secret...\"\n      echo \"$SECRET_YAML\" | kubectl apply -f -\n\n      echo \"Verifying resources...\"\n      kubectl get configmap neo4j-config -n $NAMESPACE_NAME\n      kubectl get secret neo4j-auth -n $NAMESPACE_NAME\n\n      echo \"Configuration created successfully\"\n    ",
                         "cleanupPreference": "OnSuccess"
                       }
                     }
@@ -1798,7 +1814,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.39.26.7824",
-                      "templateHash": "4204103926449170705"
+                      "templateHash": "2751775837009688308"
                     }
                   },
                   "parameters": {
@@ -1920,11 +1936,19 @@
                             "value": "[parameters('aksResourceGroup')]"
                           },
                           {
+                            "name": "NAMESPACE_NAME",
+                            "value": "[parameters('namespaceName')]"
+                          },
+                          {
+                            "name": "STATEFULSET_NAME",
+                            "value": "[parameters('statefulSetName')]"
+                          },
+                          {
                             "name": "STATEFULSET_YAML",
                             "value": "[variables('statefulSetYaml')]"
                           }
                         ],
-                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Installing kubectl...\"\n      az aks install-cli\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating StatefulSet...\"\n      echo \"$STATEFULSET_YAML\" | kubectl apply -f -\n\n      echo \"Verifying StatefulSet...\"\n      kubectl get statefulset ${statefulSetName} -n ${namespaceName}\n\n      echo \"StatefulSet created successfully\"\n    ",
+                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Installing kubectl...\"\n      az aks install-cli\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating StatefulSet...\"\n      echo \"$STATEFULSET_YAML\" | kubectl apply -f -\n\n      echo \"Verifying StatefulSet...\"\n      kubectl get statefulset $STATEFULSET_NAME -n $NAMESPACE_NAME\n\n      echo \"StatefulSet created successfully\"\n    ",
                         "cleanupPreference": "OnSuccess"
                       }
                     }
@@ -1988,7 +2012,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.39.26.7824",
-                      "templateHash": "2214744026105791490"
+                      "templateHash": "2756853311037740997"
                     }
                   },
                   "parameters": {
@@ -2072,6 +2096,10 @@
                             "value": "[parameters('aksResourceGroup')]"
                           },
                           {
+                            "name": "NAMESPACE_NAME",
+                            "value": "[parameters('namespaceName')]"
+                          },
+                          {
                             "name": "HEADLESS_SERVICE_YAML",
                             "value": "[variables('headlessServiceYaml')]"
                           },
@@ -2080,7 +2108,7 @@
                             "value": "[variables('loadBalancerServiceYaml')]"
                           }
                         ],
-                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Installing kubectl...\"\n      az aks install-cli\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating headless service...\"\n      echo \"$HEADLESS_SERVICE_YAML\" | kubectl apply -f -\n\n      echo \"Creating LoadBalancer service...\"\n      echo \"$LOADBALANCER_SERVICE_YAML\" | kubectl apply -f -\n\n      echo \"Verifying services...\"\n      kubectl get service -n ${namespaceName}\n\n      echo \"Services created successfully\"\n    ",
+                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Installing kubectl...\"\n      az aks install-cli\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating headless service...\"\n      echo \"$HEADLESS_SERVICE_YAML\" | kubectl apply -f -\n\n      echo \"Creating LoadBalancer service...\"\n      echo \"$LOADBALANCER_SERVICE_YAML\" | kubectl apply -f -\n\n      echo \"Verifying services...\"\n      kubectl get service -n $NAMESPACE_NAME\n\n      echo \"Services created successfully\"\n    ",
                         "cleanupPreference": "OnSuccess"
                       }
                     },

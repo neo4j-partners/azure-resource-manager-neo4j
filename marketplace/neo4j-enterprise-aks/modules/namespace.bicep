@@ -44,6 +44,10 @@ resource createNamespace 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
         value: aksResourceGroup
       }
       {
+        name: 'NAMESPACE_NAME'
+        value: namespaceName
+      }
+      {
         name: 'NAMESPACE_YAML'
         value: namespaceYaml
       }
@@ -62,7 +66,7 @@ resource createNamespace 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       echo "$NAMESPACE_YAML" | kubectl apply -f -
 
       echo "Verifying namespace..."
-      kubectl get namespace ${namespaceName}
+      kubectl get namespace $NAMESPACE_NAME
 
       echo "Namespace created successfully"
     '''

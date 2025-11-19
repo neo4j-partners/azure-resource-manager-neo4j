@@ -89,6 +89,10 @@ resource createConfiguration 'Microsoft.Resources/deploymentScripts@2023-08-01' 
         value: aksResourceGroup
       }
       {
+        name: 'NAMESPACE_NAME'
+        value: namespaceName
+      }
+      {
         name: 'CONFIGMAP_YAML'
         value: configMapYaml
       }
@@ -114,8 +118,8 @@ resource createConfiguration 'Microsoft.Resources/deploymentScripts@2023-08-01' 
       echo "$SECRET_YAML" | kubectl apply -f -
 
       echo "Verifying resources..."
-      kubectl get configmap neo4j-config -n ${namespaceName}
-      kubectl get secret neo4j-auth -n ${namespaceName}
+      kubectl get configmap neo4j-config -n $NAMESPACE_NAME
+      kubectl get secret neo4j-auth -n $NAMESPACE_NAME
 
       echo "Configuration created successfully"
     '''
