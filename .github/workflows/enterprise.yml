@@ -118,7 +118,7 @@ jobs:
 
           # Wait for cluster to be ready
           echo "Waiting 5 minutes for cluster to fully initialize..."
-          sleep 300
+          sleep 600
 
           # Validate deployment output exists
           if [ -z "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" ]; then
@@ -232,7 +232,7 @@ jobs:
         run: |
           # Wait for standalone instance to be ready
           echo "Waiting 5 minutes for Neo4j to fully initialize..."
-          sleep 300
+          sleep 600
 
           URI=$(echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g')
           PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
@@ -330,7 +330,7 @@ jobs:
         run: |
           # Wait for cluster to be ready
           echo "Waiting 5 minutes for cluster to fully initialize..."
-          sleep 300
+          sleep 600
 
           URI=$(echo "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g')
           PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
@@ -428,7 +428,7 @@ jobs:
         run: |
           # Wait for standalone instance to be ready
           echo "Waiting 5 minutes for Neo4j to fully initialize..."
-          sleep 300
+          sleep 600
 
           URI=$(echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g')
           PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
