@@ -194,7 +194,7 @@ output vmScaleSetsId string = vmss.outputs.vmScaleSetsId
 output vmScaleSetsName string = vmss.outputs.vmScaleSetsName
 
 output Neo4jBrowserURL string = uri('http://vm0.neo4j-${deploymentUniqueId}.${location}.cloudapp.azure.com:7474', '')
-output Neo4jClusterBrowserURL string = loadBalancerCondition ? uri('http://${loadbalancer.outputs.publicIpAddress}:7474', '') : ''
-output Neo4jClusterBloomURL string = loadBalancerCondition ? uri('http://${loadbalancer.outputs.publicIpAddress}:7474', 'bloom') : ''
+output Neo4jClusterBrowserURL string = loadBalancerCondition ? uri('http://${loadbalancer.outputs.publicIpFqdn}:7474', '') : ''
+output Neo4jClusterBloomURL string = loadBalancerCondition ? uri('http://${loadbalancer.outputs.publicIpFqdn}:7474', 'bloom') : ''
 output Neo4jBloomURL string = uri('http://vm0.neo4j-${deploymentUniqueId}.${location}.cloudapp.azure.com:7474', 'bloom')
 output Username string = 'neo4j'

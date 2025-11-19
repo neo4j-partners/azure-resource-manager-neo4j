@@ -134,6 +134,9 @@ resource createConfiguration 'Microsoft.Resources/deploymentScripts@2023-08-01' 
       #!/bin/bash
       set -e
 
+      echo "Installing kubectl..."
+      az aks install-cli
+
       echo "Getting AKS credentials..."
       az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing
 

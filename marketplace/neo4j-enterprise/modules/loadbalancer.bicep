@@ -32,6 +32,9 @@ resource publicIp 'Microsoft.Network/publicIPAddresses@2025-01-01' = if (loadBal
     ]
     publicIPAddressVersion: 'IPv4'
     publicIPAllocationMethod: 'Static'
+    dnsSettings: {
+      domainNameLabel: 'neo4j-lb-${resourceSuffix}'
+    }
   }
 }
 
@@ -142,3 +145,4 @@ resource loadBalancer 'Microsoft.Network/loadBalancers@2025-01-01' = if (loadBal
 
 output loadBalancerBackendAddressPools array = (loadBalancerCondition ? loadBalancer.properties.backendAddressPools : [])
 output publicIpAddress string = (loadBalancerCondition ? publicIp.properties.ipAddress : '')
+output publicIpFqdn string = (loadBalancerCondition ? publicIp.properties.dnsSettings.fqdn : '')

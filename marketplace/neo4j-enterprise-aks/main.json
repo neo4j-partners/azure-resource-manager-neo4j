@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "4306558891122349416"
+      "templateHash": "15761589341680651172"
     }
   },
   "parameters": {
@@ -1112,7 +1112,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "13587981674911193875"
+              "templateHash": "16767257209283773853"
             }
           },
           "parameters": {
@@ -1290,7 +1290,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.39.26.7824",
-                      "templateHash": "14719581257969566996"
+                      "templateHash": "4919059202247667077"
                     }
                   },
                   "parameters": {
@@ -1359,7 +1359,7 @@
                             "value": "[variables('namespaceYaml')]"
                           }
                         ],
-                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating namespace...\"\n      echo \"$NAMESPACE_YAML\" | kubectl apply -f -\n\n      echo \"Verifying namespace...\"\n      kubectl get namespace ${namespaceName}\n\n      echo \"Namespace created successfully\"\n    ",
+                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Installing kubectl...\"\n      az aks install-cli\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating namespace...\"\n      echo \"$NAMESPACE_YAML\" | kubectl apply -f -\n\n      echo \"Verifying namespace...\"\n      kubectl get namespace ${namespaceName}\n\n      echo \"Namespace created successfully\"\n    ",
                         "cleanupPreference": "OnSuccess"
                       }
                     }
@@ -1416,7 +1416,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.39.26.7824",
-                      "templateHash": "1946203482330892205"
+                      "templateHash": "11272463640535933632"
                     }
                   },
                   "parameters": {
@@ -1504,7 +1504,7 @@
                             "value": "[variables('serviceAccountYaml')]"
                           }
                         ],
-                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating service account...\"\n      echo \"$SERVICE_ACCOUNT_YAML\" | kubectl apply -f -\n\n      echo \"Verifying service account...\"\n      kubectl get serviceaccount ${serviceAccountName} -n ${namespaceName}\n\n      echo \"Service account created successfully\"\n    ",
+                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Installing kubectl...\"\n      az aks install-cli\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating service account...\"\n      echo \"$SERVICE_ACCOUNT_YAML\" | kubectl apply -f -\n\n      echo \"Verifying service account...\"\n      kubectl get serviceaccount ${serviceAccountName} -n ${namespaceName}\n\n      echo \"Service account created successfully\"\n    ",
                         "cleanupPreference": "OnSuccess"
                       }
                     }
@@ -1579,7 +1579,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.39.26.7824",
-                      "templateHash": "5074714199886957119"
+                      "templateHash": "13000967230992984844"
                     }
                   },
                   "parameters": {
@@ -1713,7 +1713,7 @@
                             "value": "[variables('secretYaml')]"
                           }
                         ],
-                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating ConfigMap...\"\n      echo \"$CONFIGMAP_YAML\" | kubectl apply -f -\n\n      echo \"Creating Secret...\"\n      echo \"$SECRET_YAML\" | kubectl apply -f -\n\n      echo \"Verifying resources...\"\n      kubectl get configmap neo4j-config -n ${namespaceName}\n      kubectl get secret neo4j-auth -n ${namespaceName}\n\n      echo \"Configuration created successfully\"\n    ",
+                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Installing kubectl...\"\n      az aks install-cli\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating ConfigMap...\"\n      echo \"$CONFIGMAP_YAML\" | kubectl apply -f -\n\n      echo \"Creating Secret...\"\n      echo \"$SECRET_YAML\" | kubectl apply -f -\n\n      echo \"Verifying resources...\"\n      kubectl get configmap neo4j-config -n ${namespaceName}\n      kubectl get secret neo4j-auth -n ${namespaceName}\n\n      echo \"Configuration created successfully\"\n    ",
                         "cleanupPreference": "OnSuccess"
                       }
                     }
@@ -1798,7 +1798,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.39.26.7824",
-                      "templateHash": "12748072637430004566"
+                      "templateHash": "15798136251447139593"
                     }
                   },
                   "parameters": {
@@ -1924,7 +1924,7 @@
                             "value": "[variables('statefulSetYaml')]"
                           }
                         ],
-                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating StatefulSet...\"\n      echo \"$STATEFULSET_YAML\" | kubectl apply -f -\n\n      echo \"Waiting for StatefulSet to be created...\"\n      sleep 5\n\n      echo \"Checking StatefulSet status...\"\n      kubectl get statefulset ${statefulSetName} -n ${namespaceName}\n\n      echo \"Checking pods...\"\n      kubectl get pods -n ${namespaceName} -l app=neo4j\n\n      echo \"StatefulSet created successfully\"\n      echo \"Note: Pods may take 5-10 minutes to reach Ready state\"\n    ",
+                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Installing kubectl...\"\n      az aks install-cli\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating StatefulSet...\"\n      echo \"$STATEFULSET_YAML\" | kubectl apply -f -\n\n      echo \"Verifying StatefulSet...\"\n      kubectl get statefulset ${statefulSetName} -n ${namespaceName}\n\n      echo \"StatefulSet created successfully\"\n    ",
                         "cleanupPreference": "OnSuccess"
                       }
                     }
@@ -1988,7 +1988,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.39.26.7824",
-                      "templateHash": "14723066674616332947"
+                      "templateHash": "448055173157576848"
                     }
                   },
                   "parameters": {
@@ -2080,7 +2080,7 @@
                             "value": "[variables('loadBalancerServiceYaml')]"
                           }
                         ],
-                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating headless service...\"\n      echo \"$HEADLESS_SERVICE_YAML\" | kubectl apply -f -\n\n      echo \"Creating LoadBalancer service...\"\n      echo \"$LOADBALANCER_SERVICE_YAML\" | kubectl apply -f -\n\n      echo \"Waiting for services to be created...\"\n      sleep 5\n\n      echo \"Checking services...\"\n      kubectl get service ${serviceName} -n ${namespaceName}\n      kubectl get service ${loadBalancerServiceName} -n ${namespaceName}\n\n      echo \"Waiting for LoadBalancer external IP (this may take 2-3 minutes)...\"\n      for i in {1..60}; do\n        EXTERNAL_IP=$(kubectl get service ${loadBalancerServiceName} -n ${namespaceName} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo \"\")\n        if [ -n \"$EXTERNAL_IP\" ] && [ \"$EXTERNAL_IP\" != \"<pending>\" ]; then\n          echo \"External IP assigned: $EXTERNAL_IP\"\n          break\n        fi\n        echo \"Waiting for external IP... ($i/60)\"\n        sleep 3\n      done\n\n      echo \"Services created successfully\"\n    ",
+                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Installing kubectl...\"\n      az aks install-cli\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Creating headless service...\"\n      echo \"$HEADLESS_SERVICE_YAML\" | kubectl apply -f -\n\n      echo \"Creating LoadBalancer service...\"\n      echo \"$LOADBALANCER_SERVICE_YAML\" | kubectl apply -f -\n\n      echo \"Verifying services...\"\n      kubectl get service -n ${namespaceName}\n\n      echo \"Services created successfully\"\n    ",
                         "cleanupPreference": "OnSuccess"
                       }
                     },
@@ -2098,7 +2098,7 @@
                       },
                       "properties": {
                         "azCliVersion": "2.50.0",
-                        "timeout": "PT5M",
+                        "timeout": "PT10M",
                         "retentionInterval": "PT1H",
                         "environmentVariables": [
                           {
@@ -2108,9 +2108,17 @@
                           {
                             "name": "AKS_RESOURCE_GROUP",
                             "value": "[parameters('aksResourceGroup')]"
+                          },
+                          {
+                            "name": "LOADBALANCER_SERVICE_NAME",
+                            "value": "[parameters('loadBalancerServiceName')]"
+                          },
+                          {
+                            "name": "NAMESPACE_NAME",
+                            "value": "[parameters('namespaceName')]"
                           }
                         ],
-                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Getting external IP...\"\n      EXTERNAL_IP=$(kubectl get service ${loadBalancerServiceName} -n ${namespaceName} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo \"pending\")\n\n      echo \"External IP: $EXTERNAL_IP\"\n\n      # Output as JSON for Bicep to parse\n      echo \"{\\\"externalIp\\\": \\\"$EXTERNAL_IP\\\"}\" > $AZ_SCRIPTS_OUTPUT_PATH\n    ",
+                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"Installing kubectl...\"\n      az aks install-cli\n\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      echo \"Getting external IP...\"\n      EXTERNAL_IP=$(kubectl get service $LOADBALANCER_SERVICE_NAME -n $NAMESPACE_NAME -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo \"pending\")\n\n      echo \"External IP: $EXTERNAL_IP\"\n\n      # Output as JSON for Bicep to parse\n      echo \"{\\\"externalIp\\\": \\\"$EXTERNAL_IP\\\"}\" > $AZ_SCRIPTS_OUTPUT_PATH\n    ",
                         "cleanupPreference": "OnSuccess"
                       },
                       "dependsOn": [

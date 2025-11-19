@@ -140,13 +140,17 @@ jobs:
             ATTEMPT=$((ATTEMPT + 1))
             echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking connectivity..."
 
-            # Check DNS resolution
-            if ! nslookup "$HOSTNAME" > /dev/null 2>&1; then
-              echo "  ✗ DNS resolution failed"
-              sleep 10
-              continue
+            # Check DNS resolution (skip if hostname is an IP address)
+            if [[ ! "$HOSTNAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              if ! nslookup "$HOSTNAME" > /dev/null 2>&1; then
+                echo "  ✗ DNS resolution failed"
+                sleep 10
+                continue
+              fi
+              echo "  ✓ DNS resolved"
+            else
+              echo "  ℹ Hostname is an IP address, skipping DNS check"
             fi
-            echo "  ✓ DNS resolved"
 
             # Check if port 7687 is open
             if ! nc -z -w5 "$HOSTNAME" 7687 > /dev/null 2>&1; then
@@ -287,31 +291,58 @@ jobs:
           parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="1" graphDatabaseVersion="5"
           deploymentName: ${{ steps.variables.outputs.depName }}
 
+      - name: Check VM provisioning status
+        run: |
+          echo "=== Checking VMSS provisioning status ==="
+          VMSS_NAME="${{ steps.deployARM.outputs.vmScaleSetsName }}"
+          RG_NAME="${{ steps.variables.outputs.rgName }}"
+
+          echo "VMSS: $VMSS_NAME"
+          echo "Resource Group: $RG_NAME"
+          echo ""
+
+          # List VMSS instances and their provisioning state
+          echo "Checking instance status..."
+          az vmss list-instances --name "$VMSS_NAME" --resource-group "$RG_NAME" --output table || true
+
+          # Get detailed provisioning state
+          az vmss list-instances --name "$VMSS_NAME" --resource-group "$RG_NAME" \
+            --query "[].{Name:name, ProvisioningState:provisioningState, PowerState:instanceView.statuses[1].displayStatus}" \
+            --output table || true
+
       - name: Validate deployment
         run: |
           BROWSER_URL="${{ steps.deployARM.outputs.neo4jBrowserURL }}"
           HOSTNAME=$(echo "$BROWSER_URL" | sed 's#http://##;s#:.*##')
+          VMSS_NAME="${{ steps.deployARM.outputs.vmScaleSetsName }}"
+          RG_NAME="${{ steps.variables.outputs.rgName }}"
 
           echo "=== Deployment Information ==="
           echo "Browser URL: $BROWSER_URL"
           echo "Hostname: $HOSTNAME"
+          echo "VMSS: $VMSS_NAME"
           echo ""
 
           # Wait and check connectivity in a loop
-          echo "=== Waiting for Neo4j to be ready (max 15 minutes) ==="
-          MAX_ATTEMPTS=90
+          echo "=== Waiting for Neo4j to be ready (max 20 minutes) ==="
+          MAX_ATTEMPTS=120  # 120 * 10 seconds = 20 minutes
           ATTEMPT=0
 
           while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
             ATTEMPT=$((ATTEMPT + 1))
             echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking connectivity..."
 
-            if ! nslookup "$HOSTNAME" > /dev/null 2>&1; then
-              echo "  ✗ DNS resolution failed"
-              sleep 10
-              continue
+            # Check DNS resolution (skip if hostname is an IP address)
+            if [[ ! "$HOSTNAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              if ! nslookup "$HOSTNAME" > /dev/null 2>&1; then
+                echo "  ✗ DNS resolution failed"
+                sleep 10
+                continue
+              fi
+              echo "  ✓ DNS resolved"
+            else
+              echo "  ℹ Hostname is an IP address, skipping DNS check"
             fi
-            echo "  ✓ DNS resolved"
 
             if ! nc -z -w5 "$HOSTNAME" 7687 > /dev/null 2>&1; then
               echo "  ✗ Port 7687 not accessible"
@@ -332,7 +363,21 @@ jobs:
           done
 
           if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-            echo "=== ERROR: Neo4j did not become ready within 15 minutes ==="
+            echo ""
+            echo "=== ERROR: Neo4j did not become ready within 20 minutes ==="
+            echo ""
+            echo "Checking VM status..."
+            az vmss list-instances --name "$VMSS_NAME" --resource-group "$RG_NAME" --output table || true
+            echo ""
+            echo "Attempting to retrieve cloud-init logs from VM instance 0..."
+            az vmss run-command invoke \
+              --resource-group "$RG_NAME" \
+              --name "$VMSS_NAME" \
+              --instance-id 0 \
+              --command-id RunShellScript \
+              --scripts "echo '=== Cloud-init status ==='; cloud-init status; echo ''; echo '=== Last 100 lines of cloud-init log ==='; tail -100 /var/log/cloud-init-output.log; echo ''; echo '=== Neo4j service status ==='; systemctl status neo4j || true" \
+              --query 'value[0].message' \
+              --output tsv || echo "Failed to retrieve logs"
             exit 1
           fi
 
@@ -449,12 +494,17 @@ jobs:
             ATTEMPT=$((ATTEMPT + 1))
             echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking connectivity..."
 
-            if ! nslookup "$HOSTNAME" > /dev/null 2>&1; then
-              echo "  ✗ DNS resolution failed"
-              sleep 10
-              continue
+            # Check DNS resolution (skip if hostname is an IP address)
+            if [[ ! "$HOSTNAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              if ! nslookup "$HOSTNAME" > /dev/null 2>&1; then
+                echo "  ✗ DNS resolution failed"
+                sleep 10
+                continue
+              fi
+              echo "  ✓ DNS resolved"
+            else
+              echo "  ℹ Hostname is an IP address, skipping DNS check"
             fi
-            echo "  ✓ DNS resolved"
 
             if ! nc -z -w5 "$HOSTNAME" 7687 > /dev/null 2>&1; then
               echo "  ✗ Port 7687 not accessible"
@@ -592,12 +642,17 @@ jobs:
             ATTEMPT=$((ATTEMPT + 1))
             echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking connectivity..."
 
-            if ! nslookup "$HOSTNAME" > /dev/null 2>&1; then
-              echo "  ✗ DNS resolution failed"
-              sleep 10
-              continue
+            # Check DNS resolution (skip if hostname is an IP address)
+            if [[ ! "$HOSTNAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              if ! nslookup "$HOSTNAME" > /dev/null 2>&1; then
+                echo "  ✗ DNS resolution failed"
+                sleep 10
+                continue
+              fi
+              echo "  ✓ DNS resolved"
+            else
+              echo "  ℹ Hostname is an IP address, skipping DNS check"
             fi
-            echo "  ✓ DNS resolved"
 
             if ! nc -z -w5 "$HOSTNAME" 7687 > /dev/null 2>&1; then
               echo "  ✗ Port 7687 not accessible"

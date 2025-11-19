@@ -199,23 +199,19 @@ resource createStatefulSet 'Microsoft.Resources/deploymentScripts@2023-08-01' = 
       #!/bin/bash
       set -e
 
+      echo "Installing kubectl..."
+      az aks install-cli
+
       echo "Getting AKS credentials..."
       az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing
 
       echo "Creating StatefulSet..."
       echo "$STATEFULSET_YAML" | kubectl apply -f -
 
-      echo "Waiting for StatefulSet to be created..."
-      sleep 5
-
-      echo "Checking StatefulSet status..."
+      echo "Verifying StatefulSet..."
       kubectl get statefulset ${statefulSetName} -n ${namespaceName}
 
-      echo "Checking pods..."
-      kubectl get pods -n ${namespaceName} -l app=neo4j
-
       echo "StatefulSet created successfully"
-      echo "Note: Pods may take 5-10 minutes to reach Ready state"
     '''
     cleanupPreference: 'OnSuccess'
   }

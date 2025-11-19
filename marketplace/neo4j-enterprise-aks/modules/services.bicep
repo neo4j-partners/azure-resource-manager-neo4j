@@ -134,6 +134,9 @@ resource createServices 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       #!/bin/bash
       set -e
 
+      echo "Installing kubectl..."
+      az aks install-cli
+
       echo "Getting AKS credentials..."
       az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing
 
@@ -143,23 +146,8 @@ resource createServices 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       echo "Creating LoadBalancer service..."
       echo "$LOADBALANCER_SERVICE_YAML" | kubectl apply -f -
 
-      echo "Waiting for services to be created..."
-      sleep 5
-
-      echo "Checking services..."
-      kubectl get service ${serviceName} -n ${namespaceName}
-      kubectl get service ${loadBalancerServiceName} -n ${namespaceName}
-
-      echo "Waiting for LoadBalancer external IP (this may take 2-3 minutes)..."
-      for i in {1..60}; do
-        EXTERNAL_IP=$(kubectl get service ${loadBalancerServiceName} -n ${namespaceName} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
-        if [ -n "$EXTERNAL_IP" ] && [ "$EXTERNAL_IP" != "<pending>" ]; then
-          echo "External IP assigned: $EXTERNAL_IP"
-          break
-        fi
-        echo "Waiting for external IP... ($i/60)"
-        sleep 3
-      done
+      echo "Verifying services..."
+      kubectl get service -n ${namespaceName}
 
       echo "Services created successfully"
     '''
@@ -167,7 +155,7 @@ resource createServices 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   }
 }
 
-// Query external IP after deployment
+// Deployment script to get external IP
 resource getExternalIp 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   name: 'get-external-ip-${uniqueString(resourceGroup().id, namespaceName)}'
   location: location
@@ -180,7 +168,7 @@ resource getExternalIp 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   }
   properties: {
     azCliVersion: '2.50.0'
-    timeout: 'PT5M'
+    timeout: 'PT10M'
     retentionInterval: 'PT1H'
     environmentVariables: [
       {
@@ -191,16 +179,27 @@ resource getExternalIp 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
         name: 'AKS_RESOURCE_GROUP'
         value: aksResourceGroup
       }
+      {
+        name: 'LOADBALANCER_SERVICE_NAME'
+        value: loadBalancerServiceName
+      }
+      {
+        name: 'NAMESPACE_NAME'
+        value: namespaceName
+      }
     ]
     scriptContent: '''
       #!/bin/bash
       set -e
 
+      echo "Installing kubectl..."
+      az aks install-cli
+
       echo "Getting AKS credentials..."
       az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing
 
       echo "Getting external IP..."
-      EXTERNAL_IP=$(kubectl get service ${loadBalancerServiceName} -n ${namespaceName} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
+      EXTERNAL_IP=$(kubectl get service $LOADBALANCER_SERVICE_NAME -n $NAMESPACE_NAME -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
 
       echo "External IP: $EXTERNAL_IP"
 
