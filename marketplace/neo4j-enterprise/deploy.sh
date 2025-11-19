@@ -29,7 +29,7 @@ az group create -l $location -n $resourceGroup
 # Build Bicep to ARM JSON
 echo ""
 echo "Building Bicep template to ARM JSON..."
-az bicep build --file mainTemplate.bicep --outfile mainTemplate-generated.json
+az bicep build --file main.bicep --outfile mainTemplate-generated.json
 
 # Deploy using compiled ARM JSON
 echo ""

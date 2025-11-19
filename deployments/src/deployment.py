@@ -49,25 +49,19 @@ class DeploymentEngine:
         self.base_template_dir = base_template_dir
         self.password_manager = PasswordManager(settings)
 
-        # Paths to template files (Bicep first, fallback to JSON)
-        self.template_file_bicep = base_template_dir / "mainTemplate.bicep"
-        self.template_file_json = base_template_dir / "mainTemplate.json"
+        # Template files
+        self.template_file = base_template_dir / "main.bicep"
         self.base_params_file = base_template_dir / "parameters.json"
+        self.is_bicep = True
 
-        # Determine which template to use
-        if self.template_file_bicep.exists():
-            self.template_file = self.template_file_bicep
-            self.is_bicep = True
-            console.print("[dim]Using Bicep template (mainTemplate.bicep)[/dim]")
-        elif self.template_file_json.exists():
-            self.template_file = self.template_file_json
-            self.is_bicep = False
-            console.print("[dim]Using ARM JSON template (mainTemplate.json)[/dim]")
-        else:
+        # Verify template exists
+        if not self.template_file.exists():
             raise FileNotFoundError(
-                f"ARM template not found: {self.template_file_bicep} or {self.template_file_json}\n"
+                f"Bicep template not found: {self.template_file}\n"
                 f"Ensure you're running from the repository root"
             )
+
+        console.print("[dim]Using Bicep template: main.bicep[/dim]")
 
         if not self.base_params_file.exists():
             raise FileNotFoundError(
@@ -221,8 +215,23 @@ class DeploymentEngine:
         else:
             console.print("[dim]Cluster Bicep deployment - using cloud-init[/dim]")
 
-        # Admin password
-        set_param("adminPassword", password)
+        # Check if using Key Vault for password management
+        vault_params = self.password_manager.get_vault_parameters()
+
+        if vault_params:
+            # Using Key Vault - pass both password (for VM OS) and vault parameters (for cloud-init)
+            console.print(
+                f"[dim]Using Key Vault for password: {vault_params['keyVaultName']}[/dim]"
+            )
+            set_param("keyVaultName", vault_params["keyVaultName"])
+            set_param("keyVaultResourceGroup", vault_params["keyVaultResourceGroup"])
+            set_param("adminPasswordSecretName", vault_params["adminPasswordSecretName"])
+            # Pass the actual password for VM OS profile (required by Azure)
+            # Cloud-init will retrieve it from vault for Neo4j
+            set_param("adminPassword", password)
+        else:
+            # Direct password mode
+            set_param("adminPassword", password)
 
         return params
 

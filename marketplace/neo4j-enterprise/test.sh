@@ -27,7 +27,7 @@ az group create --name ${RESOURCE_GROUP} --location ${LOCATION} --output none
 echo "Deploying Neo4j (this takes 5-10 minutes)..."
 az deployment group create \
   --resource-group ${RESOURCE_GROUP} \
-  --template-file mainTemplate.bicep \
+  --template-file main.bicep \
   --parameters adminPassword="${PASSWORD}" \
                vmSize="Standard_E4s_v5" \
                nodeCount=1 \

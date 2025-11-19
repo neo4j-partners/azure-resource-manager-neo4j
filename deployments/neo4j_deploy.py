@@ -905,6 +905,29 @@ def cleanup(
         no_wait=True,
     )
 
+    # If cleaning up all deployments, also delete the Key Vault resource group
+    if all_deployments:
+        settings = config_manager.load_settings()
+        vault_rg = f"{settings.resource_group_prefix}-keyvault"
+
+        console.print(f"\n[cyan]Checking for Key Vault resource group: {vault_rg}[/cyan]")
+
+        if not dry_run:
+            from src.utils import run_command
+
+            try:
+                # Check if resource group exists
+                result = run_command(f"az group show --name {vault_rg} --query id -o tsv")
+                if result.stdout.strip():
+                    console.print(f"[yellow]Deleting Key Vault resource group: {vault_rg}[/yellow]")
+                    run_command(f"az group delete --name {vault_rg} --yes --no-wait")
+                    console.print(f"[green]✓ Key Vault resource group deletion initiated[/green]")
+            except Exception:
+                # Resource group doesn't exist, skip
+                console.print(f"[dim]Key Vault resource group not found, skipping[/dim]")
+        else:
+            console.print(f"[dim]Would delete Key Vault resource group: {vault_rg}[/dim]")
+
     # Display summary
     cleanup_manager.display_cleanup_summary(summary, dry_run=dry_run)
 

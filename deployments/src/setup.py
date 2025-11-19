@@ -80,7 +80,9 @@ class SetupWizard:
         )
 
         # Step 7: Password configuration
-        password_strategy = self._configure_password_strategy()
+        password_strategy, vault_name = self._configure_password_strategy(
+            default_region, resource_group_prefix
+        )
 
         # Step 8: Finalize
         owner_email = get_git_user_email() or Prompt.ask(
@@ -104,6 +106,7 @@ class SetupWizard:
             repository_org=github_info[0] if github_info else None,
             repository_name=github_info[1] if github_info else None,
             password_strategy=password_strategy,
+            azure_keyvault_name=vault_name,
             owner_email=owner_email,
         )
 
@@ -127,7 +130,7 @@ class SetupWizard:
         self._update_readme()
 
         console.print("\n[bold green]✓ Setup complete![/bold green]")
-        console.print("\nYou can now run:")
+        console.print("You can now run:")
         console.print("  [cyan]uv run neo4j-deploy validate[/cyan]     - Validate templates")
         console.print("  [cyan]uv run neo4j-deploy deploy --all[/cyan] - Deploy all scenarios")
         console.print("  [cyan]uv run neo4j-deploy status[/cyan]       - Check deployment status")
@@ -260,13 +263,24 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
 
         return mode_map[choice]
 
-    def _configure_password_strategy(self) -> PasswordStrategy:
-        """Configure password provisioning strategy."""
+    def _configure_password_strategy(
+        self, default_region: str, resource_group_prefix: str
+    ) -> tuple[PasswordStrategy, Optional[str]]:
+        """
+        Configure password provisioning strategy.
+
+        Args:
+            default_region: Default Azure region
+            resource_group_prefix: Prefix for resource group names
+
+        Returns:
+            Tuple of (password strategy, vault name if applicable)
+        """
         console.print("\n[bold]Step 6: Neo4j Password Configuration[/bold]")
         console.print("How should admin passwords be provided?")
         console.print("  1. [cyan]Generate[/cyan] random secure password per deployment (recommended)")
         console.print("  2. [cyan]Environment[/cyan] variable NEO4J_ADMIN_PASSWORD")
-        console.print("  3. [cyan]Azure Key Vault[/cyan] (requires vault name)")
+        console.print("  3. [cyan]Azure Key Vault[/cyan] (auto-create or use existing)")
         console.print("  4. [cyan]Prompt[/cyan] each time")
 
         choice = IntPrompt.ask("Enter choice", default=1, choices=["1", "2", "3", "4"])
@@ -278,7 +292,92 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
             4: PasswordStrategy.PROMPT,
         }
 
-        return strategy_map[choice]
+        strategy = strategy_map[choice]
+
+        # Handle Key Vault setup
+        vault_name = None
+        if strategy == PasswordStrategy.AZURE_KEYVAULT:
+            vault_name = self._setup_keyvault(default_region, resource_group_prefix)
+
+        return strategy, vault_name
+
+    def _setup_keyvault(
+        self, default_region: str, resource_group_prefix: str
+    ) -> str:
+        """
+        Set up Azure Key Vault for password storage.
+
+        Args:
+            default_region: Default Azure region
+            resource_group_prefix: Prefix for resource group names
+
+        Returns:
+            Key Vault name
+        """
+        from .password import PasswordManager
+
+        console.print("\n[bold]Azure Key Vault Setup[/bold]")
+
+        # Ask if creating new or using existing
+        use_existing = Confirm.ask(
+            "Use existing Key Vault?",
+            default=False
+        )
+
+        if use_existing:
+            # Use existing vault
+            vault_name = Prompt.ask(
+                "Enter existing Key Vault name"
+            )
+            console.print(f"[green]Will use existing vault: {vault_name}[/green]")
+            return vault_name
+
+        # Create new vault
+        console.print("\n[cyan]Creating new Key Vault for password storage[/cyan]")
+
+        # Generate default vault name
+        import time
+        timestamp = str(int(time.time()))[-6:]  # Last 6 digits
+        suggested_name = f"kv-neo4j-{timestamp}"
+
+        console.print(f"[dim]Key Vault name must be 3-24 characters, globally unique[/dim]")
+        vault_name = Prompt.ask(
+            "Key Vault name",
+            default=suggested_name
+        )
+
+        # Validate vault name
+        if len(vault_name) < 3 or len(vault_name) > 24:
+            console.print("[red]Vault name must be 3-24 characters[/red]")
+            return self._setup_keyvault(default_region, resource_group_prefix)
+
+        # Resource group for the vault (separate from deployment RGs)
+        vault_rg = f"{resource_group_prefix}-keyvault"
+
+        console.print(f"\n[cyan]Creating vault '{vault_name}' in resource group '{vault_rg}'[/cyan]")
+
+        try:
+            PasswordManager.create_keyvault(
+                vault_name=vault_name,
+                resource_group=vault_rg,
+                location=default_region,
+            )
+            console.print(
+                f"\n[green]✓ Key Vault setup complete![/green]\n"
+                f"  [dim]Vault: {vault_name}[/dim]\n"
+                f"  [dim]Resource Group: {vault_rg}[/dim]\n"
+                f"  [dim]This vault will be reused across all deployments[/dim]"
+            )
+            return vault_name
+
+        except Exception as e:
+            console.print(f"[red]Failed to create Key Vault: {e}[/red]")
+            retry = Confirm.ask("Try again with different name?", default=True)
+            if retry:
+                return self._setup_keyvault(default_region, resource_group_prefix)
+            else:
+                console.print("[yellow]Falling back to Generate strategy[/yellow]")
+                return None
 
     def _create_default_scenarios(self) -> ScenarioCollection:
         """Create default test scenarios."""
@@ -305,6 +404,17 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
                 graph_database_version="4.4",
                 vm_size="Standard_E4s_v5",
                 disk_size=32,
+                license_type="Evaluation",
+            ),
+            TestScenario(
+                name="cluster-read-replicas",
+                node_count=3,
+                graph_database_version="4.4",
+                vm_size="Standard_E4s_v5",
+                disk_size=32,
+                read_replica_count=1,
+                read_replica_vm_size="Standard_E4s_v5",
+                read_replica_disk_size=32,
                 license_type="Evaluation",
             ),
         ]

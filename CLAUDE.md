@@ -23,8 +23,9 @@ Each edition has its own subdirectory:
 
 ### Bicep Template Structure (Enterprise Edition)
 
-**Enterprise edition** now uses Azure Bicep templates:
-- **mainTemplate.bicep** - The primary Bicep template defining all Azure resources (VMSS, networks, load balancers, etc.)
+**Enterprise edition** now uses modular Azure Bicep templates:
+- **main.bicep** - The primary Bicep template orchestrating all modules
+- **modules/** - Directory containing modular Bicep files (network, identity, loadbalancer, vmss, vmss-read-replica)
 - **createUiDefinition.json** - Defines the Azure Portal UI for template deployment
 - **parameters.json** - Default/test parameters for template deployment
 - **mainTemplate.json** - Generated from Bicep during archive creation for marketplace publishing
@@ -141,7 +142,7 @@ Enterprise Bicep templates accept these key parameters via CLI override:
 Example deployment:
 ```bash
 az deployment group create \
-  --template-file ./marketplace/neo4j-enterprise/mainTemplate.bicep \
+  --template-file ./marketplace/neo4j-enterprise/main.bicep \
   --parameters ./marketplace/neo4j-enterprise/parameters.json \
   nodeCount="3" \
   graphDatabaseVersion="5" \
@@ -161,7 +162,7 @@ cd marketplace/neo4j-enterprise
 ```
 
 The script automatically:
-1. Compiles `mainTemplate.bicep` to `mainTemplate.json`
+1. Compiles `main.bicep` to `mainTemplate.json`
 2. Packages ARM template, scripts, and UI definition into `archive.zip`
 3. Cleans up temporary files
 

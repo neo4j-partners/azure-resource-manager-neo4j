@@ -11,7 +11,7 @@ echo ""
 
 # Step 1: Build Bicep to ARM JSON
 echo "Step 1: Building Bicep template to ARM JSON..."
-az bicep build --file mainTemplate.bicep --outfile mainTemplate.json
+az bicep build --file main.bicep --outfile mainTemplate.json
 
 # Verify the build succeeded
 if [ ! -f mainTemplate.json ]; then
@@ -51,7 +51,7 @@ echo ""
 cd -
 rm -rf tmp
 
-# Clean up the generated mainTemplate.json (keep source as mainTemplate.bicep)
+# Clean up the generated mainTemplate.json (keep source as main.bicep)
 rm -f mainTemplate.json
 
 echo "========================================="
@@ -61,7 +61,7 @@ echo ""
 echo "Archive location: ./archive.zip"
 echo ""
 echo "Archive contents:"
-echo "  - mainTemplate.json (compiled from mainTemplate.bicep)"
+echo "  - mainTemplate.json (compiled from main.bicep)"
 echo "  - createUiDefinition.json"
 echo "  - scripts/neo4j-enterprise/node.sh"
 echo "  - scripts/neo4j-enterprise/node4.sh"

@@ -118,8 +118,44 @@ runcmd:
   # SSRF protection
   - echo "internal.dbms.cypher_ip_blocklist=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.169.0/24,fc00::/7,fe80::/10,ff00::/8" >> /etc/neo4j/neo4j.conf
 
+  # Retrieve admin password (from Key Vault if configured, otherwise use direct parameter)
+  - |
+    KEY_VAULT_NAME="${key_vault_name}"
+    ADMIN_PASSWORD_SECRET_NAME="${admin_password_secret_name}"
+    DIRECT_PASSWORD='${admin_password}'
+
+    if [ -n "$KEY_VAULT_NAME" ] && [ "$DIRECT_PASSWORD" = "RETRIEVE_FROM_KEYVAULT" ]; then
+      echo "Retrieving password from Key Vault: $KEY_VAULT_NAME"
+
+      # Get access token from Azure Instance Metadata Service (IMDS)
+      ACCESS_TOKEN=$(curl -s -H "Metadata: true" \
+        "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://vault.azure.net" \
+        | jq -r .access_token)
+
+      if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
+        echo "ERROR: Failed to get access token from IMDS. Managed Identity may not be configured."
+        exit 1
+      fi
+
+      # Retrieve secret from Key Vault
+      ADMIN_PASSWORD=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" \
+        "https://${KEY_VAULT_NAME}.vault.azure.net/secrets/${ADMIN_PASSWORD_SECRET_NAME}?api-version=2016-10-01" \
+        | jq -r .value)
+
+      if [ -z "$ADMIN_PASSWORD" ] || [ "$ADMIN_PASSWORD" = "null" ]; then
+        echo "ERROR: Failed to retrieve password from Key Vault."
+        echo "Vault: $KEY_VAULT_NAME, Secret: $ADMIN_PASSWORD_SECRET_NAME"
+        exit 1
+      fi
+
+      echo "Successfully retrieved password from Key Vault"
+    else
+      echo "Using direct password parameter"
+      ADMIN_PASSWORD="$DIRECT_PASSWORD"
+    fi
+
   # Set initial password BEFORE first start
-  - neo4j-admin dbms set-initial-password '${admin_password}'
+  - neo4j-admin dbms set-initial-password "$ADMIN_PASSWORD"
 
   # Enable and start Neo4j
   - systemctl enable neo4j

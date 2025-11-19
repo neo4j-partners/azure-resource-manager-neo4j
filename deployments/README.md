@@ -5,7 +5,7 @@ Automated deployment and testing framework for Neo4j Enterprise on Azure.
 ## Quick Start
 
 ```bash
-# First-time setup
+# First-time setup (already completed)
 uv run neo4j-deploy setup
 
 # Validate templates

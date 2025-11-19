@@ -36,7 +36,7 @@ class DeploymentOrchestrator:
         Initialize the deployment orchestrator.
 
         Args:
-            template_file: Path to ARM mainTemplate.json
+            template_file: Path to Bicep template (main.bicep)
             resource_group_manager: Resource group manager instance
         """
         self.template_file = template_file

@@ -1,5 +1,5 @@
 [project]
-name = "neo4j-azure-deploy"
+name = "neo4j_azure_deploy"
 version = "0.1.0"
 description = "Automated deployment and testing framework for Neo4j Enterprise on Azure"
 requires-python = ">=3.12"
@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.scripts]
-neo4j-deploy = "neo4j-deploy:main"
+neo4j-deploy = "neo4j_deploy:main"
 validate_deploy = "src.validate_deploy:main"
 
 [tool.uv]
