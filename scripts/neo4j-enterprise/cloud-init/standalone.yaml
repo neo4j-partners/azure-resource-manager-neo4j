@@ -92,9 +92,13 @@ runcmd:
     KEY_VAULT_NAME="${key_vault_name}"
     ADMIN_PASSWORD_SECRET_NAME="${admin_password_secret_name}"
 
-    # Use printf %s to properly handle the password value
-    DIRECT_PASSWORD=$(printf '%s' '${admin_password}')
-    echo "Direct password received: ${#DIRECT_PASSWORD} characters"
+    # Decode base64-encoded password (safe from quote/escape issues)
+    DIRECT_PASSWORD_BASE64='${admin_password}'
+    echo "Received base64-encoded password: ${#DIRECT_PASSWORD_BASE64} characters"
+
+    # Decode the password
+    DIRECT_PASSWORD=$(echo "$DIRECT_PASSWORD_BASE64" | base64 -d)
+    echo "Decoded password length: ${#DIRECT_PASSWORD} characters"
 
     if [ -n "$KEY_VAULT_NAME" ] && [ "$DIRECT_PASSWORD" = "RETRIEVE_FROM_KEYVAULT" ]; then
       echo "Mode: Retrieving password from Key Vault: $KEY_VAULT_NAME"

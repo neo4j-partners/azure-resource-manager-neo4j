@@ -115,16 +115,16 @@ var passwordPlaceholder = useKeyVault ? 'RETRIEVE_FROM_KEYVAULT' : adminPassword
 var vaultNameForCloudInit = useKeyVault ? keyVaultName : ''
 var secretNameForCloudInit = useKeyVault ? adminPasswordSecretName : ''
 
-// Escape single quotes in password for shell safety: ' becomes '\''
-// This allows the password to be safely used in single-quoted strings
-var escapedPassword = replace(passwordPlaceholder, "'", "'\\''")
+// Base64 encode the password to safely pass it through cloud-init
+// This avoids all quoting and escaping issues
+var passwordBase64 = base64(passwordPlaceholder)
 
 // Primary cluster cloud-init processing (sequential variable assignments for readability)
 var cloudInitTemplate = (nodeCount == 1) ? cloudInitStandalone : cloudInitCluster
 var licenseAgreement = (licenseType == 'Evaluation') ? 'eval' : 'yes'
 var cloudInitStep1 = replace(cloudInitTemplate, '\${unique_string}', deploymentUniqueId)
 var cloudInitStep2 = replace(cloudInitStep1, '\${location}', location)
-var cloudInitStep3 = replace(cloudInitStep2, '\${admin_password}', escapedPassword)
+var cloudInitStep3 = replace(cloudInitStep2, '\${admin_password}', passwordBase64)
 var cloudInitStep4 = replace(cloudInitStep3, '\${license_agreement}', licenseAgreement)
 var cloudInitStep5 = replace(cloudInitStep4, '\${node_count}', string(nodeCount))
 var cloudInitStep6 = replace(cloudInitStep5, '\${key_vault_name}', vaultNameForCloudInit)
@@ -133,7 +133,7 @@ var cloudInitData = cloudInitStep7
 var cloudInitBase64 = base64(cloudInitData)
 
 // Read replica cloud-init processing (4.4 only) - sequential for readability
-var rrStep1 = replace(cloudInitReadReplica, '\${admin_password}', escapedPassword)
+var rrStep1 = replace(cloudInitReadReplica, '\${admin_password}', passwordBase64)
 var rrStep2 = replace(rrStep1, '\${identity_id}', identity.outputs.identityId)
 var rrStep3 = replace(rrStep2, '\${resource_group}', resourceGroup().name)
 var rrStep4 = replace(rrStep3, '\${vmss_name}', vmss.outputs.vmScaleSetsName)
