@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "18392805599757055303"
+      "templateHash": "4306558891122349416"
     }
   },
   "parameters": {
@@ -939,7 +939,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "8860377408222492568"
+              "templateHash": "3202734491184374820"
             }
           },
           "parameters": {
@@ -976,7 +976,7 @@
             }
           },
           "variables": {
-            "storageClassYaml": "apiVersion: storage.k8s.io/v1\nkind: StorageClass\nmetadata:\n  name: ${storageClassName}\nprovisioner: disk.csi.azure.com\nparameters:\n  skuName: Premium_LRS\n  kind: Managed\n  cachingMode: ReadOnly\nreclaimPolicy: Retain\nallowVolumeExpansion: true\nvolumeBindingMode: WaitForFirstConsumer\n"
+            "storageClassYaml": "[format('apiVersion: storage.k8s.io/v1\nkind: StorageClass\nmetadata:\n  name: {0}\nprovisioner: disk.csi.azure.com\nparameters:\n  skuName: Premium_LRS\n  kind: Managed\n  cachingMode: ReadOnly\nreclaimPolicy: Retain\nallowVolumeExpansion: true\nvolumeBindingMode: WaitForFirstConsumer\n', parameters('storageClassName'))]"
           },
           "resources": [
             {

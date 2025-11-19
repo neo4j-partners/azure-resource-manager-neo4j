@@ -16,21 +16,8 @@ param storageClassName string = 'neo4j-premium'
 @description('Managed identity for deployment script')
 param identityId string
 
-// StorageClass definition as YAML
-var storageClassYaml = '''
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: ${storageClassName}
-provisioner: disk.csi.azure.com
-parameters:
-  skuName: Premium_LRS
-  kind: Managed
-  cachingMode: ReadOnly
-reclaimPolicy: Retain
-allowVolumeExpansion: true
-volumeBindingMode: WaitForFirstConsumer
-'''
+// StorageClass definition as YAML (using string interpolation)
+var storageClassYaml = 'apiVersion: storage.k8s.io/v1\nkind: StorageClass\nmetadata:\n  name: ${storageClassName}\nprovisioner: disk.csi.azure.com\nparameters:\n  skuName: Premium_LRS\n  kind: Managed\n  cachingMode: ReadOnly\nreclaimPolicy: Retain\nallowVolumeExpansion: true\nvolumeBindingMode: WaitForFirstConsumer\n'
 
 // Deployment script to create StorageClass
 resource createStorageClass 'Microsoft.Resources/deploymentScripts@2023-08-01' = {

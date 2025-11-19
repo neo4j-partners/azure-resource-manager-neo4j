@@ -116,18 +116,75 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Wait for cluster to be ready
-          echo "Waiting 5 minutes for cluster to fully initialize..."
-          sleep 600
-
           # Validate deployment output exists
           if [ -z "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" ]; then
             echo "ERROR: Deployment output 'neo4jClusterBrowserURL' is missing"
             exit 1
           fi
 
-          # Transform URI
-          URI=$(echo "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g')
+          # Extract hostname from URL for troubleshooting
+          BROWSER_URL="${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}"
+          HOSTNAME=$(echo "$BROWSER_URL" | sed 's#http://##;s#:.*##')
+
+          echo "=== Deployment Information ==="
+          echo "Browser URL: $BROWSER_URL"
+          echo "Hostname: $HOSTNAME"
+          echo ""
+
+          # Wait and check connectivity in a loop
+          echo "=== Waiting for Neo4j to be ready (max 15 minutes) ==="
+          MAX_ATTEMPTS=90  # 90 * 10 seconds = 15 minutes
+          ATTEMPT=0
+
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking connectivity..."
+
+            # Check DNS resolution
+            if ! nslookup "$HOSTNAME" > /dev/null 2>&1; then
+              echo "  ✗ DNS resolution failed"
+              sleep 10
+              continue
+            fi
+            echo "  ✓ DNS resolved"
+
+            # Check if port 7687 is open
+            if ! nc -z -w5 "$HOSTNAME" 7687 > /dev/null 2>&1; then
+              echo "  ✗ Port 7687 not accessible"
+              sleep 10
+              continue
+            fi
+            echo "  ✓ Port 7687 is open"
+
+            # Check if HTTP endpoint responds
+            if curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$BROWSER_URL" | grep -q "200\|404"; then
+              echo "  ✓ HTTP endpoint responding"
+              echo "  ✓ Neo4j appears to be ready!"
+              break
+            else
+              echo "  ✗ HTTP endpoint not responding yet"
+            fi
+
+            sleep 10
+          done
+
+          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+            echo ""
+            echo "=== ERROR: Neo4j did not become ready within 15 minutes ==="
+            echo "Last checks:"
+            echo "DNS lookup:"
+            nslookup "$HOSTNAME" || true
+            echo ""
+            echo "Port check:"
+            nc -zv "$HOSTNAME" 7687 || true
+            echo ""
+            echo "HTTP check:"
+            curl -v --max-time 10 "$BROWSER_URL" || true
+            exit 1
+          fi
+
+          # Transform URI for Bolt connection
+          URI=$(echo "$BROWSER_URL" | sed 's/http/neo4j/g;s/7474\//7687/g')
 
           # Validate transformed URI
           if [[ ! "$URI" =~ ^neo4j:// ]]; then
@@ -137,7 +194,9 @@ jobs:
 
           PASSWORD=$(cat ./${{ env.TEMPLATE_PATH }}/parameters.json | jq -r .adminPassword.value)
 
-          echo "Validating deployment at: $URI"
+          echo ""
+          echo "=== Running Neo4j Validation ==="
+          echo "URI: $URI"
           cd ${{ env.DEPLOYMENTS_PATH }}
           uv run validate_deploy "${URI}" "neo4j" "${PASSWORD}" "Enterprise" "3"
 
@@ -230,12 +289,58 @@ jobs:
 
       - name: Validate deployment
         run: |
-          # Wait for standalone instance to be ready
-          echo "Waiting 5 minutes for Neo4j to fully initialize..."
-          sleep 600
+          BROWSER_URL="${{ steps.deployARM.outputs.neo4jBrowserURL }}"
+          HOSTNAME=$(echo "$BROWSER_URL" | sed 's#http://##;s#:.*##')
 
-          URI=$(echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g')
+          echo "=== Deployment Information ==="
+          echo "Browser URL: $BROWSER_URL"
+          echo "Hostname: $HOSTNAME"
+          echo ""
+
+          # Wait and check connectivity in a loop
+          echo "=== Waiting for Neo4j to be ready (max 15 minutes) ==="
+          MAX_ATTEMPTS=90
+          ATTEMPT=0
+
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking connectivity..."
+
+            if ! nslookup "$HOSTNAME" > /dev/null 2>&1; then
+              echo "  ✗ DNS resolution failed"
+              sleep 10
+              continue
+            fi
+            echo "  ✓ DNS resolved"
+
+            if ! nc -z -w5 "$HOSTNAME" 7687 > /dev/null 2>&1; then
+              echo "  ✗ Port 7687 not accessible"
+              sleep 10
+              continue
+            fi
+            echo "  ✓ Port 7687 is open"
+
+            if curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$BROWSER_URL" | grep -q "200\|404"; then
+              echo "  ✓ HTTP endpoint responding"
+              echo "  ✓ Neo4j appears to be ready!"
+              break
+            else
+              echo "  ✗ HTTP endpoint not responding yet"
+            fi
+
+            sleep 10
+          done
+
+          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+            echo "=== ERROR: Neo4j did not become ready within 15 minutes ==="
+            exit 1
+          fi
+
+          URI=$(echo "$BROWSER_URL" | sed 's/http/neo4j/g;s/7474\//7687/g')
           PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
+
+          echo ""
+          echo "=== Running Neo4j Validation ==="
           cd ${{ env.DEPLOYMENTS_PATH }}
           uv run validate_deploy "${URI}" "neo4j" "${PASSWORD}" "Enterprise"
 
@@ -328,12 +433,57 @@ jobs:
 
       - name: Validate deployment
         run: |
-          # Wait for cluster to be ready
-          echo "Waiting 5 minutes for cluster to fully initialize..."
-          sleep 600
+          BROWSER_URL="${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}"
+          HOSTNAME=$(echo "$BROWSER_URL" | sed 's#http://##;s#:.*##')
 
-          URI=$(echo "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g')
+          echo "=== Deployment Information ==="
+          echo "Browser URL: $BROWSER_URL"
+          echo "Hostname: $HOSTNAME"
+          echo ""
+
+          echo "=== Waiting for Neo4j to be ready (max 15 minutes) ==="
+          MAX_ATTEMPTS=90
+          ATTEMPT=0
+
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking connectivity..."
+
+            if ! nslookup "$HOSTNAME" > /dev/null 2>&1; then
+              echo "  ✗ DNS resolution failed"
+              sleep 10
+              continue
+            fi
+            echo "  ✓ DNS resolved"
+
+            if ! nc -z -w5 "$HOSTNAME" 7687 > /dev/null 2>&1; then
+              echo "  ✗ Port 7687 not accessible"
+              sleep 10
+              continue
+            fi
+            echo "  ✓ Port 7687 is open"
+
+            if curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$BROWSER_URL" | grep -q "200\|404"; then
+              echo "  ✓ HTTP endpoint responding"
+              echo "  ✓ Neo4j appears to be ready!"
+              break
+            else
+              echo "  ✗ HTTP endpoint not responding yet"
+            fi
+
+            sleep 10
+          done
+
+          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+            echo "=== ERROR: Neo4j did not become ready within 15 minutes ==="
+            exit 1
+          fi
+
+          URI=$(echo "$BROWSER_URL" | sed 's/http/neo4j/g;s/7474\//7687/g')
           PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
+
+          echo ""
+          echo "=== Running Neo4j Validation ==="
           cd ${{ env.DEPLOYMENTS_PATH }}
           uv run validate_deploy "${URI}" "neo4j" "${PASSWORD}" "Evaluation" "3"
 
@@ -426,12 +576,57 @@ jobs:
 
       - name: Validate deployment
         run: |
-          # Wait for standalone instance to be ready
-          echo "Waiting 5 minutes for Neo4j to fully initialize..."
-          sleep 600
+          BROWSER_URL="${{ steps.deployARM.outputs.neo4jBrowserURL }}"
+          HOSTNAME=$(echo "$BROWSER_URL" | sed 's#http://##;s#:.*##')
 
-          URI=$(echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g')
+          echo "=== Deployment Information ==="
+          echo "Browser URL: $BROWSER_URL"
+          echo "Hostname: $HOSTNAME"
+          echo ""
+
+          echo "=== Waiting for Neo4j to be ready (max 15 minutes) ==="
+          MAX_ATTEMPTS=90
+          ATTEMPT=0
+
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking connectivity..."
+
+            if ! nslookup "$HOSTNAME" > /dev/null 2>&1; then
+              echo "  ✗ DNS resolution failed"
+              sleep 10
+              continue
+            fi
+            echo "  ✓ DNS resolved"
+
+            if ! nc -z -w5 "$HOSTNAME" 7687 > /dev/null 2>&1; then
+              echo "  ✗ Port 7687 not accessible"
+              sleep 10
+              continue
+            fi
+            echo "  ✓ Port 7687 is open"
+
+            if curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$BROWSER_URL" | grep -q "200\|404"; then
+              echo "  ✓ HTTP endpoint responding"
+              echo "  ✓ Neo4j appears to be ready!"
+              break
+            else
+              echo "  ✗ HTTP endpoint not responding yet"
+            fi
+
+            sleep 10
+          done
+
+          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+            echo "=== ERROR: Neo4j did not become ready within 15 minutes ==="
+            exit 1
+          fi
+
+          URI=$(echo "$BROWSER_URL" | sed 's/http/neo4j/g;s/7474\//7687/g')
           PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
+
+          echo ""
+          echo "=== Running Neo4j Validation ==="
           cd ${{ env.DEPLOYMENTS_PATH }}
           uv run validate_deploy "${URI}" "neo4j" "${PASSWORD}" "Evaluation"
 
