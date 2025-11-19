@@ -26,20 +26,7 @@ param tenantId string = subscription().tenantId
 param identityId string
 
 // Service Account definition as YAML
-var serviceAccountYaml = '''
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: ${serviceAccountName}
-  namespace: ${namespaceName}
-  annotations:
-    azure.workload.identity/client-id: "${managedIdentityClientId}"
-    azure.workload.identity/tenant-id: "${tenantId}"
-  labels:
-    azure.workload.identity/use: "true"
-    app: neo4j
-    managed-by: bicep
-'''
+var serviceAccountYaml = 'apiVersion: v1\nkind: ServiceAccount\nmetadata:\n  name: ${serviceAccountName}\n  namespace: ${namespaceName}\n  annotations:\n    azure.workload.identity/client-id: "${managedIdentityClientId}"\n    azure.workload.identity/tenant-id: "${tenantId}"\n  labels:\n    azure.workload.identity/use: "true"\n    app: neo4j\n    managed-by: bicep\n'
 
 // Deployment script to create service account
 resource createServiceAccount 'Microsoft.Resources/deploymentScripts@2023-08-01' = {

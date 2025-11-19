@@ -88,12 +88,16 @@ runcmd:
 
   # Retrieve admin password (from Key Vault if configured, otherwise use direct parameter)
   - |
+    echo "=== Password Configuration Started ==="
     KEY_VAULT_NAME="${key_vault_name}"
     ADMIN_PASSWORD_SECRET_NAME="${admin_password_secret_name}"
-    DIRECT_PASSWORD='${admin_password}'
+
+    # Use printf %s to properly handle the password value
+    DIRECT_PASSWORD=$(printf '%s' '${admin_password}')
+    echo "Direct password received: ${#DIRECT_PASSWORD} characters"
 
     if [ -n "$KEY_VAULT_NAME" ] && [ "$DIRECT_PASSWORD" = "RETRIEVE_FROM_KEYVAULT" ]; then
-      echo "Retrieving password from Key Vault: $KEY_VAULT_NAME"
+      echo "Mode: Retrieving password from Key Vault: $KEY_VAULT_NAME"
 
       # Get access token from Azure Instance Metadata Service (IMDS)
       ACCESS_TOKEN=$(curl -s -H "Metadata: true" \
@@ -117,13 +121,19 @@ runcmd:
       fi
 
       echo "Successfully retrieved password from Key Vault"
+      echo "Key Vault password length: ${#ADMIN_PASSWORD} characters"
     else
-      echo "Using direct password parameter"
+      echo "Mode: Using direct password parameter"
       ADMIN_PASSWORD="$DIRECT_PASSWORD"
+      echo "Final password length: ${#ADMIN_PASSWORD} characters"
     fi
 
+    echo "=== Password Configuration Complete ==="
+
   # Set initial password BEFORE first start
+  - echo "Setting Neo4j initial password..."
   - neo4j-admin dbms set-initial-password "$ADMIN_PASSWORD"
+  - echo "Neo4j initial password set successfully"
 
   # Enable and start Neo4j
   - systemctl enable neo4j

@@ -26,76 +26,10 @@ param dnsLabel string
 param identityId string
 
 // Headless Service YAML
-var headlessServiceYaml = '''
-apiVersion: v1
-kind: Service
-metadata:
-  name: ${serviceName}
-  namespace: ${namespaceName}
-  labels:
-    app: neo4j
-    component: core
-spec:
-  clusterIP: None
-  publishNotReadyAddresses: true
-  selector:
-    app: neo4j
-    component: core
-  ports:
-  - name: http
-    port: 7474
-    targetPort: 7474
-    protocol: TCP
-  - name: https
-    port: 7473
-    targetPort: 7473
-    protocol: TCP
-  - name: bolt
-    port: 7687
-    targetPort: 7687
-    protocol: TCP
-  - name: cluster-tx
-    port: 6000
-    targetPort: 6000
-    protocol: TCP
-  - name: cluster-raft
-    port: 7000
-    targetPort: 7000
-    protocol: TCP
-'''
+var headlessServiceYaml = 'apiVersion: v1\nkind: Service\nmetadata:\n  name: ${serviceName}\n  namespace: ${namespaceName}\n  labels:\n    app: neo4j\n    component: core\nspec:\n  clusterIP: None\n  publishNotReadyAddresses: true\n  selector:\n    app: neo4j\n    component: core\n  ports:\n  - name: http\n    port: 7474\n    targetPort: 7474\n    protocol: TCP\n  - name: https\n    port: 7473\n    targetPort: 7473\n    protocol: TCP\n  - name: bolt\n    port: 7687\n    targetPort: 7687\n    protocol: TCP\n  - name: cluster-tx\n    port: 6000\n    targetPort: 6000\n    protocol: TCP\n  - name: cluster-raft\n    port: 7000\n    targetPort: 7000\n    protocol: TCP\n'
 
 // LoadBalancer Service YAML
-var loadBalancerServiceYaml = '''
-apiVersion: v1
-kind: Service
-metadata:
-  name: ${loadBalancerServiceName}
-  namespace: ${namespaceName}
-  labels:
-    app: neo4j
-    component: core
-  annotations:
-    service.beta.kubernetes.io/azure-dns-label-name: "${dnsLabel}"
-    service.beta.kubernetes.io/azure-load-balancer-health-probe-interval: "10"
-spec:
-  type: LoadBalancer
-  sessionAffinity: ClientIP
-  sessionAffinityConfig:
-    clientIP:
-      timeoutSeconds: 10800
-  selector:
-    app: neo4j
-    component: core
-  ports:
-  - name: http
-    port: 7474
-    targetPort: 7474
-    protocol: TCP
-  - name: bolt
-    port: 7687
-    targetPort: 7687
-    protocol: TCP
-'''
+var loadBalancerServiceYaml = 'apiVersion: v1\nkind: Service\nmetadata:\n  name: ${loadBalancerServiceName}\n  namespace: ${namespaceName}\n  labels:\n    app: neo4j\n    component: core\n  annotations:\n    service.beta.kubernetes.io/azure-dns-label-name: "${dnsLabel}"\n    service.beta.kubernetes.io/azure-load-balancer-health-probe-interval: "10"\nspec:\n  type: LoadBalancer\n  sessionAffinity: ClientIP\n  sessionAffinityConfig:\n    clientIP:\n      timeoutSeconds: 10800\n  selector:\n    app: neo4j\n    component: core\n  ports:\n  - name: http\n    port: 7474\n    targetPort: 7474\n    protocol: TCP\n  - name: bolt\n    port: 7687\n    targetPort: 7687\n    protocol: TCP\n'
 
 // Deployment script to create services
 resource createServices 'Microsoft.Resources/deploymentScripts@2023-08-01' = {

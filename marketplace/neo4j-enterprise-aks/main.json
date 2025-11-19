@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "15761589341680651172"
+      "templateHash": "2633507814488979761"
     }
   },
   "parameters": {
@@ -1112,7 +1112,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "16767257209283773853"
+              "templateHash": "8858434472508627736"
             }
           },
           "parameters": {
@@ -1290,7 +1290,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.39.26.7824",
-                      "templateHash": "4919059202247667077"
+                      "templateHash": "12306353730769916109"
                     }
                   },
                   "parameters": {
@@ -1326,7 +1326,7 @@
                     }
                   },
                   "variables": {
-                    "namespaceYaml": "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: ${namespaceName}\n  labels:\n    app: neo4j\n    managed-by: bicep\n"
+                    "namespaceYaml": "[format('apiVersion: v1\nkind: Namespace\nmetadata:\n  name: {0}\n  labels:\n    app: neo4j\n    managed-by: bicep\n', parameters('namespaceName'))]"
                   },
                   "resources": [
                     {
@@ -1416,7 +1416,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.39.26.7824",
-                      "templateHash": "11272463640535933632"
+                      "templateHash": "7286511812602167143"
                     }
                   },
                   "parameters": {
@@ -1471,7 +1471,7 @@
                     }
                   },
                   "variables": {
-                    "serviceAccountYaml": "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n  name: ${serviceAccountName}\n  namespace: ${namespaceName}\n  annotations:\n    azure.workload.identity/client-id: \"${managedIdentityClientId}\"\n    azure.workload.identity/tenant-id: \"${tenantId}\"\n  labels:\n    azure.workload.identity/use: \"true\"\n    app: neo4j\n    managed-by: bicep\n"
+                    "serviceAccountYaml": "[format('apiVersion: v1\nkind: ServiceAccount\nmetadata:\n  name: {0}\n  namespace: {1}\n  annotations:\n    azure.workload.identity/client-id: \"{2}\"\n    azure.workload.identity/tenant-id: \"{3}\"\n  labels:\n    azure.workload.identity/use: \"true\"\n    app: neo4j\n    managed-by: bicep\n', parameters('serviceAccountName'), parameters('namespaceName'), parameters('managedIdentityClientId'), parameters('tenantId'))]"
                   },
                   "resources": [
                     {
@@ -1579,7 +1579,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.39.26.7824",
-                      "templateHash": "13000967230992984844"
+                      "templateHash": "16288342732609841218"
                     }
                   },
                   "parameters": {
@@ -1673,10 +1673,10 @@
                     "isCluster": "[greaterOrEquals(parameters('nodeCount'), 3)]",
                     "licenseAgreement": "[if(equals(parameters('licenseType'), 'Evaluation'), 'eval', 'yes')]",
                     "discoveryEndpoints": "[if(variables('isCluster'), join(variables('discoveryEndpointsList'), ','), '')]",
-                    "baseConfig": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: neo4j-config\n  namespace: ${namespaceName}\ndata:\n  NEO4J_EDITION: \"enterprise\"\n  NEO4J_ACCEPT_LICENSE_AGREEMENT: \"${licenseAgreement}\"\n  NEO4J_server_default__listen__address: \"0.0.0.0\"\n  NEO4J_server_bolt_advertised__address: \":7687\"\n  NEO4J_server_http_advertised__address: \":7474\"\n  NEO4J_server_https_advertised__address: \":7473\"\n  NEO4J_dbms_security_auth__enabled: \"true\"\n  NEO4J_server_directories_data: \"/data\"\n  NEO4J_server_directories_logs: \"/logs\"\n  NEO4J_server_memory_heap_initial__size: \"2G\"\n  NEO4J_server_memory_heap_max__size: \"2G\"\n  NEO4J_server_memory_pagecache_size: \"4G\"\n  NEO4J_dbms_default__database: \"neo4j\"\n",
-                    "clusterConfig": "  NEO4J_server_cluster_system__database__mode: \"PRIMARY\"\n  NEO4J_server_discovery_v2_endpoints: \"${discoveryEndpoints}\"\n  NEO4J_initial_server_mode__constraint: \"PRIMARY\"\n",
+                    "baseConfig": "[format('apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: neo4j-config\n  namespace: {0}\ndata:\n  NEO4J_EDITION: \"enterprise\"\n  NEO4J_ACCEPT_LICENSE_AGREEMENT: \"{1}\"\n  NEO4J_server_default__listen__address: \"0.0.0.0\"\n  NEO4J_server_bolt_advertised__address: \":7687\"\n  NEO4J_server_http_advertised__address: \":7474\"\n  NEO4J_server_https_advertised__address: \":7473\"\n  NEO4J_dbms_security_auth__enabled: \"true\"\n  NEO4J_server_directories_data: \"/data\"\n  NEO4J_server_directories_logs: \"/logs\"\n  NEO4J_server_memory_heap_initial__size: \"2G\"\n  NEO4J_server_memory_heap_max__size: \"2G\"\n  NEO4J_server_memory_pagecache_size: \"4G\"\n  NEO4J_dbms_default__database: \"neo4j\"\n', parameters('namespaceName'), variables('licenseAgreement'))]",
+                    "clusterConfig": "[format('  NEO4J_server_cluster_system__database__mode: \"PRIMARY\"\n  NEO4J_server_discovery_v2_endpoints: \"{0}\"\n  NEO4J_initial_server_mode__constraint: \"PRIMARY\"\n', variables('discoveryEndpoints'))]",
                     "configMapYaml": "[if(variables('isCluster'), format('{0}{1}', variables('baseConfig'), variables('clusterConfig')), variables('baseConfig'))]",
-                    "secretYaml": "apiVersion: v1\nkind: Secret\nmetadata:\n  name: neo4j-auth\n  namespace: ${namespaceName}\ntype: Opaque\nstringData:\n  NEO4J_AUTH: \"neo4j/${adminPassword}\"\n"
+                    "secretYaml": "[format('apiVersion: v1\nkind: Secret\nmetadata:\n  name: neo4j-auth\n  namespace: {0}\ntype: Opaque\nstringData:\n  NEO4J_AUTH: \"neo4j/{1}\"\n', parameters('namespaceName'), parameters('adminPassword'))]"
                   },
                   "resources": [
                     {
@@ -1798,7 +1798,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.39.26.7824",
-                      "templateHash": "15798136251447139593"
+                      "templateHash": "4204103926449170705"
                     }
                   },
                   "parameters": {
@@ -1891,7 +1891,7 @@
                   },
                   "variables": {
                     "neo4jImage": "[if(equals(parameters('graphDatabaseVersion'), '5'), 'neo4j:5-enterprise', 'neo4j:4.4-enterprise')]",
-                    "statefulSetYaml": "apiVersion: apps/v1\nkind: StatefulSet\nmetadata:\n  name: ${statefulSetName}\n  namespace: ${namespaceName}\n  labels:\n    app: neo4j\n    component: core\nspec:\n  serviceName: ${serviceName}\n  replicas: ${replicas}\n  selector:\n    matchLabels:\n      app: neo4j\n      component: core\n  template:\n    metadata:\n      labels:\n        app: neo4j\n        component: core\n        azure.workload.identity/use: \"true\"\n    spec:\n      serviceAccountName: ${serviceAccountName}\n      securityContext:\n        fsGroup: 7474\n        runAsUser: 7474\n        runAsGroup: 7474\n        runAsNonRoot: true\n      initContainers:\n      - name: init-data-dir\n        image: busybox:latest\n        command:\n        - sh\n        - -c\n        - |\n          echo \"Initializing data directory...\"\n          mkdir -p /data /logs\n          chown -R 7474:7474 /data /logs\n          chmod 755 /data /logs\n          echo \"Data directory initialized\"\n        volumeMounts:\n        - name: data\n          mountPath: /data\n        - name: logs\n          mountPath: /logs\n        securityContext:\n          runAsUser: 0\n      containers:\n      - name: neo4j\n        image: ${neo4jImage}\n        imagePullPolicy: IfNotPresent\n        ports:\n        - containerPort: 7474\n          name: http\n        - containerPort: 7473\n          name: https\n        - containerPort: 7687\n          name: bolt\n        - containerPort: 6000\n          name: cluster-tx\n        - containerPort: 7000\n          name: cluster-raft\n        env:\n        - name: POD_NAME\n          valueFrom:\n            fieldRef:\n              fieldPath: metadata.name\n        - name: POD_NAMESPACE\n          valueFrom:\n            fieldRef:\n              fieldPath: metadata.namespace\n        envFrom:\n        - configMapRef:\n            name: neo4j-config\n        - secretRef:\n            name: neo4j-auth\n        volumeMounts:\n        - name: data\n          mountPath: /data\n        - name: logs\n          mountPath: /logs\n        resources:\n          requests:\n            cpu: \"${cpuLimit}\"\n            memory: \"${memoryLimit}\"\n          limits:\n            cpu: \"${cpuLimit}\"\n            memory: \"${memoryLimit}\"\n        livenessProbe:\n          httpGet:\n            path: /\n            port: 7474\n          initialDelaySeconds: 300\n          periodSeconds: 10\n          timeoutSeconds: 5\n          failureThreshold: 3\n        readinessProbe:\n          tcpSocket:\n            port: 7687\n          initialDelaySeconds: 30\n          periodSeconds: 10\n          timeoutSeconds: 5\n          failureThreshold: 3\n      volumes:\n      - name: logs\n        emptyDir: {}\n  volumeClaimTemplates:\n  - metadata:\n      name: data\n    spec:\n      accessModes:\n      - ReadWriteOnce\n      storageClassName: ${storageClassName}\n      resources:\n        requests:\n          storage: ${diskSize}Gi\n"
+                    "statefulSetYaml": "[format('apiVersion: apps/v1\nkind: StatefulSet\nmetadata:\n  name: {0}\n  namespace: {1}\n  labels:\n    app: neo4j\n    component: core\nspec:\n  serviceName: {2}\n  replicas: {3}\n  selector:\n    matchLabels:\n      app: neo4j\n      component: core\n  template:\n    metadata:\n      labels:\n        app: neo4j\n        component: core\n        azure.workload.identity/use: \"true\"\n    spec:\n      serviceAccountName: {4}\n      securityContext:\n        fsGroup: 7474\n        runAsUser: 7474\n        runAsGroup: 7474\n        runAsNonRoot: true\n      initContainers:\n      - name: init-data-dir\n        image: busybox:latest\n        command:\n        - sh\n        - -c\n        - |\n          echo \"Initializing data directory...\"\n          mkdir -p /data /logs\n          chown -R 7474:7474 /data /logs\n          chmod 755 /data /logs\n          echo \"Data directory initialized\"\n        volumeMounts:\n        - name: data\n          mountPath: /data\n        - name: logs\n          mountPath: /logs\n        securityContext:\n          runAsUser: 0\n      containers:\n      - name: neo4j\n        image: {5}\n        imagePullPolicy: IfNotPresent\n        ports:\n        - containerPort: 7474\n          name: http\n        - containerPort: 7473\n          name: https\n        - containerPort: 7687\n          name: bolt\n        - containerPort: 6000\n          name: cluster-tx\n        - containerPort: 7000\n          name: cluster-raft\n        env:\n        - name: POD_NAME\n          valueFrom:\n            fieldRef:\n              fieldPath: metadata.name\n        - name: POD_NAMESPACE\n          valueFrom:\n            fieldRef:\n              fieldPath: metadata.namespace\n        envFrom:\n        - configMapRef:\n            name: neo4j-config\n        - secretRef:\n            name: neo4j-auth\n        volumeMounts:\n        - name: data\n          mountPath: /data\n        - name: logs\n          mountPath: /logs\n        resources:\n          requests:\n            cpu: \"{6}\"\n            memory: \"{7}\"\n          limits:\n            cpu: \"{8}\"\n            memory: \"{9}\"\n        livenessProbe:\n          httpGet:\n            path: /\n            port: 7474\n          initialDelaySeconds: 300\n          periodSeconds: 10\n          timeoutSeconds: 5\n          failureThreshold: 3\n        readinessProbe:\n          tcpSocket:\n            port: 7687\n          initialDelaySeconds: 30\n          periodSeconds: 10\n          timeoutSeconds: 5\n          failureThreshold: 3\n      volumes:\n      - name: logs\n        emptyDir: {{}}\n  volumeClaimTemplates:\n  - metadata:\n      name: data\n    spec:\n      accessModes:\n      - ReadWriteOnce\n      storageClassName: {10}\n      resources:\n        requests:\n          storage: {11}Gi\n', parameters('statefulSetName'), parameters('namespaceName'), parameters('serviceName'), parameters('replicas'), parameters('serviceAccountName'), variables('neo4jImage'), parameters('cpuLimit'), parameters('memoryLimit'), parameters('cpuLimit'), parameters('memoryLimit'), parameters('storageClassName'), parameters('diskSize'))]"
                   },
                   "resources": [
                     {
@@ -1988,7 +1988,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.39.26.7824",
-                      "templateHash": "448055173157576848"
+                      "templateHash": "2214744026105791490"
                     }
                   },
                   "parameters": {
@@ -2042,8 +2042,8 @@
                     }
                   },
                   "variables": {
-                    "headlessServiceYaml": "apiVersion: v1\nkind: Service\nmetadata:\n  name: ${serviceName}\n  namespace: ${namespaceName}\n  labels:\n    app: neo4j\n    component: core\nspec:\n  clusterIP: None\n  publishNotReadyAddresses: true\n  selector:\n    app: neo4j\n    component: core\n  ports:\n  - name: http\n    port: 7474\n    targetPort: 7474\n    protocol: TCP\n  - name: https\n    port: 7473\n    targetPort: 7473\n    protocol: TCP\n  - name: bolt\n    port: 7687\n    targetPort: 7687\n    protocol: TCP\n  - name: cluster-tx\n    port: 6000\n    targetPort: 6000\n    protocol: TCP\n  - name: cluster-raft\n    port: 7000\n    targetPort: 7000\n    protocol: TCP\n",
-                    "loadBalancerServiceYaml": "apiVersion: v1\nkind: Service\nmetadata:\n  name: ${loadBalancerServiceName}\n  namespace: ${namespaceName}\n  labels:\n    app: neo4j\n    component: core\n  annotations:\n    service.beta.kubernetes.io/azure-dns-label-name: \"${dnsLabel}\"\n    service.beta.kubernetes.io/azure-load-balancer-health-probe-interval: \"10\"\nspec:\n  type: LoadBalancer\n  sessionAffinity: ClientIP\n  sessionAffinityConfig:\n    clientIP:\n      timeoutSeconds: 10800\n  selector:\n    app: neo4j\n    component: core\n  ports:\n  - name: http\n    port: 7474\n    targetPort: 7474\n    protocol: TCP\n  - name: bolt\n    port: 7687\n    targetPort: 7687\n    protocol: TCP\n"
+                    "headlessServiceYaml": "[format('apiVersion: v1\nkind: Service\nmetadata:\n  name: {0}\n  namespace: {1}\n  labels:\n    app: neo4j\n    component: core\nspec:\n  clusterIP: None\n  publishNotReadyAddresses: true\n  selector:\n    app: neo4j\n    component: core\n  ports:\n  - name: http\n    port: 7474\n    targetPort: 7474\n    protocol: TCP\n  - name: https\n    port: 7473\n    targetPort: 7473\n    protocol: TCP\n  - name: bolt\n    port: 7687\n    targetPort: 7687\n    protocol: TCP\n  - name: cluster-tx\n    port: 6000\n    targetPort: 6000\n    protocol: TCP\n  - name: cluster-raft\n    port: 7000\n    targetPort: 7000\n    protocol: TCP\n', parameters('serviceName'), parameters('namespaceName'))]",
+                    "loadBalancerServiceYaml": "[format('apiVersion: v1\nkind: Service\nmetadata:\n  name: {0}\n  namespace: {1}\n  labels:\n    app: neo4j\n    component: core\n  annotations:\n    service.beta.kubernetes.io/azure-dns-label-name: \"{2}\"\n    service.beta.kubernetes.io/azure-load-balancer-health-probe-interval: \"10\"\nspec:\n  type: LoadBalancer\n  sessionAffinity: ClientIP\n  sessionAffinityConfig:\n    clientIP:\n      timeoutSeconds: 10800\n  selector:\n    app: neo4j\n    component: core\n  ports:\n  - name: http\n    port: 7474\n    targetPort: 7474\n    protocol: TCP\n  - name: bolt\n    port: 7687\n    targetPort: 7687\n    protocol: TCP\n', parameters('loadBalancerServiceName'), parameters('namespaceName'), parameters('dnsLabel'))]"
                   },
                   "resources": [
                     {

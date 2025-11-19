@@ -17,15 +17,7 @@ param namespaceName string
 param identityId string
 
 // Namespace definition as YAML
-var namespaceYaml = '''
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: ${namespaceName}
-  labels:
-    app: neo4j
-    managed-by: bicep
-'''
+var namespaceYaml = 'apiVersion: v1\nkind: Namespace\nmetadata:\n  name: ${namespaceName}\n  labels:\n    app: neo4j\n    managed-by: bicep\n'
 
 // Deployment script to create namespace
 resource createNamespace 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
