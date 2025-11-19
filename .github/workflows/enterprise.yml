@@ -83,12 +83,7 @@ jobs:
           TIMESTAMP=$(date '+%Y%m%d-%H%M%S')
           RGNAME="ghactions-rg-${TIMESTAMP}-${{ github.run_id }}-${{ github.run_attempt }}"
           DEPNAME="ghactions-dep-${TIMESTAMP}"
-          ARTIFACTS_LOCATION="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/"
-          if ${{ github.event_name == 'workflow_dispatch' }}; then
-            ARTIFACTS_LOCATION="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/"
-          fi
           echo "rgName=${RGNAME}" >> $GITHUB_OUTPUT
-          echo "artifactsLocation=${ARTIFACTS_LOCATION}" >> $GITHUB_OUTPUT
           echo "depName=${DEPNAME}" >> $GITHUB_OUTPUT
           echo "Resource Group name: ${RGNAME}"
           echo "Deployment name: ${DEPNAME}"
@@ -114,7 +109,7 @@ jobs:
         with:
           resourceGroupName: ${{ steps.variables.outputs.rgName }}
           template: ./${{ env.TEMPLATE_PATH }}/mainTemplate-generated.json
-          parameters: ./${{ env.TEMPLATE_PATH }}/parameters.json nodeCount="3" graphDatabaseVersion="5" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
+          parameters: ./${{ env.TEMPLATE_PATH }}/parameters.json nodeCount="3" graphDatabaseVersion="5"
           deploymentName: ${{ steps.variables.outputs.depName }}
 
       - name: Validate deployment
@@ -186,12 +181,7 @@ jobs:
           DATE=`echo $(date '+%Y%m%d-%S-%2N')`
           RGNAME=`echo ghactions-rg-$DATE`
           DEPNAME=`echo ghactions-dep-$DATE`
-          ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/`
-          if ${{ github.event_name == 'workflow_dispatch' }}; then
-            ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/`
-          fi
           echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
-          echo "artifactsLocation=$ARTIFACTS_LOCATION" >> $GITHUB_OUTPUT          
           echo "depName=$DEPNAME" >> $GITHUB_OUTPUT
           echo "Resource Group name: $RGNAME"
           echo "Deployment name: $DEPNAME"
@@ -204,7 +194,6 @@ jobs:
             #!/bin/bash
             az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
             echo "Azure resource group created"
-            echo "Artifacts Location = ${{ steps.variables.outputs.artifactsLocation }}"
 
       - name: Compile Bicep template to ARM JSON
         run: |
@@ -218,7 +207,7 @@ jobs:
         with:
           resourceGroupName: ${{ steps.variables.outputs.rgName }}
           template: ./marketplace/neo4j-enterprise/mainTemplate-generated.json
-          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="1" graphDatabaseVersion="5" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
+          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="1" graphDatabaseVersion="5"
           deploymentName: ${{ steps.variables.outputs.depName }}
 
       - name: Validate deployment
@@ -272,12 +261,7 @@ jobs:
           DATE=`echo $(date '+%Y%m%d-%S-%2N')`
           RGNAME=`echo ghactions-rg-$DATE`
           DEPNAME=`echo ghactions-dep-$DATE`
-          ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/`
-          if ${{ github.event_name == 'workflow_dispatch' }}; then
-            ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/`
-          fi
           echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
-          echo "artifactsLocation=$ARTIFACTS_LOCATION" >> $GITHUB_OUTPUT
           echo "depName=$DEPNAME" >> $GITHUB_OUTPUT
           echo "Resource Group name: $RGNAME"
           echo "Deployment name: $DEPNAME"
@@ -290,7 +274,6 @@ jobs:
             #!/bin/bash
             az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
             echo "Azure resource group created"
-            echo "Artifacts Location = ${{ steps.variables.outputs.artifactsLocation }}"
 
       - name: Compile Bicep template to ARM JSON
         run: |
@@ -304,7 +287,7 @@ jobs:
         with:
           resourceGroupName: ${{ steps.variables.outputs.rgName }}
           template: ./marketplace/neo4j-enterprise/mainTemplate-generated.json
-          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="3" graphDatabaseVersion="5" licenseType="Evaluation" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
+          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="3" graphDatabaseVersion="5" licenseType="Evaluation"
           deploymentName: ${{ steps.variables.outputs.depName }}
 
       - name: Validate deployment
@@ -358,12 +341,7 @@ jobs:
           DATE=`echo $(date '+%Y%m%d-%S-%2N')`
           RGNAME=`echo ghactions-rg-$DATE`
           DEPNAME=`echo ghactions-dep-$DATE`
-          ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/`
-          if ${{ github.event_name == 'workflow_dispatch' }}; then
-            ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/`
-          fi
           echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
-          echo "artifactsLocation=$ARTIFACTS_LOCATION" >> $GITHUB_OUTPUT
           echo "depName=$DEPNAME" >> $GITHUB_OUTPUT
           echo "Resource Group name: $RGNAME"
           echo "Deployment name: $DEPNAME"
@@ -376,7 +354,6 @@ jobs:
             #!/bin/bash
             az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
             echo "Azure resource group created"
-            echo "Artifacts Location = ${{ steps.variables.outputs.artifactsLocation }}"
 
       - name: Compile Bicep template to ARM JSON
         run: |
@@ -390,7 +367,7 @@ jobs:
         with:
           resourceGroupName: ${{ steps.variables.outputs.rgName }}
           template: ./marketplace/neo4j-enterprise/mainTemplate-generated.json
-          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="1" graphDatabaseVersion="5" licenseType="Evaluation" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
+          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="1" graphDatabaseVersion="5" licenseType="Evaluation"
           deploymentName: ${{ steps.variables.outputs.depName }}
 
       - name: Validate deployment
