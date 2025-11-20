@@ -7,14 +7,5 @@
   },
   "diskSize": {
     "value": 32
-  },
-  "keyVaultName": {
-    "value": ""
-  },
-  "keyVaultResourceGroup": {
-    "value": ""
-  },
-  "adminPasswordSecretName": {
-    "value": "neo4j-admin-password"
   }
 }

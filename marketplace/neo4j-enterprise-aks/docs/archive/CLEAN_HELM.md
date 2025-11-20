@@ -700,5 +700,24 @@ With the parameter fixes in place, the Helm chart should now:
 6. ✅ Bicep caching: timestamp touching in orchestrator.py
 7. ✅ Password handling: --set-file with temp file (avoids all quoting issues)
 
-**Next Action**: Test deployment with file-based password approach
-**Timeline**: On track - All shell quoting issues eliminated with file-based approach
+**Deployment Test #6** (Nov 20, 22:18 UTC): ❌ Failed - CONFIG VALUES MUST BE STRINGS
+- Issue: `Error: execution error at (neo4j/templates/neo4j-statefulset.yaml:53:63): config values must be strings`
+- **Root Cause**: Memory config values passed with `--set` were parsed as YAML maps, not strings
+- Using `--set config.server\.memory\.heap\.initial_size=4G` creates nested map structure
+- Helm chart expects config values as strings: `"4G"` not `map[initial_size:4G]`
+- **Solution**: Use `--set-string` instead of `--set` for all config.* parameters
+  - Changed: `--set config.server\.memory\.heap\.initial_size=$HEAP_SIZE`
+  - To: `--set-string config.server\.memory\.heap\.initial_size=$HEAP_SIZE`
+  - Apply to all three memory config parameters
+
+**All Fixes Applied**:
+1. ✅ Helm chart version: 5.26.16
+2. ✅ Storage parameter: volumes.data.dynamic.requests.storage
+3. ✅ Resource parameters: neo4j.resources.*
+4. ✅ Memory config: --set-string with escaped dots (ensures string values)
+5. ✅ Plugins: simplified to boolean flag
+6. ✅ Bicep caching: timestamp touching in orchestrator.py
+7. ✅ Password handling: --set-file with temp file (avoids all quoting issues)
+
+**Next Action**: Test deployment with --set-string for config values
+**Timeline**: On track - Helm chart now receives correct string config values

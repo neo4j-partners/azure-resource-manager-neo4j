@@ -268,10 +268,10 @@ resource helmInstall 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       HELM_CMD="$HELM_CMD --set neo4j.resources.memory=$MEMORY_REQUEST"
 
       # Memory configuration (JVM heap and page cache)
-      # Use individual --set commands with escaped dots instead of --set-json
-      HELM_CMD="$HELM_CMD --set config.server\.memory\.heap\.initial_size=$HEAP_SIZE"
-      HELM_CMD="$HELM_CMD --set config.server\.memory\.heap\.max_size=$HEAP_SIZE"
-      HELM_CMD="$HELM_CMD --set config.server\.memory\.pagecache\.size=$PAGECACHE_SIZE"
+      # Use --set-string to ensure values are treated as strings, not YAML maps
+      HELM_CMD="$HELM_CMD --set-string config.server\.memory\.heap\.initial_size=$HEAP_SIZE"
+      HELM_CMD="$HELM_CMD --set-string config.server\.memory\.heap\.max_size=$HEAP_SIZE"
+      HELM_CMD="$HELM_CMD --set-string config.server\.memory\.pagecache\.size=$PAGECACHE_SIZE"
 
       # Plugin configuration (future - currently not used)
       if [ "$PLUGINS_ENABLED" == "true" ]; then
