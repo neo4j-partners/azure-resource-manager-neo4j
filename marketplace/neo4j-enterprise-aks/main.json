@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "17515840722555560253"
+      "templateHash": "4425947614185254944"
     }
   },
   "parameters": {
@@ -119,27 +119,6 @@
       ],
       "metadata": {
         "description": "Neo4j license type."
-      }
-    },
-    "keyVaultName": {
-      "type": "string",
-      "defaultValue": "",
-      "metadata": {
-        "description": "Optional: Name of Key Vault containing Neo4j admin password. Leave empty to use adminPassword parameter."
-      }
-    },
-    "keyVaultResourceGroup": {
-      "type": "string",
-      "defaultValue": "[resourceGroup().name]",
-      "metadata": {
-        "description": "Optional: Resource group containing the Key Vault. Defaults to current resource group."
-      }
-    },
-    "adminPasswordSecretName": {
-      "type": "string",
-      "defaultValue": "neo4j-admin-password",
-      "metadata": {
-        "description": "Optional: Name of secret in Key Vault containing admin password."
       }
     },
     "installGraphDataScience": {
@@ -1100,7 +1079,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "3894749561214899395"
+              "templateHash": "4682636524395501105"
             }
           },
           "parameters": {
@@ -1283,7 +1262,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.39.26.7824",
-                      "templateHash": "16479421914869042997"
+                      "templateHash": "16125773552753931313"
                     }
                   },
                   "parameters": {
@@ -1392,15 +1371,17 @@
                   },
                   "variables": {
                     "isCluster": "[greaterOrEquals(parameters('nodeCount'), 3)]",
-                    "minClusterSize": "[if(variables('isCluster'), parameters('nodeCount'), 1)]",
+                    "clusterName": "[if(variables('isCluster'), 'neo4j-cluster', 'neo4j-standalone')]",
                     "licenseAgreement": "[if(equals(parameters('licenseType'), 'Evaluation'), 'eval', 'yes')]",
-                    "plugins": "[concat(if(parameters('installGraphDataScience'), createArray('graph-data-science'), createArray()), if(parameters('installBloom'), createArray('bloom'), createArray()))]",
-                    "pluginsJson": "[if(greater(length(variables('plugins')), 0), format('[\"{0}\"]', join(variables('plugins'), '\",\"')), '[]')]",
                     "helmChartRepo": "https://helm.neo4j.com/neo4j",
                     "helmChartName": "neo4j/neo4j",
-                    "helmChartVersion": "",
+                    "helmChartVersion": "5.26.16",
                     "storageClassName": "neo4j-premium",
-                    "storageSizeGi": "[format('{0}Gi', parameters('diskSize'))]"
+                    "storageSizeGi": "[format('{0}Gi', parameters('diskSize'))]",
+                    "heapSizeGb": "4G",
+                    "pageCacheSizeGb": "3G",
+                    "pluginsList": "[concat(if(parameters('installGraphDataScience'), createArray('graph-data-science'), createArray()), if(parameters('installBloom'), createArray('bloom'), createArray()))]",
+                    "pluginsEnabled": "[if(greater(length(variables('pluginsList')), 0), 'true', 'false')]"
                   },
                   "resources": [
                     {
@@ -1461,8 +1442,16 @@
                             "value": "[variables('licenseAgreement')]"
                           },
                           {
-                            "name": "MIN_CLUSTER_SIZE",
-                            "value": "[string(variables('minClusterSize'))]"
+                            "name": "CLUSTER_NAME",
+                            "value": "[variables('clusterName')]"
+                          },
+                          {
+                            "name": "IS_CLUSTER",
+                            "value": "[string(variables('isCluster'))]"
+                          },
+                          {
+                            "name": "NODE_COUNT",
+                            "value": "[string(parameters('nodeCount'))]"
                           },
                           {
                             "name": "STORAGE_CLASS",
@@ -1481,11 +1470,19 @@
                             "value": "[parameters('memoryRequest')]"
                           },
                           {
-                            "name": "PLUGINS",
-                            "value": "[variables('pluginsJson')]"
+                            "name": "HEAP_SIZE",
+                            "value": "[variables('heapSizeGb')]"
+                          },
+                          {
+                            "name": "PAGECACHE_SIZE",
+                            "value": "[variables('pageCacheSizeGb')]"
+                          },
+                          {
+                            "name": "PLUGINS_ENABLED",
+                            "value": "[variables('pluginsEnabled')]"
                           }
                         ],
-                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"====================================\"\n      echo \"Neo4j Helm Chart Deployment\"\n      echo \"====================================\"\n\n      # Install kubectl\n      echo \"Installing kubectl...\"\n      az aks install-cli\n\n      # Get AKS credentials\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      # Install Helm\n      echo \"Installing Helm...\"\n      curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash\n\n      # Add Neo4j Helm repository\n      echo \"Adding Neo4j Helm repository...\"\n      helm repo add neo4j $HELM_CHART_REPO\n      helm repo update\n\n      # Create namespace if it doesn't exist\n      echo \"Creating namespace: $NAMESPACE_NAME\"\n      kubectl create namespace $NAMESPACE_NAME --dry-run=client -o yaml | kubectl apply -f -\n\n      # Prepare Helm values\n      echo \"Preparing Helm values...\"\n\n      # Install or upgrade Neo4j\n      echo \"Installing Neo4j via Helm...\"\n      echo \"  Release: $RELEASE_NAME\"\n      echo \"  Namespace: $NAMESPACE_NAME\"\n      echo \"  Version: $NEO4J_VERSION\"\n      echo \"  Cluster Size: $MIN_CLUSTER_SIZE\"\n      echo \"  Storage: $STORAGE_SIZE\"\n\n      HELM_CMD=\"helm upgrade --install $RELEASE_NAME $HELM_CHART_NAME\"\n      HELM_CMD=\"$HELM_CMD --namespace $NAMESPACE_NAME\"\n      HELM_CMD=\"$HELM_CMD --create-namespace\"\n      HELM_CMD=\"$HELM_CMD --wait\"\n      HELM_CMD=\"$HELM_CMD --timeout 20m\"\n\n      # Version and edition\n      HELM_CMD=\"$HELM_CMD --set image.repository=neo4j\"\n      HELM_CMD=\"$HELM_CMD --set image.tag=$NEO4J_VERSION\"\n      HELM_CMD=\"$HELM_CMD --set neo4j.edition=enterprise\"\n      HELM_CMD=\"$HELM_CMD --set neo4j.acceptLicenseAgreement=$LICENSE_AGREEMENT\"\n      HELM_CMD=\"$HELM_CMD --set neo4j.password=$NEO4J_PASSWORD\"\n\n      # Cluster configuration\n      if [ \"$MIN_CLUSTER_SIZE\" -gt 1 ]; then\n        echo \"Configuring cluster mode with $MIN_CLUSTER_SIZE nodes...\"\n        HELM_CMD=\"$HELM_CMD --set neo4j.minimumClusterSize=$MIN_CLUSTER_SIZE\"\n        HELM_CMD=\"$HELM_CMD --set neo4j.name=neo4j-cluster\"\n      else\n        echo \"Configuring standalone mode...\"\n        HELM_CMD=\"$HELM_CMD --set neo4j.name=neo4j-standalone\"\n      fi\n\n      # Storage configuration\n      HELM_CMD=\"$HELM_CMD --set volumes.data.mode=dynamic\"\n      HELM_CMD=\"$HELM_CMD --set volumes.data.dynamic.storageClassName=$STORAGE_CLASS\"\n      HELM_CMD=\"$HELM_CMD --set volumes.data.dynamic.storage=$STORAGE_SIZE\"\n\n      # Resource configuration\n      HELM_CMD=\"$HELM_CMD --set resources.cpu=$CPU_REQUEST\"\n      HELM_CMD=\"$HELM_CMD --set resources.memory=$MEMORY_REQUEST\"\n\n      # Memory configuration (explicit JVM settings)\n      HELM_CMD=\"$HELM_CMD --set-string config.server\\.memory\\.heap\\.initial_size=4G\"\n      HELM_CMD=\"$HELM_CMD --set-string config.server\\.memory\\.heap\\.max_size=4G\"\n      HELM_CMD=\"$HELM_CMD --set-string config.server\\.memory\\.pagecache\\.size=3G\"\n\n      # Plugin configuration\n      if [ \"$PLUGINS\" != \"[]\" ]; then\n        echo \"Enabling plugins: $PLUGINS\"\n        HELM_CMD=\"$HELM_CMD --set-json config.NEO4J_PLUGINS='$PLUGINS'\"\n      fi\n\n      # Service configuration (LoadBalancer for Azure)\n      HELM_CMD=\"$HELM_CMD --set services.neo4j.enabled=true\"\n      HELM_CMD=\"$HELM_CMD --set services.neo4j.type=LoadBalancer\"\n\n      # Execute Helm install\n      echo \"Executing: $HELM_CMD\"\n      eval $HELM_CMD\n\n      # Verify deployment\n      echo \"\"\n      echo \"Verifying deployment...\"\n      kubectl get pods -n $NAMESPACE_NAME\n      kubectl get services -n $NAMESPACE_NAME\n\n      # Get service details\n      echo \"\"\n      echo \"Waiting for LoadBalancer external IP...\"\n      for i in {1..60}; do\n        EXTERNAL_IP=$(kubectl get service ${RELEASE_NAME} -n $NAMESPACE_NAME -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo \"\")\n        if [ -n \"$EXTERNAL_IP\" ] && [ \"$EXTERNAL_IP\" != \"null\" ]; then\n          echo \"External IP assigned: $EXTERNAL_IP\"\n          break\n        fi\n        echo \"Waiting for external IP... ($i/60)\"\n        sleep 10\n      done\n\n      # Output results\n      RELEASE_STATUS=$(helm status $RELEASE_NAME -n $NAMESPACE_NAME -o json | jq -r '.info.status')\n      HELM_VERSION=$(helm list -n $NAMESPACE_NAME -o json | jq -r \".[] | select(.name==\\\"$RELEASE_NAME\\\") | .chart\")\n\n      echo \"\"\n      echo \"====================================\"\n      echo \"Deployment Complete!\"\n      echo \"====================================\"\n      echo \"Release: $RELEASE_NAME\"\n      echo \"Status: $RELEASE_STATUS\"\n      echo \"Chart: $HELM_VERSION\"\n      echo \"External IP: $EXTERNAL_IP\"\n      echo \"Neo4j Browser: http://$EXTERNAL_IP:7474\"\n      echo \"Bolt URI: neo4j://$EXTERNAL_IP:7687\"\n\n      # Save outputs to JSON\n      cat > $AZ_SCRIPTS_OUTPUT_PATH <<EOF\n{\n  \"releaseName\": \"$RELEASE_NAME\",\n  \"releaseStatus\": \"$RELEASE_STATUS\",\n  \"helmVersion\": \"$HELM_VERSION\",\n  \"externalIp\": \"$EXTERNAL_IP\",\n  \"browserUrl\": \"http://$EXTERNAL_IP:7474\",\n  \"boltUri\": \"neo4j://$EXTERNAL_IP:7687\"\n}\nEOF\n\n      echo \"Deployment script completed successfully\"\n    ",
+                        "scriptContent": "      #!/bin/bash\n      set -e\n\n      echo \"====================================\"\n      echo \"Neo4j Helm Chart Deployment\"\n      echo \"====================================\"\n      echo \"Release: $RELEASE_NAME\"\n      echo \"Namespace: $NAMESPACE_NAME\"\n      echo \"Cluster Mode: $IS_CLUSTER\"\n      echo \"Node Count: $NODE_COUNT\"\n      echo \"\"\n\n      # Install kubectl\n      echo \"Installing kubectl...\"\n      az aks install-cli\n\n      # Get AKS credentials\n      echo \"Getting AKS credentials...\"\n      az aks get-credentials --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --overwrite-existing\n\n      # Install Helm\n      echo \"Installing Helm...\"\n      curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash\n\n      # Add Neo4j Helm repository\n      echo \"Adding Neo4j Helm repository...\"\n      helm repo add neo4j $HELM_CHART_REPO\n      helm repo update\n\n      # Create namespace if it doesn't exist\n      echo \"Creating namespace: $NAMESPACE_NAME\"\n      kubectl create namespace $NAMESPACE_NAME --dry-run=client -o yaml | kubectl apply -f -\n\n      echo \"\"\n      echo \"Installing Neo4j Helm Chart version $HELM_CHART_VERSION...\"\n      echo \"\"\n\n      # Build Helm command with corrected parameter names\n      HELM_CMD=\"helm upgrade --install $RELEASE_NAME $HELM_CHART_NAME\"\n      HELM_CMD=\"$HELM_CMD --version $HELM_CHART_VERSION\"\n      HELM_CMD=\"$HELM_CMD --namespace $NAMESPACE_NAME\"\n      HELM_CMD=\"$HELM_CMD --create-namespace\"\n      HELM_CMD=\"$HELM_CMD --wait\"\n      HELM_CMD=\"$HELM_CMD --timeout 20m\"\n\n      # Neo4j core configuration\n      # Chart automatically selects correct image based on edition\n      HELM_CMD=\"$HELM_CMD --set neo4j.name=$CLUSTER_NAME\"\n      HELM_CMD=\"$HELM_CMD --set neo4j.edition=enterprise\"\n      HELM_CMD=\"$HELM_CMD --set neo4j.acceptLicenseAgreement=$LICENSE_AGREEMENT\"\n      HELM_CMD=\"$HELM_CMD --set-string neo4j.password='$NEO4J_PASSWORD'\"\n\n      # Cluster configuration (only if cluster mode)\n      if [ \"$IS_CLUSTER\" == \"true\" ]; then\n        echo \"Configuring cluster with $NODE_COUNT nodes...\"\n        HELM_CMD=\"$HELM_CMD --set neo4j.minimumClusterSize=$NODE_COUNT\"\n      else\n        echo \"Configuring standalone instance...\"\n      fi\n\n      # Storage configuration\n      # CORRECTED: Use volumes.data.dynamic.requests.storage (not just .storage)\n      HELM_CMD=\"$HELM_CMD --set volumes.data.mode=dynamic\"\n      HELM_CMD=\"$HELM_CMD --set volumes.data.dynamic.storageClassName=$STORAGE_CLASS\"\n      HELM_CMD=\"$HELM_CMD --set volumes.data.dynamic.requests.storage=$STORAGE_SIZE\"\n\n      # Resource configuration\n      # CORRECTED: Use neo4j.resources.cpu and neo4j.resources.memory\n      HELM_CMD=\"$HELM_CMD --set neo4j.resources.cpu=$CPU_REQUEST\"\n      HELM_CMD=\"$HELM_CMD --set neo4j.resources.memory=$MEMORY_REQUEST\"\n\n      # Memory configuration (JVM heap and page cache)\n      # Use individual --set commands with escaped dots instead of --set-json\n      HELM_CMD=\"$HELM_CMD --set config.server\\.memory\\.heap\\.initial_size=$HEAP_SIZE\"\n      HELM_CMD=\"$HELM_CMD --set config.server\\.memory\\.heap\\.max_size=$HEAP_SIZE\"\n      HELM_CMD=\"$HELM_CMD --set config.server\\.memory\\.pagecache\\.size=$PAGECACHE_SIZE\"\n\n      # Plugin configuration (future - currently not used)\n      if [ \"$PLUGINS_ENABLED\" == \"true\" ]; then\n        echo \"Note: Plugin configuration not yet implemented\"\n        # TODO: Implement plugin installation via env.NEO4JLABS_PLUGINS or init containers\n      fi\n\n      # Service configuration (LoadBalancer for Azure external access)\n      HELM_CMD=\"$HELM_CMD --set services.neo4j.enabled=true\"\n      HELM_CMD=\"$HELM_CMD --set services.neo4j.spec.type=LoadBalancer\"\n\n      # Execute Helm install\n      echo \"\"\n      echo \"Executing Helm installation...\"\n      echo \"Command: helm upgrade --install $RELEASE_NAME $HELM_CHART_NAME --version $HELM_CHART_VERSION ...\"\n      echo \"\"\n      eval $HELM_CMD\n\n      # Verify deployment\n      echo \"\"\n      echo \"====================================\"\n      echo \"Verifying Deployment\"\n      echo \"====================================\"\n      kubectl get pods -n $NAMESPACE_NAME\n      echo \"\"\n      kubectl get services -n $NAMESPACE_NAME\n      echo \"\"\n\n      # Wait for LoadBalancer external IP\n      echo \"Waiting for LoadBalancer external IP...\"\n      EXTERNAL_IP=\"\"\n      for i in {1..60}; do\n        EXTERNAL_IP=$(kubectl get service ${RELEASE_NAME} -n $NAMESPACE_NAME -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo \"\")\n        if [ -n \"$EXTERNAL_IP\" ] && [ \"$EXTERNAL_IP\" != \"null\" ]; then\n          echo \"External IP assigned: $EXTERNAL_IP\"\n          break\n        fi\n        echo \"Waiting for external IP... ($i/60)\"\n        sleep 10\n      done\n\n      if [ -z \"$EXTERNAL_IP\" ] || [ \"$EXTERNAL_IP\" == \"null\" ]; then\n        echo \"WARNING: External IP not assigned within timeout\"\n        EXTERNAL_IP=\"pending\"\n      fi\n\n      # Get release status\n      RELEASE_STATUS=$(helm status $RELEASE_NAME -n $NAMESPACE_NAME -o json | jq -r '.info.status')\n      HELM_VERSION=$(helm list -n $NAMESPACE_NAME -o json | jq -r \".[] | select(.name==\\\"$RELEASE_NAME\\\") | .chart\")\n\n      echo \"\"\n      echo \"====================================\"\n      echo \"Deployment Complete!\"\n      echo \"====================================\"\n      echo \"Release: $RELEASE_NAME\"\n      echo \"Status: $RELEASE_STATUS\"\n      echo \"Chart: $HELM_VERSION\"\n      echo \"External IP: $EXTERNAL_IP\"\n      echo \"Neo4j Browser: http://$EXTERNAL_IP:7474\"\n      echo \"Bolt URI: neo4j://$EXTERNAL_IP:7687\"\n      echo \"\"\n      echo \"Note: It may take 2-3 minutes for Neo4j pods to be fully ready.\"\n      echo \"\"\n\n      # Save outputs to JSON for Bicep\n      cat > $AZ_SCRIPTS_OUTPUT_PATH <<EOF\n{\n  \"releaseName\": \"$RELEASE_NAME\",\n  \"releaseStatus\": \"$RELEASE_STATUS\",\n  \"helmVersion\": \"$HELM_VERSION\",\n  \"externalIp\": \"$EXTERNAL_IP\",\n  \"browserUrl\": \"http://$EXTERNAL_IP:7474\",\n  \"boltUri\": \"neo4j://$EXTERNAL_IP:7687\"\n}\nEOF\n\n      echo \"Deployment script completed successfully\"\n    ",
                         "cleanupPreference": "OnSuccess"
                       }
                     }

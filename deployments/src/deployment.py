@@ -241,23 +241,8 @@ class DeploymentEngine:
         else:
             console.print("[dim]Cluster Bicep deployment - using cloud-init[/dim]")
 
-        # Check if using Key Vault for password management
-        vault_params = self.password_manager.get_vault_parameters()
-
-        if vault_params:
-            # Using Key Vault - pass both password (for VM OS) and vault parameters (for cloud-init)
-            console.print(
-                f"[dim]Using Key Vault for password: {vault_params['keyVaultName']}[/dim]"
-            )
-            set_param("keyVaultName", vault_params["keyVaultName"])
-            set_param("keyVaultResourceGroup", vault_params["keyVaultResourceGroup"])
-            set_param("adminPasswordSecretName", vault_params["adminPasswordSecretName"])
-            # Pass the actual password for VM OS profile (required by Azure)
-            # Cloud-init will retrieve it from vault for Neo4j
-            set_param("adminPassword", password)
-        else:
-            # Direct password mode
-            set_param("adminPassword", password)
+        # Pass admin password securely
+        set_param("adminPassword", password)
 
         return params
 

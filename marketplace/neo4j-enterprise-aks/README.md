@@ -1,46 +1,20 @@
 # Neo4j Enterprise on Azure Kubernetes Service (AKS)
 
-This directory contains Azure Bicep templates for deploying Neo4j Enterprise Edition on Azure Kubernetes Service (AKS).
+Deploy Neo4j Enterprise Edition on Azure Kubernetes Service using Bicep templates and the official Neo4j Helm chart.
 
 ## Overview
 
-This deployment option provides a modern, container-based alternative to the VM-based deployment, offering:
+This deployment provides a modern, cloud-native alternative to VM-based Neo4j deployments, offering:
 
-- **Cloud-native architecture** using Kubernetes primitives
-- **Automatic scaling** and self-healing capabilities
-- **Simplified operations** with Kubernetes tooling
-- **Consistent deployment patterns** across environments
+- **Kubernetes-native architecture** with StatefulSets and Persistent Volumes
+- **Official Neo4j Helm chart** for best-practice configuration
+- **Automatic scaling** with AKS node pools
+- **Azure integration** for monitoring, storage, and identity
+- **Production-ready** security and high availability options
 
-## Architecture
-
-The deployment consists of two main layers:
-
-### Infrastructure Layer
-- **AKS Cluster**: Managed Kubernetes cluster with system and user node pools
-- **Virtual Network**: Isolated network with subnets for cluster components
-- **Managed Identity**: Workload Identity for secure Azure service authentication
-- **Storage**: Premium SSD storage class for persistent data volumes
-- **Monitoring**: Azure Monitor integration with Container Insights
-
-### Application Layer
-- **StatefulSet**: Neo4j pods with stable network identities
-- **Persistent Volumes**: Azure Disk-backed storage for data persistence
-- **Services**: Headless service for discovery and LoadBalancer for external access
-- **Configuration**: ConfigMaps and Secrets for Neo4j settings
-
-## Deployment Scenarios
-
-- **Standalone**: Single-instance Neo4j (nodeCount=1)
-- **Cluster**: Multi-node Neo4j cluster (nodeCount=3-10)
-- **Analytics**: Optimized for read-heavy workloads
-
-## Prerequisites
-
-- Azure CLI (`az`) version 2.50.0 or later
-- Bicep CLI version 0.20.0 or later
-- kubectl version 1.28 or later
-- Active Azure subscription with sufficient quotas
-- Contributor access to subscription or resource group
+**Deployment Time:** 15-20 minutes
+**Supported Versions:** Neo4j 5.x Enterprise
+**Architecture:** Bicep (Infrastructure) + Helm (Application)
 
 ## Quick Start
 
@@ -50,170 +24,167 @@ The deployment consists of two main layers:
 ./deploy.sh my-resource-group
 ```
 
-### Deploy with Custom Parameters
+This deploys:
+- AKS cluster with managed Kubernetes
+- Neo4j Enterprise 5.x (standalone)
+- Premium SSD persistent storage
+- External LoadBalancer for access
+
+**After deployment**, connect to Neo4j:
+- **Neo4j Browser:** `http://<external-ip>:7474`
+- **Bolt URI:** `neo4j://<external-ip>:7687`
+- **Username:** `neo4j`
+- **Password:** From deployment parameters
+
+### Custom Deployment
 
 ```bash
 az deployment group create \
-  --resource-group my-resource-group \
+  --resource-group my-neo4j-rg \
   --template-file main.bicep \
   --parameters nodeCount=3 \
                graphDatabaseVersion="5" \
-               adminPassword="YourSecurePassword123!" \
+               adminPassword="SecurePassword123!" \
                licenseType="Evaluation"
 ```
 
-## Parameters
+## What Gets Deployed
 
-### Required Parameters
+**Azure Resources:**
+- AKS Cluster (Kubernetes 1.30+)
+- Virtual Network with subnets
+- Managed Identity for Workload Identity
+- Premium SSD storage class
+- Azure Monitor & Container Insights
+- LoadBalancer with public IP
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `nodeCount` | int | Number of Neo4j instances (1, 3-10) |
-| `graphDatabaseVersion` | string | Neo4j version ("5" or "4.4") |
-| `adminPassword` | securestring | Neo4j admin password |
-| `licenseType` | string | "Enterprise" or "Evaluation" |
-| `diskSize` | int | Data disk size in GB (minimum 32) |
+**Kubernetes Resources** (via Helm):
+- Neo4j StatefulSet with persistent volumes
+- Services (headless + LoadBalancer)
+- ConfigMaps and Secrets
+- RBAC roles and service accounts
 
-### Optional Parameters
+**Result:** Fully functional Neo4j cluster accessible via public IP.
+
+## Deployment Scenarios
+
+| Scenario | Description | Parameters |
+|----------|-------------|------------|
+| **Standalone** | Single Neo4j instance | `nodeCount=1` |
+| **Cluster** | High availability (3-10 nodes) | `nodeCount=3` |
+| **Custom Storage** | Larger data volumes | `diskSize=128` |
+| **Enterprise VM** | Larger compute | `userNodeSize="Standard_E8s_v5"` |
+
+## Documentation
+
+### Getting Started
+- **[Getting Started Guide](GETTING-STARTED.md)** - Complete deployment walkthrough
+- **[Troubleshooting](TROUBLESHOOTING.md)** - Common issues and solutions
+
+### Reference
+- **[Architecture](ARCHITECTURE.md)** - Detailed system design
+- **[Parameter Reference](docs/REFERENCE.md)** - All configuration options
+- **[Cluster Discovery](docs/CLUSTER-DISCOVERY.md)** - Resolver types explained
+
+### Operations
+- **[Operations Guide](docs/OPERATIONS.md)** - Day-2 operations (monitoring, backup, scaling)
+
+### Development
+- **[Development Guide](docs/development/DEVELOPMENT.md)** - Contributing to templates
+- **[Helm Integration](docs/development/HELM-INTEGRATION.md)** - Technical implementation details
+
+## Prerequisites
+
+- **Azure CLI** (`az`) version 2.50.0+
+- **kubectl** version 1.28+
+- **Bicep** version 0.20.0+ (bundled with Azure CLI)
+- **Active Azure subscription** with Contributor access
+- **Quotas:** ~10 vCPUs for Standard_D/E series VMs
+
+## Key Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `location` | string | resourceGroup().location | Azure region |
-| `resourceNamePrefix` | string | "neo4j" | Prefix for resource names |
-| `kubernetesVersion` | string | "1.28" | Kubernetes version |
-| `userNodeSize` | string | "Standard_E4s_v5" | VM size for Neo4j nodes |
-| `userNodeCountMin` | int | 1 | Minimum node pool size |
-| `userNodeCountMax` | int | 10 | Maximum node pool size |
+| `nodeCount` | int | 1 | Neo4j instances (1, 3-10) |
+| `graphDatabaseVersion` | string | "5" | Neo4j version |
+| `adminPassword` | securestring | (required) | Admin password |
+| `licenseType` | string | "Evaluation" | "Enterprise" or "Evaluation" |
+| `diskSize` | int | 32 | Storage size in GB |
+| `userNodeSize` | string | "Standard_E4s_v5" | AKS node VM size |
 
-## Outputs
+**See [Parameter Reference](docs/REFERENCE.md) for complete list.**
 
-After deployment, the following information is available:
+## Cost Estimation
 
-- `neo4jBrowserUrl`: HTTP URL for Neo4j Browser
-- `neo4jBoltUri`: Connection URI for Neo4j drivers
-- `neo4jUsername`: Database username (always "neo4j")
-- `aksClusterName`: Name of the AKS cluster
-- `resourceGroupName`: Name of the resource group
+Approximate monthly costs for standalone deployment (East US):
 
-## Connecting to Neo4j
+| Resource | Configuration | Monthly Cost |
+|----------|---------------|--------------|
+| AKS Management | Managed service | **Free** |
+| System Node Pool | 3x Standard_D2s_v5 | ~$250 |
+| User Node Pool | 1x Standard_E4s_v5 | ~$240 |
+| LoadBalancer | Standard | ~$20 |
+| Storage | 32GB Premium SSD | ~$5 |
+| **Total** | | **~$515/month** |
 
-### Via Neo4j Browser
+*Costs scale with additional Neo4j nodes and larger VM sizes.*
 
-1. Get the browser URL from deployment outputs
-2. Navigate to the URL in your web browser
-3. Login with username `neo4j` and your admin password
+## Architecture Highlights
 
-### Via Neo4j Driver
+**Infrastructure** (Bicep):
+- Provisions AKS cluster, networking, identity, storage
+- Configures Azure Monitor integration
+- Sets up Workload Identity for secure access
 
-```python
-from neo4j import GraphDatabase
+**Application** (Helm):
+- Uses official Neo4j Helm chart (`neo4j/neo4j` v5.24.0)
+- Deploys Neo4j as Kubernetes StatefulSet
+- Configures persistent storage, services, and secrets
+- Handles cluster formation and discovery
 
-uri = "neo4j://<external-ip>:7687"
-driver = GraphDatabase.driver(uri, auth=("neo4j", "password"))
-
-with driver.session() as session:
-    result = session.run("RETURN 'Hello Neo4j' AS message")
-    print(result.single()["message"])
-
-driver.close()
-```
-
-### Via kubectl
-
-```bash
-# Get AKS credentials
-az aks get-credentials --name <cluster-name> --resource-group <resource-group>
-
-# View Neo4j pods
-kubectl get pods -n neo4j
-
-# View Neo4j logs
-kubectl logs neo4j-0 -n neo4j
-
-# Port forward for local access
-kubectl port-forward neo4j-0 7474:7474 7687:7687 -n neo4j
-```
-
-## Troubleshooting
-
-### Pod Won't Start
-
-```bash
-# Check pod status
-kubectl describe pod neo4j-0 -n neo4j
-
-# View pod logs
-kubectl logs neo4j-0 -n neo4j
-
-# Check events
-kubectl get events -n neo4j --sort-by='.lastTimestamp'
-```
-
-### Can't Connect Externally
-
-```bash
-# Verify service has external IP
-kubectl get svc neo4j-lb -n neo4j
-
-# Check if IP is still pending (may take 2-3 minutes)
-# Verify NSG rules allow traffic on ports 7474 and 7687
-```
-
-### PVC Won't Bind
-
-```bash
-# Check PVC status
-kubectl get pvc -n neo4j
-
-# Check storage class
-kubectl get storageclass neo4j-premium
-
-# View PVC events
-kubectl describe pvc data-neo4j-0 -n neo4j
-```
+**See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed design.**
 
 ## Cleanup
 
-To delete all resources:
+Delete all deployed resources:
 
 ```bash
 ./delete.sh my-resource-group
 ```
 
-## Module Structure
+Or manually:
 
-- `main.bicep`: Main orchestration template
-- `modules/network.bicep`: Virtual network and NSG
-- `modules/identity.bicep`: Managed identity and Workload Identity
-- `modules/aks-cluster.bicep`: AKS cluster with node pools
-- `modules/storage.bicep`: Storage class configuration
-- `modules/namespace.bicep`: Kubernetes namespace
-- `modules/serviceaccount.bicep`: Service account with Workload Identity
-- `modules/configuration.bicep`: ConfigMap and Secret
-- `modules/statefulset.bicep`: Neo4j StatefulSet
-- `modules/services.bicep`: Kubernetes services
-- `modules/neo4j-app.bicep`: Application layer orchestration
+```bash
+az group delete --name my-resource-group --yes
+```
 
-## Cost Estimation
+## Getting Help
 
-Approximate monthly costs for standalone deployment in East US:
+**Documentation:**
+1. [Getting Started Guide](GETTING-STARTED.md) - First-time deployment
+2. [Troubleshooting](TROUBLESHOOTING.md) - Common issues
+3. [Neo4j Kubernetes Docs](https://neo4j.com/docs/operations-manual/5/kubernetes/)
 
-- AKS cluster management: Free
-- System node pool (3x Standard_D2s_v5): ~$250
-- User node pool (1x Standard_E4s_v5): ~$240
-- Load Balancer: ~$20
-- Storage (32 GB Premium SSD): ~$5
-- **Total: ~$515/month**
+**Support:**
+- **GitHub Issues:** https://github.com/neo4j-partners/azure-resource-manager-neo4j/issues
+- **Neo4j Community:** https://community.neo4j.com
+- **Neo4j Support:** support@neo4j.com (Enterprise customers)
 
-Costs scale linearly with additional Neo4j nodes.
+## Related Deployments
 
-## Support
+Looking for different deployment options?
 
-For issues and questions:
-- GitHub Issues: https://github.com/neo4j-partners/azure-resource-manager-neo4j/issues
-- Neo4j Community Forum: https://community.neo4j.com
-- Neo4j Support: support@neo4j.com (Enterprise customers)
+- **VM-based deployment:** See `marketplace/neo4j-enterprise/`
+- **Community Edition:** See `marketplace/neo4j-community/`
 
 ## License
 
-Neo4j Enterprise Edition requires a valid license. This deployment supports both Enterprise licenses and 30-day Evaluation licenses.
+Neo4j Enterprise Edition requires a valid license. This deployment supports:
+- **Enterprise License:** Production use with valid license key
+- **Evaluation License:** 30-day trial for testing (no license key required)
+
+---
+
+**Template Version:** 1.0 (Bicep + Helm)
+**Last Updated:** November 2025
+**Maintained by:** Neo4j Partners Team

@@ -24,7 +24,6 @@ class PasswordStrategy(str, Enum):
 
     GENERATE = "generate"
     ENVIRONMENT = "environment"
-    AZURE_KEYVAULT = "azure-keyvault"
     PROMPT = "prompt"
 
 
@@ -164,9 +163,6 @@ class Settings(BaseModel):
     # Password settings
     password_strategy: PasswordStrategy = Field(
         PasswordStrategy.GENERATE, description="How to provide admin password"
-    )
-    azure_keyvault_name: Optional[str] = Field(
-        None, description="Azure Key Vault name (if using keyvault strategy)"
     )
 
     # Deployment settings

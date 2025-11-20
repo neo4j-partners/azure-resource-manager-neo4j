@@ -9,6 +9,7 @@ Handles:
 """
 
 import json
+import os
 import re
 from pathlib import Path
 from typing import Optional
@@ -62,6 +63,10 @@ class DeploymentOrchestrator:
         """
         template_path = self.template_file.resolve()
         params_path = parameter_file.resolve()
+
+        # Touch Bicep template to ensure fresh compilation during validation
+        if template_path.suffix == ".bicep":
+            os.utime(template_path, None)
 
         # Run validation with --debug to get actual error messages
         # when Azure CLI bug hides them
@@ -200,6 +205,13 @@ class DeploymentOrchestrator:
         # Ensure paths are absolute
         template_path = self.template_file.resolve()
         params_path = parameter_file.resolve()
+
+        # IMPORTANT: Touch the Bicep template to force Azure CLI to recompile
+        # This ensures module changes are picked up even if main.bicep hasn't changed
+        # Bicep caching is based on parent file timestamp, not module timestamps
+        if template_path.suffix == ".bicep":
+            os.utime(template_path, None)  # Update to current time
+            console.print(f"[dim]Refreshed template timestamp to force recompilation[/dim]")
 
         # Note: Don't use @ symbol with local files - it causes Azure CLI errors
         # The @ symbol is only for inline JSON or URIs

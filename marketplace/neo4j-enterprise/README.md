@@ -8,34 +8,16 @@ Unless you are a Neo4j employee updating the Azure Marketplace listing, you shou
 
 ## Features
 
-### Secure Password Management with Azure Key Vault
+### Secure Password Management
 
-**New in this release:** The marketplace deployment now supports Azure Key Vault for secure password management.
-
-**Benefits:**
-- Passwords never visible in the Azure Portal UI
-- No passwords stored in deployment metadata
-- Centralized secret management and audit logging
-- Enterprise-grade security (SOC 2, HIPAA, PCI-DSS compliant)
-- Support for password rotation without redeployment
-
-**How to Use:**
-1. Create an Azure Key Vault before deploying
-2. Generate and store the Neo4j admin password in the vault
-3. During marketplace deployment, select "Use Azure Key Vault (Recommended)"
-4. Provide the vault name, resource group, and secret name
-
-**Full Documentation:** See [ENTERPRISE_KEY_VAULT_GUIDE.md](../../docs/ENTERPRISE_KEY_VAULT_GUIDE.md) for complete setup instructions.
-
-**Backward Compatibility:** Direct password entry is still supported for development and testing scenarios.
-
----
+The marketplace deployment uses Azure's secure string parameters to securely handle passwords:
+- Passwords are encrypted in deployment metadata using Azure platform encryption
+- Password entry is protected in the Azure Portal UI
+- Simple, straightforward password management
 
 ## For Marketplace Users
 
-If you're deploying Neo4j from the Azure Marketplace:
-- **Production deployments:** Use Azure Key Vault mode (see [ENTERPRISE_KEY_VAULT_GUIDE.md](../../docs/ENTERPRISE_KEY_VAULT_GUIDE.md))
-- **Development/testing:** You can use direct password entry mode for simplicity
+If you're deploying Neo4j from the Azure Marketplace, you'll be prompted to enter an admin password during deployment.
 
 ---
 

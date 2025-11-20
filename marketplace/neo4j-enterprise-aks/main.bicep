@@ -76,16 +76,6 @@ param adminPassword string
 ])
 param licenseType string = 'Evaluation'
 
-// Optional: Key Vault Integration
-@description('Optional: Name of Key Vault containing Neo4j admin password. Leave empty to use adminPassword parameter.')
-param keyVaultName string = ''
-
-@description('Optional: Resource group containing the Key Vault. Defaults to current resource group.')
-param keyVaultResourceGroup string = resourceGroup().name
-
-@description('Optional: Name of secret in Key Vault containing admin password.')
-param adminPasswordSecretName string = 'neo4j-admin-password'
-
 // Optional: Plugin Configuration
 @description('Install Graph Data Science plugin.')
 @allowed([

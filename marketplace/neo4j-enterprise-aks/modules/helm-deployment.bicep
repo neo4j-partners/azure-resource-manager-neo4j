@@ -1,5 +1,12 @@
 // Helm Deployment Module
 // Deploys Neo4j using the official Neo4j Helm chart via deploymentScripts
+//
+// IMPORTANT: This module uses the official Neo4j Helm chart from helm.neo4j.com
+// Parameter names must match the chart's values.yaml structure exactly.
+// See HELM_PARAMETERS.md for complete parameter reference.
+//
+// Official Chart: https://github.com/neo4j/helm-charts/tree/master/neo4j
+// Documentation: https://neo4j.com/docs/operations-manual/current/kubernetes/
 
 @description('Azure region for deployment scripts')
 param location string
@@ -53,30 +60,43 @@ param installBloom bool = false
 @description('Managed identity for deployment script')
 param identityId string
 
+// ============================================================================
+// VARIABLES
+// ============================================================================
+
 // Determine cluster mode
 var isCluster = nodeCount >= 3
-var minClusterSize = isCluster ? nodeCount : 1
+var clusterName = isCluster ? 'neo4j-cluster' : 'neo4j-standalone'
 
-// License agreement value
+// License agreement value (eval for Evaluation, yes for Enterprise)
 var licenseAgreement = licenseType == 'Evaluation' ? 'eval' : 'yes'
 
-// Build plugins array
-var plugins = concat(
-  installGraphDataScience ? ['graph-data-science'] : [],
-  installBloom ? ['bloom'] : []
-)
-var pluginsJson = length(plugins) > 0 ? '["${join(plugins, '","')}"]' : '[]'
-
 // Helm chart configuration
+// Pin to specific tested version for reproducible deployments
 var helmChartRepo = 'https://helm.neo4j.com/neo4j'
 var helmChartName = 'neo4j/neo4j'
-var helmChartVersion = '' // Use latest 5.x compatible version
+var helmChartVersion = '5.26.16'  // Latest stable 5.x version (Nov 2025)
 
 // Storage configuration
 var storageClassName = 'neo4j-premium'  // Must match storage.bicep storageClassName
 var storageSizeGi = '${diskSize}Gi'
 
-// Deployment script to install Helm chart
+// Calculate memory settings (heap should be ~50% of total memory)
+var heapSizeGb = '4G'  // Conservative default for 8Gi total memory
+var pageCacheSizeGb = '3G'  // Remaining memory for page cache
+
+// Build plugins list for future use
+// Note: Plugins not currently used but prepared for future implementation
+var pluginsList = concat(
+  installGraphDataScience ? ['graph-data-science'] : [],
+  installBloom ? ['bloom'] : []
+)
+var pluginsEnabled = length(pluginsList) > 0 ? 'true' : 'false'
+
+// ============================================================================
+// DEPLOYMENT SCRIPT
+// ============================================================================
+
 resource helmInstall 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   name: 'helm-install-${uniqueString(resourceGroup().id, namespaceName, releaseName)}'
   location: location
@@ -133,8 +153,16 @@ resource helmInstall 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
         value: licenseAgreement
       }
       {
-        name: 'MIN_CLUSTER_SIZE'
-        value: string(minClusterSize)
+        name: 'CLUSTER_NAME'
+        value: clusterName
+      }
+      {
+        name: 'IS_CLUSTER'
+        value: string(isCluster)
+      }
+      {
+        name: 'NODE_COUNT'
+        value: string(nodeCount)
       }
       {
         name: 'STORAGE_CLASS'
@@ -153,8 +181,16 @@ resource helmInstall 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
         value: memoryRequest
       }
       {
-        name: 'PLUGINS'
-        value: pluginsJson
+        name: 'HEAP_SIZE'
+        value: heapSizeGb
+      }
+      {
+        name: 'PAGECACHE_SIZE'
+        value: pageCacheSizeGb
+      }
+      {
+        name: 'PLUGINS_ENABLED'
+        value: pluginsEnabled
       }
     ]
     scriptContent: '''
@@ -164,6 +200,11 @@ resource helmInstall 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       echo "===================================="
       echo "Neo4j Helm Chart Deployment"
       echo "===================================="
+      echo "Release: $RELEASE_NAME"
+      echo "Namespace: $NAMESPACE_NAME"
+      echo "Cluster Mode: $IS_CLUSTER"
+      echo "Node Count: $NODE_COUNT"
+      echo ""
 
       # Install kubectl
       echo "Installing kubectl..."
@@ -175,7 +216,7 @@ resource helmInstall 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
 
       # Install Helm
       echo "Installing Helm..."
-      curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
       # Add Neo4j Helm repository
       echo "Adding Neo4j Helm repository..."
@@ -186,76 +227,80 @@ resource helmInstall 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       echo "Creating namespace: $NAMESPACE_NAME"
       kubectl create namespace $NAMESPACE_NAME --dry-run=client -o yaml | kubectl apply -f -
 
-      # Prepare Helm values
-      echo "Preparing Helm values..."
+      echo ""
+      echo "Installing Neo4j Helm Chart version $HELM_CHART_VERSION..."
+      echo ""
 
-      # Install or upgrade Neo4j
-      echo "Installing Neo4j via Helm..."
-      echo "  Release: $RELEASE_NAME"
-      echo "  Namespace: $NAMESPACE_NAME"
-      echo "  Version: $NEO4J_VERSION"
-      echo "  Cluster Size: $MIN_CLUSTER_SIZE"
-      echo "  Storage: $STORAGE_SIZE"
-
+      # Build Helm command with corrected parameter names
       HELM_CMD="helm upgrade --install $RELEASE_NAME $HELM_CHART_NAME"
+      HELM_CMD="$HELM_CMD --version $HELM_CHART_VERSION"
       HELM_CMD="$HELM_CMD --namespace $NAMESPACE_NAME"
       HELM_CMD="$HELM_CMD --create-namespace"
       HELM_CMD="$HELM_CMD --wait"
       HELM_CMD="$HELM_CMD --timeout 20m"
 
-      # Version and edition
-      HELM_CMD="$HELM_CMD --set image.repository=neo4j"
-      HELM_CMD="$HELM_CMD --set-string image.tag=$NEO4J_VERSION"
+      # Neo4j core configuration
+      # Chart automatically selects correct image based on edition
+      HELM_CMD="$HELM_CMD --set neo4j.name=$CLUSTER_NAME"
       HELM_CMD="$HELM_CMD --set neo4j.edition=enterprise"
       HELM_CMD="$HELM_CMD --set neo4j.acceptLicenseAgreement=$LICENSE_AGREEMENT"
-      HELM_CMD="$HELM_CMD --set neo4j.password=$NEO4J_PASSWORD"
+      HELM_CMD="$HELM_CMD --set-string neo4j.password='$NEO4J_PASSWORD'"
 
-      # Cluster configuration
-      if [ "$MIN_CLUSTER_SIZE" -gt 1 ]; then
-        echo "Configuring cluster mode with $MIN_CLUSTER_SIZE nodes..."
-        HELM_CMD="$HELM_CMD --set neo4j.minimumClusterSize=$MIN_CLUSTER_SIZE"
-        HELM_CMD="$HELM_CMD --set neo4j.name=neo4j-cluster"
+      # Cluster configuration (only if cluster mode)
+      if [ "$IS_CLUSTER" == "true" ]; then
+        echo "Configuring cluster with $NODE_COUNT nodes..."
+        HELM_CMD="$HELM_CMD --set neo4j.minimumClusterSize=$NODE_COUNT"
       else
-        echo "Configuring standalone mode..."
-        HELM_CMD="$HELM_CMD --set neo4j.name=neo4j-standalone"
+        echo "Configuring standalone instance..."
       fi
 
       # Storage configuration
+      # CORRECTED: Use volumes.data.dynamic.requests.storage (not just .storage)
       HELM_CMD="$HELM_CMD --set volumes.data.mode=dynamic"
       HELM_CMD="$HELM_CMD --set volumes.data.dynamic.storageClassName=$STORAGE_CLASS"
-      HELM_CMD="$HELM_CMD --set-string volumes.data.dynamic.storage=$STORAGE_SIZE"
+      HELM_CMD="$HELM_CMD --set volumes.data.dynamic.requests.storage=$STORAGE_SIZE"
 
       # Resource configuration
-      HELM_CMD="$HELM_CMD --set-string resources.cpu=$CPU_REQUEST"
-      HELM_CMD="$HELM_CMD --set-string resources.memory=$MEMORY_REQUEST"
+      # CORRECTED: Use neo4j.resources.cpu and neo4j.resources.memory
+      HELM_CMD="$HELM_CMD --set neo4j.resources.cpu=$CPU_REQUEST"
+      HELM_CMD="$HELM_CMD --set neo4j.resources.memory=$MEMORY_REQUEST"
 
-      # Memory configuration (explicit JVM settings)
-      # Use --set-json to create flat keys with dots, not nested structures
-      HELM_CMD="$HELM_CMD --set-json config='{\"server.memory.heap.initial_size\":\"4G\",\"server.memory.heap.max_size\":\"4G\",\"server.memory.pagecache.size\":\"3G\"}'"
+      # Memory configuration (JVM heap and page cache)
+      # Use individual --set commands with escaped dots instead of --set-json
+      HELM_CMD="$HELM_CMD --set config.server\.memory\.heap\.initial_size=$HEAP_SIZE"
+      HELM_CMD="$HELM_CMD --set config.server\.memory\.heap\.max_size=$HEAP_SIZE"
+      HELM_CMD="$HELM_CMD --set config.server\.memory\.pagecache\.size=$PAGECACHE_SIZE"
 
-      # Plugin configuration
-      if [ "$PLUGINS" != "[]" ]; then
-        echo "Enabling plugins: $PLUGINS"
-        HELM_CMD="$HELM_CMD --set-json config.NEO4J_PLUGINS='$PLUGINS'"
+      # Plugin configuration (future - currently not used)
+      if [ "$PLUGINS_ENABLED" == "true" ]; then
+        echo "Note: Plugin configuration not yet implemented"
+        # TODO: Implement plugin installation via env.NEO4JLABS_PLUGINS or init containers
       fi
 
-      # Service configuration (LoadBalancer for Azure)
+      # Service configuration (LoadBalancer for Azure external access)
       HELM_CMD="$HELM_CMD --set services.neo4j.enabled=true"
-      HELM_CMD="$HELM_CMD --set services.neo4j.type=LoadBalancer"
+      HELM_CMD="$HELM_CMD --set services.neo4j.spec.type=LoadBalancer"
 
       # Execute Helm install
-      echo "Executing: $HELM_CMD"
+      echo ""
+      echo "Executing Helm installation..."
+      echo "Command: helm upgrade --install $RELEASE_NAME $HELM_CHART_NAME --version $HELM_CHART_VERSION ..."
+      echo ""
       eval $HELM_CMD
 
       # Verify deployment
       echo ""
-      echo "Verifying deployment..."
+      echo "===================================="
+      echo "Verifying Deployment"
+      echo "===================================="
       kubectl get pods -n $NAMESPACE_NAME
-      kubectl get services -n $NAMESPACE_NAME
-
-      # Get service details
       echo ""
+      kubectl get services -n $NAMESPACE_NAME
+      echo ""
+
+      # Wait for LoadBalancer external IP
       echo "Waiting for LoadBalancer external IP..."
+      EXTERNAL_IP=""
       for i in {1..60}; do
         EXTERNAL_IP=$(kubectl get service ${RELEASE_NAME} -n $NAMESPACE_NAME -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
         if [ -n "$EXTERNAL_IP" ] && [ "$EXTERNAL_IP" != "null" ]; then
@@ -266,7 +311,12 @@ resource helmInstall 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
         sleep 10
       done
 
-      # Output results
+      if [ -z "$EXTERNAL_IP" ] || [ "$EXTERNAL_IP" == "null" ]; then
+        echo "WARNING: External IP not assigned within timeout"
+        EXTERNAL_IP="pending"
+      fi
+
+      # Get release status
       RELEASE_STATUS=$(helm status $RELEASE_NAME -n $NAMESPACE_NAME -o json | jq -r '.info.status')
       HELM_VERSION=$(helm list -n $NAMESPACE_NAME -o json | jq -r ".[] | select(.name==\"$RELEASE_NAME\") | .chart")
 
@@ -280,8 +330,11 @@ resource helmInstall 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       echo "External IP: $EXTERNAL_IP"
       echo "Neo4j Browser: http://$EXTERNAL_IP:7474"
       echo "Bolt URI: neo4j://$EXTERNAL_IP:7687"
+      echo ""
+      echo "Note: It may take 2-3 minutes for Neo4j pods to be fully ready."
+      echo ""
 
-      # Save outputs to JSON
+      # Save outputs to JSON for Bicep
       cat > $AZ_SCRIPTS_OUTPUT_PATH <<EOF
 {
   "releaseName": "$RELEASE_NAME",
@@ -299,7 +352,10 @@ EOF
   }
 }
 
-// Outputs
+// ============================================================================
+// OUTPUTS
+// ============================================================================
+
 output releaseName string = releaseName
 output releaseStatus string = helmInstall.properties.outputs.releaseStatus
 output helmVersion string = helmInstall.properties.outputs.helmVersion
