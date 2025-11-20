@@ -52,13 +52,7 @@ runcmd:
   - sed -i 's/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf
   - sed -i "s/#server.default_advertised_address=localhost/server.default_advertised_address=${PUBLIC_HOSTNAME}/g" /etc/neo4j/neo4j.conf
   - sed -i "s/#server.bolt.advertised_address=:7687/server.bolt.advertised_address=${PUBLIC_HOSTNAME}:7687/g" /etc/neo4j/neo4j.conf
-  - sed -i "s/#server.bolt.listen_address=:7687/server.bolt.listen_address=${PRIVATE_IP}:7687/g" /etc/neo4j/neo4j.conf
-
-  # Configure discovery and routing (required for driver routing protocol)
-  - sed -i "s/#server.discovery.advertised_address=:5000/server.discovery.advertised_address=${PRIVATE_IP}:5000/g" /etc/neo4j/neo4j.conf
-  - sed -i "s/#server.routing.advertised_address=:7688/server.routing.advertised_address=${PRIVATE_IP}:7688/g" /etc/neo4j/neo4j.conf
-  - sed -i "s/#server.discovery.listen_address=:5000/server.discovery.listen_address=${PRIVATE_IP}:5000/g" /etc/neo4j/neo4j.conf
-  - sed -i "s/#server.routing.listen_address=0.0.0.0:7688/server.routing.listen_address=${PRIVATE_IP}:7688/g" /etc/neo4j/neo4j.conf
+  - sed -i 's/#server.bolt.listen_address=:7687/server.bolt.listen_address=0.0.0.0:7687/g' /etc/neo4j/neo4j.conf
 
   # Configure extensions and security
   - sed -i 's~#server.unmanaged_extension_classes=org.neo4j.examples.server.unmanaged=/examples/unmanaged~server.unmanaged_extension_classes=com.neo4j.bloom.server=/bloom,semantics.extension=/rdf~g' /etc/neo4j/neo4j.conf
@@ -69,12 +63,7 @@ runcmd:
   # Add memory recommendations
   - neo4j-admin server memory-recommendation >> /etc/neo4j/neo4j.conf
 
-  # Add metrics configuration
-  - echo "server.metrics.enabled=true" >> /etc/neo4j/neo4j.conf
-  - echo "server.metrics.jmx.enabled=true" >> /etc/neo4j/neo4j.conf
-  - echo "server.metrics.prefix=neo4j" >> /etc/neo4j/neo4j.conf
-  - echo "server.metrics.filter=*" >> /etc/neo4j/neo4j.conf
-  - echo "server.metrics.csv.interval=5s" >> /etc/neo4j/neo4j.conf
+  # Configure routing for driver compatibility
   - echo "dbms.routing.default_router=SERVER" >> /etc/neo4j/neo4j.conf
 
   # SSRF protection

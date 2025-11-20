@@ -763,3 +763,42 @@ With the parameter fixes in place, the Helm chart should now:
 
 **Next Action**: Test deployment with values file approach for config
 **Timeline**: On track - Using official Helm chart values.yaml format directly
+
+---
+
+**Deployment Test #7 Results** (Nov 20, 22:25 UTC): ✅ **HELM DEPLOYED SUCCESSFULLY** - Minor fix needed
+
+**Success**: Neo4j deployed and running!
+- ✅ Helm chart installed successfully
+- ✅ Neo4j pod: 1/1 Running
+- ✅ External IP assigned: 132.220.197.231
+- ✅ LoadBalancer service created: neo4j-standalone-lb-neo4j
+- ✅ Values file approach worked perfectly (no config parsing errors!)
+
+**Issue Found**: External IP detection in script
+- Script queried service name `neo4j` (release name)
+- Actual LoadBalancer service: `neo4j-standalone-lb-neo4j` (Helm chart naming convention)
+- Result: Script timed out, saved `externalIp: "pending"` in outputs
+- Impact: Validation fails because connection string has "pending" instead of real IP
+
+**Fix Applied** (Test #8 prep):
+- Changed from hardcoded service name to dynamic LoadBalancer discovery
+- Script now finds any LoadBalancer service in namespace using `jq`
+- Implementation:
+  ```bash
+  LB_SERVICE=$(kubectl get services -n $NAMESPACE_NAME -o json | jq -r '.items[] | select(.spec.type=="LoadBalancer") | .metadata.name' | head -1)
+  EXTERNAL_IP=$(kubectl get service $LB_SERVICE -n $NAMESPACE_NAME -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  ```
+
+**All Fixes Applied**:
+1. ✅ Helm chart version: 5.26.16
+2. ✅ Storage parameter: volumes.data.dynamic.requests.storage
+3. ✅ Resource parameters: neo4j.resources.*
+4. ✅ Memory config: values file with plain dotted keys (no escaping needed)
+5. ✅ Plugins: simplified to boolean flag
+6. ✅ Bicep caching: timestamp touching in orchestrator.py
+7. ✅ Password handling: --set-file with temp file (avoids all quoting issues)
+8. ✅ External IP detection: dynamic LoadBalancer service discovery
+
+**Next Action**: Deploy Test #8 to verify external IP is correctly captured
+**Status**: Core deployment working! Just need correct output capture.

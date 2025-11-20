@@ -107,12 +107,7 @@ runcmd:
   # Add memory recommendations
   - neo4j-admin server memory-recommendation >> /etc/neo4j/neo4j.conf
 
-  # Add metrics configuration
-  - echo "server.metrics.enabled=true" >> /etc/neo4j/neo4j.conf
-  - echo "server.metrics.jmx.enabled=true" >> /etc/neo4j/neo4j.conf
-  - echo "server.metrics.prefix=neo4j" >> /etc/neo4j/neo4j.conf
-  - echo "server.metrics.filter=*" >> /etc/neo4j/neo4j.conf
-  - echo "server.metrics.csv.interval=5s" >> /etc/neo4j/neo4j.conf
+  # Configure routing for driver compatibility
   - echo "dbms.routing.default_router=SERVER" >> /etc/neo4j/neo4j.conf
 
   # SSRF protection

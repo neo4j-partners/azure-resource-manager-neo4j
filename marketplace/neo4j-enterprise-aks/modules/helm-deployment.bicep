@@ -311,11 +311,17 @@ EOF
       # Wait for LoadBalancer external IP
       echo "Waiting for LoadBalancer external IP..."
       EXTERNAL_IP=""
+      # Neo4j Helm chart creates LoadBalancer service with pattern: <release>-standalone-lb-neo4j or <release>-lb-neo4j
+      # Find the LoadBalancer service dynamically
       for i in {1..60}; do
-        EXTERNAL_IP=$(kubectl get service ${RELEASE_NAME} -n $NAMESPACE_NAME -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
-        if [ -n "$EXTERNAL_IP" ] && [ "$EXTERNAL_IP" != "null" ]; then
-          echo "External IP assigned: $EXTERNAL_IP"
-          break
+        # First try to find any LoadBalancer service in the namespace
+        LB_SERVICE=$(kubectl get services -n $NAMESPACE_NAME -o json | jq -r '.items[] | select(.spec.type=="LoadBalancer") | .metadata.name' | head -1)
+        if [ -n "$LB_SERVICE" ]; then
+          EXTERNAL_IP=$(kubectl get service $LB_SERVICE -n $NAMESPACE_NAME -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+          if [ -n "$EXTERNAL_IP" ] && [ "$EXTERNAL_IP" != "null" ]; then
+            echo "External IP assigned: $EXTERNAL_IP (service: $LB_SERVICE)"
+            break
+          fi
         fi
         echo "Waiting for external IP... ($i/60)"
         sleep 10
