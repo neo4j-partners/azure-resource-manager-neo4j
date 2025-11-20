@@ -45,7 +45,7 @@ class DeploymentEngine:
             settings: Application settings
             base_template_dir: Path to marketplace template directory
                 (e.g., marketplace/neo4j-enterprise/ or marketplace/neo4j-enterprise-aks/)
-            deployment_type: Type of deployment ("vm" or "aks")
+            deployment_type: Type of deployment ("vm", "aks", or "community")
         """
         self.settings = settings
         self.base_template_dir = base_template_dir
@@ -164,12 +164,15 @@ class DeploymentEngine:
                 p[key] = {}
             p[key]["value"] = value
 
+        # Common parameters for Enterprise deployments (VM and AKS)
+        if self.deployment_type in ("vm", "aks"):
+            set_param("nodeCount", scenario.node_count)
+            set_param("graphDatabaseVersion", scenario.graph_database_version)
+            set_param("licenseType", scenario.license_type)
+
         # Common parameters for all deployment types
         set_param("location", region)
-        set_param("nodeCount", scenario.node_count)
-        set_param("graphDatabaseVersion", scenario.graph_database_version)
         set_param("diskSize", scenario.disk_size)
-        set_param("licenseType", scenario.license_type)
 
         # Deployment-type specific parameters
         if self.deployment_type == "vm":
@@ -191,14 +194,21 @@ class DeploymentEngine:
             set_param("userNodeCountMin", scenario.user_node_count_min)
             set_param("userNodeCountMax", scenario.user_node_count_max)
 
-        # Plugins (ARM template expects "Yes"/"No" strings, not booleans)
-        set_param("installGraphDataScience", "Yes" if scenario.install_graph_data_science else "No")
-        if scenario.install_graph_data_science and scenario.graph_data_science_license_key != "None":
-            set_param("graphDataScienceLicenseKey", scenario.graph_data_science_license_key)
+        elif self.deployment_type == "community":
+            # Community-specific parameters (simpler than Enterprise)
+            set_param("vmSize", scenario.vm_size)
+            # Community doesn't have nodeCount, plugins, or version params in template
+            # Those are fixed: always standalone (1 node), Neo4j 5, no plugins
 
-        set_param("installBloom", "Yes" if scenario.install_bloom else "No")
-        if scenario.install_bloom and scenario.bloom_license_key != "None":
-            set_param("bloomLicenseKey", scenario.bloom_license_key)
+        # Plugins (Enterprise VM and AKS only - not supported in Community)
+        if self.deployment_type in ("vm", "aks"):
+            set_param("installGraphDataScience", "Yes" if scenario.install_graph_data_science else "No")
+            if scenario.install_graph_data_science and scenario.graph_data_science_license_key != "None":
+                set_param("graphDataScienceLicenseKey", scenario.graph_data_science_license_key)
+
+            set_param("installBloom", "Yes" if scenario.install_bloom else "No")
+            if scenario.install_bloom and scenario.bloom_license_key != "None":
+                set_param("bloomLicenseKey", scenario.bloom_license_key)
 
         return params
 

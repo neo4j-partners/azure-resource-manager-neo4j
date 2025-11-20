@@ -33,6 +33,7 @@ class DeploymentType(str, Enum):
 
     VM = "vm"
     AKS = "aks"
+    COMMUNITY = "community"
 
 
 class TestScenario(BaseModel):
@@ -42,7 +43,7 @@ class TestScenario(BaseModel):
 
     # Deployment platform
     deployment_type: DeploymentType = Field(
-        DeploymentType.VM, description="Deployment platform (vm or aks)"
+        DeploymentType.VM, description="Deployment platform (vm, aks, or community)"
     )
 
     # Common Neo4j settings
@@ -80,11 +81,13 @@ class TestScenario(BaseModel):
     @field_validator("read_replica_count")
     @classmethod
     def validate_read_replicas(cls, v: int, info) -> int:
-        """Validate that read replicas are only used with Neo4j 4.4 on VMs."""
+        """Validate that read replicas are only used with Neo4j 4.4 on Enterprise VMs."""
         data = info.data
         if v > 0:
             if data.get("deployment_type") == DeploymentType.AKS:
                 raise ValueError("Read replicas are not supported on AKS deployments")
+            if data.get("deployment_type") == DeploymentType.COMMUNITY:
+                raise ValueError("Read replicas are not supported on Community edition")
             if data.get("graph_database_version") != "4.4":
                 raise ValueError("Read replicas are only supported with Neo4j 4.4")
         return v
@@ -92,10 +95,12 @@ class TestScenario(BaseModel):
     @field_validator("vm_size")
     @classmethod
     def validate_vm_size(cls, v: Optional[str], info) -> Optional[str]:
-        """Ensure VM size is set for VM deployments."""
+        """Ensure VM size is set for VM and Community deployments."""
         data = info.data
-        if data.get("deployment_type") == DeploymentType.VM and not v:
-            return "Standard_E4s_v5"  # Default
+        deployment_type = data.get("deployment_type")
+        if deployment_type in (DeploymentType.VM, DeploymentType.COMMUNITY) and not v:
+            # Community gets smaller default since it's standalone only
+            return "Standard_B2s" if deployment_type == DeploymentType.COMMUNITY else "Standard_E4s_v5"
         return v
 
     @field_validator("user_node_size")
@@ -114,6 +119,15 @@ class TestScenario(BaseModel):
         data = info.data
         if data.get("deployment_type") == DeploymentType.AKS and not v:
             return "1.30"  # Default
+        return v
+
+    @field_validator("node_count")
+    @classmethod
+    def validate_community_node_count(cls, v: int, info) -> int:
+        """Ensure Community edition is standalone only (node_count = 1)."""
+        data = info.data
+        if data.get("deployment_type") == DeploymentType.COMMUNITY and v != 1:
+            raise ValueError("Community edition only supports standalone deployment (node_count must be 1)")
         return v
 
 

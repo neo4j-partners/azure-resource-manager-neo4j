@@ -1,7 +1,45 @@
-# marketplace
-This template is used by the Neo4j Azure Marketplace offer.  It is not intended to be used outside the marketplace.
+# Neo4j Enterprise - Azure Marketplace
 
-Unless you are a Neo4j employee updating the Azure Marketplace listing, you probably want to be using either the Marketplace listing itself.
+This template is used by the Neo4j Azure Marketplace offer. It is not intended to be used outside the marketplace.
+
+Unless you are a Neo4j employee updating the Azure Marketplace listing, you should use the [Azure Marketplace listing](https://azuremarketplace.microsoft.com/marketplace/apps/neo4j.neo4j-ee) itself.
+
+---
+
+## Features
+
+### Secure Password Management with Azure Key Vault
+
+**New in this release:** The marketplace deployment now supports Azure Key Vault for secure password management.
+
+**Benefits:**
+- Passwords never visible in the Azure Portal UI
+- No passwords stored in deployment metadata
+- Centralized secret management and audit logging
+- Enterprise-grade security (SOC 2, HIPAA, PCI-DSS compliant)
+- Support for password rotation without redeployment
+
+**How to Use:**
+1. Create an Azure Key Vault before deploying
+2. Generate and store the Neo4j admin password in the vault
+3. During marketplace deployment, select "Use Azure Key Vault (Recommended)"
+4. Provide the vault name, resource group, and secret name
+
+**Full Documentation:** See [ENTERPRISE_KEY_VAULT_GUIDE.md](../../docs/ENTERPRISE_KEY_VAULT_GUIDE.md) for complete setup instructions.
+
+**Backward Compatibility:** Direct password entry is still supported for development and testing scenarios.
+
+---
+
+## For Marketplace Users
+
+If you're deploying Neo4j from the Azure Marketplace:
+- **Production deployments:** Use Azure Key Vault mode (see [ENTERPRISE_KEY_VAULT_GUIDE.md](../../docs/ENTERPRISE_KEY_VAULT_GUIDE.md))
+- **Development/testing:** You can use direct password entry mode for simplicity
+
+---
+
+## For Neo4j Employees
 
 # Test the Template
 Documentation on how to do this is [here](https://docs.microsoft.com/en-us/azure/azure-resource-manager/templates/test-toolkit).  I haven't been able to get that working and have just used the portal.

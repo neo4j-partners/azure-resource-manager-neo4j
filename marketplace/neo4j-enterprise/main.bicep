@@ -115,8 +115,9 @@ var passwordPlaceholder = useKeyVault ? 'RETRIEVE_FROM_KEYVAULT' : adminPassword
 var vaultNameForCloudInit = useKeyVault ? keyVaultName : ''
 var secretNameForCloudInit = useKeyVault ? adminPasswordSecretName : ''
 
-// Base64 encode the password to safely pass it through cloud-init
-// This avoids all quoting and escaping issues
+// Base64 encode the password for safe passing through cloud-init
+// Note: This is for avoiding shell escaping issues, NOT for security/encryption
+// The adminPassword parameter is already marked @secure() for encryption in deployment metadata
 var passwordBase64 = base64(passwordPlaceholder)
 
 // Primary cluster cloud-init processing (sequential variable assignments for readability)

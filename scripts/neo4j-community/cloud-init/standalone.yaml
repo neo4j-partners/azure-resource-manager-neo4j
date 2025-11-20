@@ -1,0 +1,152 @@
+#cloud-config
+# Neo4j Community 5 Standalone Deployment
+# This cloud-init configuration installs and configures Neo4j Community Edition on a single Azure VM
+
+# Disable firewalld and SELinux
+bootcmd:
+  - systemctl stop firewalld
+  - systemctl disable firewalld
+  - setenforce 0
+  - sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
+
+# Format and mount data disk
+disk_setup:
+  /dev/disk/azure/scsi1/lun0:
+    table_type: gpt
+    layout: true
+    overwrite: false
+
+fs_setup:
+  - device: /dev/disk/azure/scsi1/lun0
+    partition: 1
+    filesystem: xfs
+
+mounts:
+  - ["/dev/disk/azure/scsi1/lun0-part1", "/var/lib/neo4j", "xfs", "defaults", "0", "0"]
+
+# Install Neo4j
+yum_repos:
+  neo4j:
+    name: Neo4j Yum Repo
+    baseurl: https://yum.neo4j.com/stable/5
+    enabled: true
+    gpgcheck: true
+    gpgkey: https://debian.neo4j.com/neotechnology.gpg.key
+
+# Run configuration commands
+runcmd:
+  # Import Neo4j GPG key and install
+  - rpm --import https://debian.neo4j.com/neotechnology.gpg.key
+  - dnf install -y neo4j
+
+  # Get instance metadata
+  - UNIQUE_STRING="${unique_string}"
+  - LOCATION="${location}"
+  - PUBLIC_HOSTNAME="node-${UNIQUE_STRING}.${LOCATION}.cloudapp.azure.com"
+  - PRIVATE_IP=$(hostname -i | awk '{print $NF}')
+
+  # Install APOC plugin
+  - mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins/
+
+  # Configure Neo4j network settings
+  - sed -i 's/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf
+  - sed -i "s/#server.default_advertised_address=localhost/server.default_advertised_address=${PUBLIC_HOSTNAME}/g" /etc/neo4j/neo4j.conf
+  - sed -i "s/#server.bolt.advertised_address=:7687/server.bolt.advertised_address=${PUBLIC_HOSTNAME}:7687/g" /etc/neo4j/neo4j.conf
+  - sed -i "s/#server.bolt.listen_address=:7687/server.bolt.listen_address=${PRIVATE_IP}:7687/g" /etc/neo4j/neo4j.conf
+
+  # Configure discovery and routing (for future compatibility)
+  - sed -i "s/#server.discovery.advertised_address=:5000/server.discovery.advertised_address=${PRIVATE_IP}:5000/g" /etc/neo4j/neo4j.conf
+  - sed -i "s/#server.routing.advertised_address=:7688/server.routing.advertised_address=${PRIVATE_IP}:7688/g" /etc/neo4j/neo4j.conf
+  - sed -i "s/#server.discovery.listen_address=:5000/server.discovery.listen_address=${PRIVATE_IP}:5000/g" /etc/neo4j/neo4j.conf
+  - sed -i "s/#server.routing.listen_address=0.0.0.0:7688/server.routing.listen_address=${PRIVATE_IP}:7688/g" /etc/neo4j/neo4j.conf
+
+  # Configure extensions and security
+  - sed -i 's~#server.unmanaged_extension_classes=org.neo4j.examples.server.unmanaged=/examples/unmanaged~server.unmanaged_extension_classes=com.neo4j.bloom.server=/bloom,semantics.extension=/rdf~g' /etc/neo4j/neo4j.conf
+  - sed -i 's/#dbms.security.procedures.unrestricted=my.extensions.example,my.procedures.*/dbms.security.procedures.unrestricted=gds.*,apoc.*,bloom.*/g' /etc/neo4j/neo4j.conf
+  - echo "dbms.security.http_auth_allowlist=/,/browser.*,/bloom.*" >> /etc/neo4j/neo4j.conf
+  - echo "dbms.security.procedures.allowlist=apoc.*,gds.*,bloom.*" >> /etc/neo4j/neo4j.conf
+
+  # Add memory recommendations
+  - neo4j-admin server memory-recommendation >> /etc/neo4j/neo4j.conf
+
+  # Add metrics configuration
+  - echo "server.metrics.enabled=true" >> /etc/neo4j/neo4j.conf
+  - echo "server.metrics.jmx.enabled=true" >> /etc/neo4j/neo4j.conf
+  - echo "server.metrics.prefix=neo4j" >> /etc/neo4j/neo4j.conf
+  - echo "server.metrics.filter=*" >> /etc/neo4j/neo4j.conf
+  - echo "server.metrics.csv.interval=5s" >> /etc/neo4j/neo4j.conf
+  - echo "dbms.routing.default_router=SERVER" >> /etc/neo4j/neo4j.conf
+
+  # SSRF protection
+  - echo "internal.dbms.cypher_ip_blocklist=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.169.0/24,fc00::/7,fe80::/10,ff00::/8" >> /etc/neo4j/neo4j.conf
+
+  # Retrieve admin password (from Key Vault if configured, otherwise use direct parameter)
+  - |
+    echo "=== Password Configuration Started ==="
+    KEY_VAULT_NAME="${key_vault_name}"
+    ADMIN_PASSWORD_SECRET_NAME="${admin_password_secret_name}"
+
+    # Decode base64-encoded password (safe from quote/escape issues)
+    DIRECT_PASSWORD_BASE64='${admin_password}'
+    echo "Received base64-encoded password: ${#DIRECT_PASSWORD_BASE64} characters"
+
+    # Decode the password
+    DIRECT_PASSWORD=$(echo "$DIRECT_PASSWORD_BASE64" | base64 -d)
+    echo "Decoded password length: ${#DIRECT_PASSWORD} characters"
+
+    if [ -n "$KEY_VAULT_NAME" ] && [ "$DIRECT_PASSWORD" = "RETRIEVE_FROM_KEYVAULT" ]; then
+      echo "Mode: Retrieving password from Key Vault: $KEY_VAULT_NAME"
+
+      # Get access token from Azure Instance Metadata Service (IMDS)
+      ACCESS_TOKEN=$(curl -s -H "Metadata: true" \
+        "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://vault.azure.net" \
+        | jq -r .access_token)
+
+      if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
+        echo "ERROR: Failed to get access token from IMDS. Managed Identity may not be configured."
+        exit 1
+      fi
+
+      # Retrieve secret from Key Vault
+      ADMIN_PASSWORD=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" \
+        "https://${KEY_VAULT_NAME}.vault.azure.net/secrets/${ADMIN_PASSWORD_SECRET_NAME}?api-version=2016-10-01" \
+        | jq -r .value)
+
+      if [ -z "$ADMIN_PASSWORD" ] || [ "$ADMIN_PASSWORD" = "null" ]; then
+        echo "ERROR: Failed to retrieve password from Key Vault."
+        echo "Vault: $KEY_VAULT_NAME, Secret: $ADMIN_PASSWORD_SECRET_NAME"
+        exit 1
+      fi
+
+      echo "Successfully retrieved password from Key Vault"
+      echo "Key Vault password length: ${#ADMIN_PASSWORD} characters"
+    else
+      echo "Mode: Using direct password parameter"
+      ADMIN_PASSWORD="$DIRECT_PASSWORD"
+      echo "Final password length: ${#ADMIN_PASSWORD} characters"
+    fi
+
+    echo "=== Password Configuration Complete ==="
+
+  # Set initial password BEFORE first start
+  - echo "Setting Neo4j initial password..."
+  - neo4j-admin dbms set-initial-password "$ADMIN_PASSWORD"
+  - echo "Neo4j initial password set successfully"
+
+  # Enable and start Neo4j
+  - systemctl enable neo4j
+  - systemctl start neo4j
+
+  # Wait for Neo4j to be fully ready
+  - |
+    until curl -s -o /dev/null -w '%{http_code}' http://localhost:7474 | grep -q "200"; do
+      echo "Waiting for Neo4j to be ready..."
+      sleep 5
+    done
+  - echo "Neo4j is ready!"
+
+write_files:
+  - path: /var/log/neo4j-cloud-init.log
+    content: |
+      Neo4j Community cloud-init started at $(date)
+    append: true

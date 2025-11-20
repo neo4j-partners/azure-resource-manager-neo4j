@@ -319,6 +319,9 @@ def deploy(
     if first_scenario.deployment_type == DeploymentType.AKS:
         base_template_dir = PathLib("../marketplace/neo4j-enterprise-aks").resolve()
         deployment_type = "aks"
+    elif first_scenario.deployment_type == DeploymentType.COMMUNITY:
+        base_template_dir = PathLib("../marketplace/neo4j-community").resolve()
+        deployment_type = "community"
     else:
         base_template_dir = PathLib("../marketplace/neo4j-enterprise").resolve()
         deployment_type = "vm"
@@ -346,6 +349,8 @@ def deploy(
         # Display appropriate size based on deployment type
         if s.deployment_type == DeploymentType.AKS:
             size_display = s.user_node_size or "Standard_E4s_v5"
+        elif s.deployment_type == DeploymentType.COMMUNITY:
+            size_display = s.vm_size or "Standard_B2s"
         else:
             size_display = s.vm_size or "Standard_E4s_v5"
 

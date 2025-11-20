@@ -164,6 +164,7 @@ class ConfigManager:
             "scenarios": [
                 {
                     "name": "standalone-v5",
+                    "deployment_type": "vm",
                     "node_count": 1,
                     "graph_database_version": "5",
                     "vm_size": "Standard_E4s_v5",
@@ -174,6 +175,7 @@ class ConfigManager:
                 },
                 {
                     "name": "cluster-v5",
+                    "deployment_type": "vm",
                     "node_count": 3,
                     "graph_database_version": "5",
                     "vm_size": "Standard_E4s_v5",
@@ -183,10 +185,11 @@ class ConfigManager:
                     "install_bloom": False,
                 },
                 {
-                    "name": "standalone-v44",
+                    "name": "community-standalone-v5",
+                    "deployment_type": "community",
                     "node_count": 1,
-                    "graph_database_version": "4.4",
-                    "vm_size": "Standard_E4s_v5",
+                    "graph_database_version": "5",
+                    "vm_size": "Standard_B2s",
                     "disk_size": 32,
                     "license_type": "Evaluation",
                     "install_graph_data_science": False,

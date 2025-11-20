@@ -3,25 +3,7 @@
   "handler": "Microsoft.Azure.CreateUIDef",
   "version": "0.1.2-preview",
   "parameters": {
-    "basics": [
-      {
-        "name": "adminPassword",
-        "type": "Microsoft.Common.PasswordBox",
-        "label": {
-          "password": "Admin Password",
-          "confirmPassword": "Confirm password"
-        },
-        "toolTip": "Admin password on all VMs",
-        "constraints": {
-          "required": true,
-          "regex": "^(?:(?=.*[a-z])(?:(?=.*[A-Z])(?=.*[\\d\\W])|(?=.*\\W)(?=.*\\d))|(?=.*\\W)(?=.*[A-Z])(?=.*\\d)).{12,72}$",
-          "validationMessage": "The password must be between 12 and 72 characters long, and contain characters from at least 3 of the following groups: uppercase characters, lowercase characters, numbers, and special characters."
-        },
-        "options": {
-          "hideConfirmation": false
-        }
-      }
-    ],
+    "basics": [],
     "steps": [
       {
         "name": "neo4jConfig",
@@ -32,6 +14,109 @@
         },
         "bladeTitle": "Neo4j Settings",
         "elements": [
+          {
+            "name": "passwordInfoBox",
+            "type": "Microsoft.Common.InfoBox",
+            "visible": true,
+            "options": {
+              "icon": "Info",
+              "text": "Choose how to manage the Neo4j admin password. Using Azure Key Vault is more secure as passwords are never visible in the deployment UI or stored in deployment metadata. If you select Key Vault, you must create the vault and store the password before deploying."
+            }
+          },
+          {
+            "name": "passwordManagementMode",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Password Management",
+            "defaultValue": "Use Azure Key Vault (Recommended)",
+            "toolTip": "Choose whether to enter the password directly or use an existing Azure Key Vault",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "Use Azure Key Vault (Recommended)",
+                  "value": "keyvault"
+                },
+                {
+                  "label": "Enter Password Directly",
+                  "value": "direct"
+                }
+              ],
+              "required": true
+            }
+          },
+          {
+            "name": "directPasswordWarning",
+            "type": "Microsoft.Common.InfoBox",
+            "visible": "[equals(steps('neo4jConfig').passwordManagementMode, 'direct')]",
+            "options": {
+              "icon": "Warning",
+              "text": "Security Note: Passwords entered directly are stored in deployment metadata (encrypted but accessible to users with deployment read permissions). For production deployments, we strongly recommend using Azure Key Vault."
+            }
+          },
+          {
+            "name": "adminPassword",
+            "type": "Microsoft.Common.PasswordBox",
+            "label": {
+              "password": "Admin Password",
+              "confirmPassword": "Confirm password"
+            },
+            "toolTip": "Admin password for Neo4j and all VMs",
+            "visible": "[equals(steps('neo4jConfig').passwordManagementMode, 'direct')]",
+            "constraints": {
+              "required": "[equals(steps('neo4jConfig').passwordManagementMode, 'direct')]",
+              "regex": "^(?:(?=.*[a-z])(?:(?=.*[A-Z])(?=.*[\\d\\W])|(?=.*\\W)(?=.*\\d))|(?=.*\\W)(?=.*[A-Z])(?=.*\\d)).{12,72}$",
+              "validationMessage": "The password must be between 12 and 72 characters long, and contain characters from at least 3 of the following groups: uppercase characters, lowercase characters, numbers, and special characters."
+            },
+            "options": {
+              "hideConfirmation": false
+            }
+          },
+          {
+            "name": "keyVaultInfoBox",
+            "type": "Microsoft.Common.InfoBox",
+            "visible": "[equals(steps('neo4jConfig').passwordManagementMode, 'keyvault')]",
+            "options": {
+              "icon": "Info",
+              "text": "Before continuing, ensure you have: (1) Created an Azure Key Vault, (2) Stored the Neo4j admin password as a secret in the vault, (3) Have 'get' and 'list' permissions on the vault secrets. See docs/ENTERPRISE_KEY_VAULT_GUIDE.md for detailed instructions."
+            }
+          },
+          {
+            "name": "keyVaultName",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Key Vault Name",
+            "toolTip": "Name of the Azure Key Vault containing the Neo4j admin password secret",
+            "visible": "[equals(steps('neo4jConfig').passwordManagementMode, 'keyvault')]",
+            "constraints": {
+              "required": "[equals(steps('neo4jConfig').passwordManagementMode, 'keyvault')]",
+              "regex": "^[a-zA-Z0-9-]{3,24}$",
+              "validationMessage": "Key Vault name must be 3-24 characters, alphanumeric and hyphens only"
+            }
+          },
+          {
+            "name": "keyVaultResourceGroup",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Key Vault Resource Group",
+            "defaultValue": "[resourceGroup().name]",
+            "toolTip": "Resource group containing the Key Vault (defaults to current resource group)",
+            "visible": "[equals(steps('neo4jConfig').passwordManagementMode, 'keyvault')]",
+            "constraints": {
+              "required": "[equals(steps('neo4jConfig').passwordManagementMode, 'keyvault')]",
+              "regex": "^[a-zA-Z0-9._()-]{1,90}$",
+              "validationMessage": "Resource group name must be 1-90 characters"
+            }
+          },
+          {
+            "name": "adminPasswordSecretName",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Admin Password Secret Name",
+            "defaultValue": "neo4j-admin-password",
+            "toolTip": "Name of the secret in the Key Vault that contains the admin password",
+            "visible": "[equals(steps('neo4jConfig').passwordManagementMode, 'keyvault')]",
+            "constraints": {
+              "required": "[equals(steps('neo4jConfig').passwordManagementMode, 'keyvault')]",
+              "regex": "^[a-zA-Z0-9-]{1,127}$",
+              "validationMessage": "Secret name must be 1-127 characters, alphanumeric and hyphens only"
+            }
+          },
           {
             "name": "vmSize",
             "type": "Microsoft.Compute.SizeSelector",
@@ -360,7 +445,10 @@
       }
     ],
     "outputs": {
-      "adminPassword": "[basics('adminPassword')]",
+      "adminPassword": "[if(equals(steps('neo4jConfig').passwordManagementMode, 'direct'), steps('neo4jConfig').adminPassword, '')]",
+      "keyVaultName": "[if(equals(steps('neo4jConfig').passwordManagementMode, 'keyvault'), steps('neo4jConfig').keyVaultName, '')]",
+      "keyVaultResourceGroup": "[if(equals(steps('neo4jConfig').passwordManagementMode, 'keyvault'), steps('neo4jConfig').keyVaultResourceGroup, '')]",
+      "adminPasswordSecretName": "[if(equals(steps('neo4jConfig').passwordManagementMode, 'keyvault'), steps('neo4jConfig').adminPasswordSecretName, '')]",
       "vmSize": "[steps('neo4jConfig').vmSize]",
       "readReplicaVmSize": "[steps('neo4jConfig').readReplicaVmSize]",
       "nodeCount": "[steps('neo4jConfig').nodeCount]",

@@ -223,23 +223,19 @@ module neo4jApp 'modules/neo4j-app.bicep' = {
     aksClusterName: aksCluster.outputs.clusterName
     aksResourceGroup: resourceGroup().name
     identityId: identity.outputs.identityId
-    managedIdentityClientId: identity.outputs.clientId
     namespaceName: namespacePrefix
     serviceAccountName: 'neo4j-sa'
     statefulSetName: 'neo4j'
     serviceName: 'neo4j'
-    loadBalancerServiceName: 'neo4j-lb'
-    dnsLabelPrefix: '${resourceNamePrefix}-${deploymentUniqueString}'
     replicas: nodeCount
     graphDatabaseVersion: graphDatabaseVersion
     adminPassword: adminPassword
     licenseType: licenseType
     diskSize: diskSize
-    storageClassName: 'neo4j-premium'
     installGraphDataScience: installGraphDataScience == 'Yes'
     installBloom: installBloom == 'Yes'
-    cpuLimit: '4'
-    memoryLimit: '16Gi'
+    cpuRequest: '2'
+    memoryRequest: '8Gi'
   }
   dependsOn: [
     storage
