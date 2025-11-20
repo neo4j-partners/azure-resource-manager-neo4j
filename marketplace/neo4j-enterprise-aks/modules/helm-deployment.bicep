@@ -244,7 +244,9 @@ resource helmInstall 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       HELM_CMD="$HELM_CMD --set neo4j.name=$CLUSTER_NAME"
       HELM_CMD="$HELM_CMD --set neo4j.edition=enterprise"
       HELM_CMD="$HELM_CMD --set neo4j.acceptLicenseAgreement=$LICENSE_AGREEMENT"
-      HELM_CMD="$HELM_CMD --set-string neo4j.password='$NEO4J_PASSWORD'"
+      # Password is passed via --set-file to avoid quoting issues with special characters
+      echo -n "$NEO4J_PASSWORD" > /tmp/neo4j-password.txt
+      HELM_CMD="$HELM_CMD --set-file neo4j.password=/tmp/neo4j-password.txt"
 
       # Cluster configuration (only if cluster mode)
       if [ "$IS_CLUSTER" == "true" ]; then
@@ -287,6 +289,9 @@ resource helmInstall 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       echo "Command: helm upgrade --install $RELEASE_NAME $HELM_CHART_NAME --version $HELM_CHART_VERSION ..."
       echo ""
       eval $HELM_CMD
+
+      # Clean up password file
+      rm -f /tmp/neo4j-password.txt
 
       # Verify deployment
       echo ""

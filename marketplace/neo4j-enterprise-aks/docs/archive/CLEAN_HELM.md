@@ -679,6 +679,18 @@ With the parameter fixes in place, the Helm chart should now:
   - `--set-string` ensures Helm treats value as string
   - Single quotes protect from bash interpretation during eval
 
+**Deployment Test #5** (Nov 20, 22:03 UTC): ❌ Failed - HELM PARSING ERROR
+- Issue: `Error: failed parsing --set-string data: key "3j;;" has no value`
+- **Root Cause**: Password contains semicolons which break Helm command parsing even with single quotes
+- Generated password had characters like `;` that terminate bash commands
+- When using `eval $HELM_CMD`, the semicolons in the password broke the command
+- Even `--set-string` with single quotes couldn't protect against this in eval context
+- **Solution**: Use `--set-file` instead of `--set-string` to pass password
+  - Write password to temporary file: `echo -n "$NEO4J_PASSWORD" > /tmp/neo4j-password.txt`
+  - Pass file to Helm: `--set-file neo4j.password=/tmp/neo4j-password.txt`
+  - Clean up after: `rm -f /tmp/neo4j-password.txt`
+  - File-based approach completely avoids shell quoting issues
+
 **All Fixes Applied**:
 1. ✅ Helm chart version: 5.26.16
 2. ✅ Storage parameter: volumes.data.dynamic.requests.storage
@@ -686,7 +698,7 @@ With the parameter fixes in place, the Helm chart should now:
 4. ✅ Memory config: escaped dots
 5. ✅ Plugins: simplified to boolean flag
 6. ✅ Bicep caching: timestamp touching in orchestrator.py
-7. ✅ Password quoting: --set-string with single quotes
+7. ✅ Password handling: --set-file with temp file (avoids all quoting issues)
 
-**Next Action**: Test deployment with password quoting fix
-**Timeline**: On track - Root cause identified (password special characters in eval)
+**Next Action**: Test deployment with file-based password approach
+**Timeline**: On track - All shell quoting issues eliminated with file-based approach
