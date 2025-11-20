@@ -268,10 +268,14 @@ resource helmInstall 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       HELM_CMD="$HELM_CMD --set neo4j.resources.memory=$MEMORY_REQUEST"
 
       # Memory configuration (JVM heap and page cache)
-      # Use --set-string to ensure values are treated as strings, not YAML maps
-      HELM_CMD="$HELM_CMD --set-string config.server\.memory\.heap\.initial_size=$HEAP_SIZE"
-      HELM_CMD="$HELM_CMD --set-string config.server\.memory\.heap\.max_size=$HEAP_SIZE"
-      HELM_CMD="$HELM_CMD --set-string config.server\.memory\.pagecache\.size=$PAGECACHE_SIZE"
+      # Use values file to avoid shell escaping complexity with dotted config keys
+      cat > /tmp/neo4j-config-values.yaml <<EOF
+config:
+  server.memory.heap.initial_size: "$HEAP_SIZE"
+  server.memory.heap.max_size: "$HEAP_SIZE"
+  server.memory.pagecache.size: "$PAGECACHE_SIZE"
+EOF
+      HELM_CMD="$HELM_CMD -f /tmp/neo4j-config-values.yaml"
 
       # Plugin configuration (future - currently not used)
       if [ "$PLUGINS_ENABLED" == "true" ]; then
@@ -290,8 +294,9 @@ resource helmInstall 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       echo ""
       eval $HELM_CMD
 
-      # Clean up password file
+      # Clean up temporary files
       rm -f /tmp/neo4j-password.txt
+      rm -f /tmp/neo4j-config-values.yaml
 
       # Verify deployment
       echo ""

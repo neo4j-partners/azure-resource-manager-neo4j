@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "1656306971166961373"
+      "templateHash": "12807037036291156585"
     }
   },
   "parameters": {
@@ -80,7 +80,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "9923175803082319502"
+              "templateHash": "9185216983539850740"
             }
           },
           "parameters": {
@@ -156,6 +156,20 @@
                       "destinationAddressPrefix": "*",
                       "access": "Allow",
                       "priority": 103,
+                      "direction": "Inbound"
+                    }
+                  },
+                  {
+                    "name": "BoltRouting",
+                    "properties": {
+                      "description": "Bolt routing connector for cluster-aware drivers",
+                      "protocol": "Tcp",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "7688",
+                      "sourceAddressPrefix": "Internet",
+                      "destinationAddressPrefix": "*",
+                      "access": "Allow",
+                      "priority": 104,
                       "direction": "Inbound"
                     }
                   }

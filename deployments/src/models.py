@@ -215,7 +215,7 @@ class ConnectionInfo(BaseModel):
     resource_group: str = Field(..., description="Resource group name")
 
     # Connection details
-    neo4j_uri: str = Field(..., description="Neo4j protocol connection URI (neo4j://...)")
+    neo4j_uri: str = Field(..., description="Neo4j connection URI (bolt:// for standalone, neo4j:// for cluster)")
     browser_url: str = Field(..., description="Neo4j Browser URL (http://...)")
     bloom_url: Optional[str] = Field(None, description="Bloom URL if installed")
 

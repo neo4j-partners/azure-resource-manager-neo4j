@@ -106,7 +106,6 @@ class SetupWizard:
             repository_org=github_info[0] if github_info else None,
             repository_name=github_info[1] if github_info else None,
             password_strategy=password_strategy,
-            azure_keyvault_name=vault_name,
             owner_email=owner_email,
         )
 

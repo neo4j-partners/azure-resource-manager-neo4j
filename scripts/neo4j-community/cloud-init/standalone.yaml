@@ -54,7 +54,7 @@ runcmd:
   - sed -i "s/#server.bolt.advertised_address=:7687/server.bolt.advertised_address=${PUBLIC_HOSTNAME}:7687/g" /etc/neo4j/neo4j.conf
   - sed -i "s/#server.bolt.listen_address=:7687/server.bolt.listen_address=${PRIVATE_IP}:7687/g" /etc/neo4j/neo4j.conf
 
-  # Configure discovery and routing (for future compatibility)
+  # Configure discovery and routing (required for driver routing protocol)
   - sed -i "s/#server.discovery.advertised_address=:5000/server.discovery.advertised_address=${PRIVATE_IP}:5000/g" /etc/neo4j/neo4j.conf
   - sed -i "s/#server.routing.advertised_address=:7688/server.routing.advertised_address=${PRIVATE_IP}:7688/g" /etc/neo4j/neo4j.conf
   - sed -i "s/#server.discovery.listen_address=:5000/server.discovery.listen_address=${PRIVATE_IP}:5000/g" /etc/neo4j/neo4j.conf

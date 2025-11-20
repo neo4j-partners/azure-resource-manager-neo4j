@@ -74,7 +74,7 @@ class Neo4jValidator:
         Initialize the Neo4j validator.
 
         Args:
-            uri: Neo4j connection URI (e.g., neo4j://hostname:7687)
+            uri: Neo4j connection URI (bolt://hostname:7687 or neo4j://hostname:7687)
             username: Database username (typically 'neo4j')
             password: Database password
         """
@@ -376,7 +376,7 @@ def validate_deployment(
     Convenience function that creates a validator and runs full validation.
 
     Args:
-        uri: Neo4j connection URI (e.g., neo4j://hostname:7687)
+        uri: Neo4j connection URI (bolt:// for standalone, neo4j:// for cluster)
         username: Database username (typically 'neo4j')
         password: Database password
         license_type: Expected license type ("Evaluation" or "Enterprise")
@@ -387,7 +387,7 @@ def validate_deployment(
 
     Example:
         >>> validate_deployment(
-        ...     "neo4j://example.com:7687",
+        ...     "bolt://example.com:7687",  # Use bolt:// for standalone
         ...     "neo4j",
         ...     "my-password",
         ...     "Evaluation",
@@ -537,7 +537,7 @@ def main():
         console.print("  validate_deploy <uri> <username> <password> <license_type> <node_count>")
         console.print("\n[cyan]Examples:[/cyan]")
         console.print("  validate_deploy standalone-v5")
-        console.print("  validate_deploy neo4j://example.com:7687 neo4j mypassword Evaluation")
+        console.print("  validate_deploy bolt://standalone.example.com:7687 neo4j mypassword Evaluation")
         console.print("  validate_deploy neo4j://cluster.example.com:7687 neo4j mypassword Enterprise 3")
         sys.exit(1)
 

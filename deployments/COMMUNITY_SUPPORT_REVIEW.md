@@ -337,7 +337,6 @@ Edit `.arm-testing/config/scenarios.yaml`:
 - modules/network.bicep (NSG, VNet)
 - modules/identity.bicep (user-assigned identity)
 - modules/vm.bicep (single VM with cloud-init)
-- modules/keyvault-access.bicep (optional Key Vault access)
 - scripts/neo4j-community/cloud-init/standalone.yaml (embedded)
 
 **Deployment Flow:**
@@ -365,7 +364,6 @@ Edit `.arm-testing/config/scenarios.yaml`:
 | **Default VM Size** | Standard_E4s_v5 | Standard_B2s |
 | **Template Directory** | marketplace/neo4j-enterprise/ | marketplace/neo4j-community/ |
 | **Template Params** | 15+ parameters | 6 parameters |
-| **Key Vault** | ✅ Supported | ✅ Supported |
 | **Cloud-Init** | ✅ Embedded | ✅ Embedded |
 | **Bicep Modules** | ✅ Modular | ✅ Modular |
 
@@ -394,7 +392,7 @@ All necessary files have been updated to fully support Neo4j Community Edition d
 
 - Community follows same modular Bicep pattern as Enterprise
 - Uses same deployment framework and tooling
-- Supports same password management modes (direct or Key Vault)
+- Supports same password management modes (generate, environment, or prompt)
 - Uses same validation and cleanup processes
 
 ### ✅ Production Ready

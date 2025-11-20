@@ -721,3 +721,45 @@ With the parameter fixes in place, the Helm chart should now:
 
 **Next Action**: Test deployment with --set-string for config values
 **Timeline**: On track - Helm chart now receives correct string config values
+
+---
+
+**Deployment Test #7** (Nov 20, continued): 🔧 CONFIG VALUES AS YAML FILE
+- Issue: `--set-string config.server\.memory\.heap\.initial_size=4G` still creating maps despite --set-string
+- **Root Cause**: Multi-layer shell escaping problem (Bicep → bash variable → eval → Helm)
+- Escaped dots (\.  \\. \\\\.  etc.) don't work consistently through eval
+- Web research confirmed official Neo4j values.yaml format uses plain dots:
+  ```yaml
+  config:
+    server.memory.heap.initial_size: "317m"
+    server.memory.heap.max_size: "317m"
+    server.memory.pagecache.size: "74m"
+  ```
+- **Solution**: Use YAML values file approach instead of --set-string
+  - Create `/tmp/neo4j-config-values.yaml` with config section
+  - Pass to Helm via `-f /tmp/neo4j-config-values.yaml`
+  - Avoids all shell escaping complexity
+  - Matches official chart format exactly
+- Implementation:
+  ```bash
+  cat > /tmp/neo4j-config-values.yaml <<EOF
+  config:
+    server.memory.heap.initial_size: "$HEAP_SIZE"
+    server.memory.heap.max_size: "$HEAP_SIZE"
+    server.memory.pagecache.size: "$PAGECACHE_SIZE"
+  EOF
+  HELM_CMD="$HELM_CMD -f /tmp/neo4j-config-values.yaml"
+  ```
+- Clean up: Added `rm -f /tmp/neo4j-config-values.yaml` after deployment
+
+**All Fixes Applied**:
+1. ✅ Helm chart version: 5.26.16
+2. ✅ Storage parameter: volumes.data.dynamic.requests.storage
+3. ✅ Resource parameters: neo4j.resources.*
+4. ✅ Memory config: values file with plain dotted keys (no escaping needed)
+5. ✅ Plugins: simplified to boolean flag
+6. ✅ Bicep caching: timestamp touching in orchestrator.py
+7. ✅ Password handling: --set-file with temp file (avoids all quoting issues)
+
+**Next Action**: Test deployment with values file approach for config
+**Timeline**: On track - Using official Helm chart values.yaml format directly

@@ -430,7 +430,12 @@ class DeploymentOrchestrator:
                 return None
 
             # Convert HTTP browser URL to Neo4j protocol URI
-            neo4j_uri = self._convert_to_neo4j_uri(browser_url_value)
+            # Protocol selection: bolt for standalone, neo4j for cluster
+            neo4j_uri = self._convert_to_neo4j_uri(
+                browser_url_value,
+                node_count=scenario.node_count,
+                deployment_type=scenario.deployment_type.value,
+            )
 
             # Extract Bloom URL if present
             bloom_url = None
@@ -503,18 +508,27 @@ class DeploymentOrchestrator:
             )
             return None
 
-    def _convert_to_neo4j_uri(self, browser_url: str) -> str:
+    def _convert_to_neo4j_uri(
+        self, browser_url: str, node_count: int = 1, deployment_type: str = "VM"
+    ) -> str:
         """
         Convert HTTP browser URL to Neo4j protocol URI.
 
+        Uses bolt:// for standalone deployments (more secure, no routing needed).
+        Uses neo4j:// for cluster deployments (routing-aware, load balancing).
+
         Args:
             browser_url: HTTP browser URL (e.g., http://hostname:7474)
+            node_count: Number of Neo4j nodes in deployment
+            deployment_type: Deployment type (VM, AKS, COMMUNITY)
 
         Returns:
-            Neo4j protocol URI (e.g., neo4j://hostname:7687)
+            Neo4j protocol URI (bolt:// or neo4j://hostname:7687)
 
         Examples:
-            >>> _convert_to_neo4j_uri("http://10.0.1.4:7474")
+            >>> _convert_to_neo4j_uri("http://10.0.1.4:7474", node_count=1)
+            "bolt://10.0.1.4:7687"
+            >>> _convert_to_neo4j_uri("http://10.0.1.4:7474", node_count=3)
             "neo4j://10.0.1.4:7687"
         """
         # Parse the URL
@@ -523,8 +537,17 @@ class DeploymentOrchestrator:
         # Extract hostname (remove port if present)
         hostname = parsed.hostname or parsed.netloc.split(":")[0]
 
-        # Construct Neo4j URI with bolt port
-        neo4j_uri = f"neo4j://{hostname}:7687"
+        # Select protocol based on deployment architecture:
+        # - Community edition: always standalone, always use bolt
+        # - Enterprise standalone (nodeCount=1): use bolt (direct connection)
+        # - Enterprise cluster (nodeCount>=3): use neo4j (routing connection)
+        if deployment_type == "COMMUNITY" or node_count == 1:
+            protocol = "bolt"
+        else:
+            protocol = "neo4j"
+
+        # Construct URI with appropriate protocol
+        neo4j_uri = f"{protocol}://{hostname}:7687"
 
         return neo4j_uri
 

@@ -70,6 +70,5 @@ GITHUB_RAW_URL_PATTERN: Final[str] = (
 PASSWORD_OPTIONS: Final[list[str]] = [
     "generate",
     "environment",
-    "azure-keyvault",
     "prompt",
 ]
