@@ -392,17 +392,28 @@ class DeploymentOrchestrator:
             ConnectionInfo object or None if parsing failed
         """
         try:
-            # Determine which browser URL key to use based on node count
+            # Determine which browser URL key to use based on node count and deployment type
+            # VM templates use: Neo4jBrowserURL, Neo4jClusterBrowserURL
+            # AKS templates use: neo4jBrowserUrl
             if scenario.node_count == 1:
-                browser_url_key = "neo4jBrowserURL"
+                # Try AKS format first, then VM formats
+                browser_url_keys = ["neo4jBrowserUrl", "neo4jBrowserURL", "Neo4jBrowserURL"]
             else:
-                browser_url_key = "neo4jClusterBrowserURL"
+                # Try cluster formats
+                browser_url_keys = ["neo4jClusterBrowserUrl", "neo4jClusterBrowserURL", "Neo4jClusterBrowserURL"]
 
-            # Extract browser URL
-            browser_url_value = outputs.get(browser_url_key, {}).get("value")
+            # Extract browser URL - try each possible key
+            browser_url_value = None
+            browser_url_key = None
+            for key in browser_url_keys:
+                browser_url_value = outputs.get(key, {}).get("value")
+                if browser_url_value:
+                    browser_url_key = key
+                    break
+
             if not browser_url_value:
                 console.print(
-                    f"[yellow]Warning: {browser_url_key} not found in outputs[/yellow]"
+                    f"[yellow]Warning: Browser URL not found in outputs (tried: {', '.join(browser_url_keys)})[/yellow]"
                 )
                 return None
 

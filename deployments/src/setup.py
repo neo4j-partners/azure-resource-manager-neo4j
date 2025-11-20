@@ -381,9 +381,12 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
 
     def _create_default_scenarios(self) -> ScenarioCollection:
         """Create default test scenarios."""
+        from .models import DeploymentType
+
         scenarios = [
             TestScenario(
                 name="standalone-v5",
+                deployment_type=DeploymentType.VM,
                 node_count=1,
                 graph_database_version="5",
                 vm_size="Standard_E4s_v5",
@@ -392,6 +395,7 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
             ),
             TestScenario(
                 name="cluster-v5",
+                deployment_type=DeploymentType.VM,
                 node_count=3,
                 graph_database_version="5",
                 vm_size="Standard_E4s_v5",
@@ -400,6 +404,7 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
             ),
             TestScenario(
                 name="standalone-v44",
+                deployment_type=DeploymentType.VM,
                 node_count=1,
                 graph_database_version="4.4",
                 vm_size="Standard_E4s_v5",
@@ -408,6 +413,7 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
             ),
             TestScenario(
                 name="cluster-read-replicas",
+                deployment_type=DeploymentType.VM,
                 node_count=3,
                 graph_database_version="4.4",
                 vm_size="Standard_E4s_v5",
@@ -416,6 +422,20 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
                 read_replica_vm_size="Standard_E4s_v5",
                 read_replica_disk_size=32,
                 license_type="Evaluation",
+            ),
+            TestScenario(
+                name="standard-aks-v5",
+                deployment_type=DeploymentType.AKS,
+                node_count=1,
+                graph_database_version="5",
+                disk_size=32,
+                license_type="Evaluation",
+                kubernetes_version="1.31",
+                user_node_size="Standard_E4s_v5",
+                user_node_count_min=1,
+                user_node_count_max=10,
+                install_graph_data_science=False,
+                install_bloom=False,
             ),
         ]
 

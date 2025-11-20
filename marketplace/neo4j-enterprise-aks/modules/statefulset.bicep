@@ -35,10 +35,10 @@ param diskSize int
 param storageClassName string
 
 @description('CPU request and limit')
-param cpuLimit string = '4'
+param cpuLimit string = '3'
 
 @description('Memory request and limit')
-param memoryLimit string = '16Gi'
+param memoryLimit string = '12Gi'
 
 @description('Managed identity for deployment script')
 param identityId string

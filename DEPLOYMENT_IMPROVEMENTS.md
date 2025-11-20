@@ -248,6 +248,161 @@ Changes are already implemented and tested:
 
 ---
 
+## Password Handling Security Fix (November 19, 2025)
+
+### Problem Identified
+Cloud-init scripts were failing with shell syntax errors when passwords contained special characters (single quotes, backslashes, dollar signs). The root cause was improper handling of password substitution in Bicep templates:
+
+**Original Implementation:**
+- Passwords were directly substituted into cloud-init YAML as single-quoted strings
+- Any single quote in the password would break shell syntax: `PASS='my'password'` → syntax error
+- Cloud-init would fail with "unexpected EOF while looking for matching quote"
+- Neo4j service never started, deployments would timeout after 15 minutes
+
+**Symptoms:**
+```bash
+/var/lib/cloud/instance/scripts/runcmd: line 82: unexpected EOF while looking for matching `''
+/var/lib/cloud/instance/scripts/runcmd: line 88: syntax error: unexpected end of file
+○ neo4j.service - Neo4j Graph Database
+     Active: inactive (dead)
+```
+
+### Solution Implemented
+
+**Base64 Encoding Approach** - Aligned with Azure best practices:
+
+1. **In Bicep Template** (`main.bicep`):
+   - Encode password as base64 before substitution
+   - Base64 strings only contain alphanumeric characters + `/+=` (no special shell characters)
+   - This is the Microsoft-recommended pattern for custom data
+
+```bicep
+// Base64 encode the password to safely pass it through cloud-init
+var passwordBase64 = base64(passwordPlaceholder)
+var cloudInitStep3 = replace(cloudInitStep2, '\${admin_password}', passwordBase64)
+```
+
+2. **In Cloud-Init Scripts** (standalone.yaml, cluster.yaml, read-replica.yaml):
+   - Receive base64-encoded password (safe in single quotes)
+   - Decode using standard `base64 -d` command
+   - Use decoded password for Neo4j setup
+
+```bash
+# Decode base64-encoded password (safe from quote/escape issues)
+DIRECT_PASSWORD_BASE64='${admin_password}'
+DIRECT_PASSWORD=$(echo "$DIRECT_PASSWORD_BASE64" | base64 -d)
+```
+
+### Why Base64 Encoding?
+
+**Technical Requirements:**
+- Azure requires custom data to be base64-encoded (max 64KB)
+- Base64 alphabet is shell-safe: `A-Z`, `a-z`, `0-9`, `+`, `/`, `=`
+- No escaping needed in single-quoted strings
+- Works with any password characters
+
+**Bicep Limitations:**
+- Bicep doesn't support backslash escape sequences in strings
+- Complex quote escaping (`'\''`) is not possible in Bicep syntax
+- `replace()` function cannot create the needed escape patterns
+
+**Best Practice Alignment:**
+- Microsoft documentation requires base64 encoding for custom data
+- Standard pattern used across Azure for passing sensitive data to VMs
+- Avoids all quoting and escaping complexity
+
+### Benefits
+
+**Reliability:**
+- ✅ Handles passwords with single quotes, double quotes, backslashes, dollar signs
+- ✅ No shell syntax errors regardless of password complexity
+- ✅ Cloud-init completes successfully
+- ✅ Neo4j service starts properly
+
+**Security:**
+- ✅ Password never appears in logs (base64 encoded)
+- ✅ Follows Azure security best practices
+- ✅ Compatible with Key Vault integration
+- ✅ No additional exposure compared to plaintext substitution
+
+**Maintainability:**
+- ✅ Simple, standard approach (no complex escaping logic)
+- ✅ Uses built-in Bicep `base64()` function
+- ✅ Uses standard Linux `base64` command
+- ✅ Easy to understand and debug
+
+### Enhanced Logging
+
+Added comprehensive logging to cloud-init scripts for troubleshooting:
+
+```bash
+=== Password Configuration Started ===
+Received base64-encoded password: 16 characters
+Decoded password length: 12 characters
+Mode: Using direct password parameter
+=== Password Configuration Complete ===
+Setting Neo4j initial password...
+Neo4j initial password set successfully
+```
+
+Logs show:
+- Password was received and decoded (without exposing actual value)
+- Whether using Key Vault or direct parameter
+- Success/failure of password configuration
+- Neo4j service initialization status
+
+### Additional Fixes in GitHub Actions Workflow
+
+**DNS and Network Issues:**
+1. **Load Balancer DNS Configuration** - Added DNS labels to public IPs for cluster deployments
+2. **Validation Retry Logic** - Replaced blind sleep with active polling (DNS, port, HTTP checks)
+3. **Extended Timeout** - Increased from 10 to 20 minutes for cloud-init completion
+4. **Diagnostic Logging** - Added VM status checks and cloud-init log retrieval on failure
+
+**Workflow Improvements:**
+- Fixed Bicep file name (`mainTemplate.bicep` → `main.bicep`)
+- Removed obsolete `_artifactsLocation` parameter
+- Standardized `uv` installation across all jobs (uses `~/.local/bin` instead of `~/.cargo/bin`)
+- Updated action versions (checkout@v4, azure/login@v2, ubuntu-22.04)
+
+### Files Modified
+
+**Bicep Template:**
+- `marketplace/neo4j-enterprise/main.bicep` - Added base64 encoding logic
+- `marketplace/neo4j-enterprise/modules/loadbalancer.bicep` - Added DNS settings to public IP
+
+**Cloud-Init Scripts:**
+- `scripts/neo4j-enterprise/cloud-init/standalone.yaml` - Base64 decoding + logging
+- `scripts/neo4j-enterprise/cloud-init/cluster.yaml` - Base64 decoding + logging
+- `scripts/neo4j-enterprise/cloud-init/read-replica.yaml` - Base64 decoding + logging
+
+**GitHub Actions:**
+- `.github/workflows/enterprise.yml` - Enhanced validation, diagnostics, and fixes
+
+### Testing Results
+
+**Before Fix:**
+- ❌ Deployments failed with shell syntax errors
+- ❌ Cloud-init never completed
+- ❌ Neo4j service status: `inactive (dead)`
+- ❌ Validation timeout after 15 minutes
+
+**After Fix:**
+- ✅ Cloud-init completes successfully
+- ✅ Neo4j service starts and runs
+- ✅ Password configuration works with any special characters
+- ✅ Validation passes for all deployment types
+
+### Recommendation
+
+This fix is **critical for production deployments** as it:
+- Prevents deployment failures from password complexity requirements
+- Aligns with Azure and Microsoft best practices
+- Improves reliability and debuggability
+- Requires no changes to user-facing parameters or workflows
+
+---
+
 ## Conclusion
 
 This architectural simplification achieves multiple goals simultaneously:

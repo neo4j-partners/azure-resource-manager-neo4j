@@ -566,10 +566,15 @@ def deploy(
             if final_status == "Succeeded":
                 console.print(f"  - Validate {state.scenario_name}: [bold]uv run validate_deploy {state.scenario_name}[/bold]")
 
-        console.print("  - Check status: uv run neo4j-deploy status")
+        console.print("  - Check status: [bold]uv run neo4j-deploy status[/bold]")
 
         if cleanup == CleanupMode.MANUAL:
-            console.print("  - Clean up resources with: uv run neo4j-deploy cleanup --all")
+            console.print("\n[cyan]Clean up resources:[/cyan]")
+            # Show example with first deployment ID
+            if deployment_states:
+                example_id = deployment_states[0].deployment_id[:8]
+                console.print(f"  - Individual: [bold]uv run neo4j-deploy cleanup --deployment {example_id} --force[/bold]")
+            console.print(f"  - All: [bold]uv run neo4j-deploy cleanup --all --force[/bold]")
         else:
             console.print(f"  - Cleanup mode: {cleanup.value} (auto-cleanup {'enabled' if cleanup != CleanupMode.MANUAL else 'disabled'})")
 
