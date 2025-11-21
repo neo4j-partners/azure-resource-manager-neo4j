@@ -6,17 +6,19 @@
 
 ## Implementation Status
 
-**Phase 1: Headless Service and RBAC Setup** - ✅ COMPLETE (Nov 20, 2025)
-- Added RBAC configuration (ServiceAccount, Role, RoleBinding) for cluster mode
-- Configured service labels for K8S resolver discovery
-- Added verification steps for RBAC permissions and headless service DNS
+**IMPORTANT CORRECTION (Nov 20, 2025):**
+The initial implementation attempted to use a single Helm installation with `replicas=3`, which does NOT align with Neo4j's official Kubernetes deployment approach. The official neo4j/neo4j Helm chart requires **three separate installations** (one per server) to form a cluster.
 
-**Phase 2: Neo4j Cluster Configuration** - ✅ COMPLETE (Nov 20, 2025)
-- Configured K8S resolver for Kubernetes-native cluster discovery
-- Set cluster parameters: resolver type, label selector, discovery port
-- Configured advertised address using pod hostname for StatefulSet pods
-- Added verification for K8S resolver configuration and discovery port
-- Bug fix: Added missing `replicas` parameter to create correct number of pods in StatefulSet
+**Phase 1: Multi-Installation Architecture** - 🔄 IN PROGRESS (Nov 20, 2025)
+- Restructuring Bicep to install Helm chart 3 times (server-1, server-2, server-3)
+- Each installation creates 1 StatefulSet with 1 pod
+- Servers join cluster via shared `neo4j.name` parameter
+- Following official Neo4j Kubernetes Operations Manual guidance
+
+**Phase 2: RBAC and Service Discovery** - ⏳ PENDING
+- RBAC configuration for K8S resolver (per-server ServiceAccounts)
+- Headless service for cluster member discovery
+- K8S resolver configuration for Kubernetes-native discovery
 
 **Phase 3: Validation and Testing** - ⏳ PENDING
 
@@ -179,15 +181,18 @@ Cluster deployment must succeed consistently across different AKS environments.
 - Storage class for Premium SSD
 - Log Analytics workspace
 
-**Application Layer (Helm):**
-- StatefulSet for Neo4j cluster members
-- Headless service for cluster discovery
-- LoadBalancer service for external access
-- ServiceAccount for Kubernetes API access
-- Role and RoleBinding for RBAC
-- ConfigMaps for Neo4j configuration
-- Secrets for credentials
-- PersistentVolumeClaims for data storage
+**Application Layer (Helm - Per Official Neo4j Approach):**
+- **Three separate Helm installations** (server-1, server-2, server-3)
+- Each installation creates:
+  - 1 StatefulSet with 1 pod (NOT replicas=3 in single installation)
+  - 1 headless service for that server
+  - 1 ServiceAccount for Kubernetes API access
+  - 1 Role and RoleBinding for RBAC
+  - ConfigMaps for Neo4j configuration
+  - Secrets for credentials
+  - 1 PersistentVolumeClaim for data storage
+- **One shared LoadBalancer service** for external access to all servers
+- Servers join cluster via shared `neo4j.name` parameter
 
 ### Service Discovery Architecture
 
@@ -233,66 +238,67 @@ Each cluster member receives dedicated persistent storage:
 
 ## Implementation Plan
 
-### Phase 1: Headless Service and RBAC Setup
+### Phase 1: Multi-Installation Architecture Setup
 
-**Duration:** 1 week
+**Duration:** 1-2 weeks
 
-**Objective:** Create foundational Kubernetes resources required for cluster discovery including headless service and RBAC permissions.
+**Objective:** Restructure Bicep deployment to install the Neo4j Helm chart three separate times (following official Neo4j Kubernetes Operations Manual), with each installation creating one cluster member that joins via shared cluster name.
 
 #### Requirements
 
-**R1.1: Create Headless Service**
+**R1.1: Multiple Helm Installation Support**
 
-Define and deploy Kubernetes headless service that provides DNS entries for StatefulSet pods.
+Modify Bicep to install the neo4j/neo4j Helm chart **three separate times** instead of once with replicas=3.
 
-Service must:
-- Set clusterIP to None for headless behavior
-- Include all required ports with proper naming
-- Use selector matching Neo4j cluster pods
-- Be created before StatefulSet deployment
+Implementation must:
+- Create three deployment script resources (or use array/loop)
+- Each installation has unique release name (server-1, server-2, server-3)
+- All three share the same `neo4j.name` parameter (e.g., "neo4j-cluster")
+- Each installation sets `neo4j.minimumClusterSize=3`
+- Deployments run sequentially or in parallel (testing needed)
 
-**R1.2: Create RBAC Resources**
+**R1.2: Per-Server Configuration**
 
-Define and deploy ServiceAccount, Role, and RoleBinding for Kubernetes API access.
+Each Helm installation must create independent Kubernetes resources.
 
-RBAC must:
-- Create ServiceAccount named neo4j-sa
-- Create Role with minimal permissions (get, list, watch services)
-- Create RoleBinding connecting ServiceAccount to Role
-- Scope permissions to deployment namespace only
+Each server gets:
+- Unique StatefulSet (e.g., server-1, server-2, server-3) with 1 replica
+- Unique headless service for that StatefulSet
+- Unique ServiceAccount for K8S resolver permissions
+- Unique PersistentVolumeClaim for data storage
+- Shared cluster name via `neo4j.name` parameter
 
-**R1.3: Update Helm Chart Templates**
+**R1.3: Shared Resources**
 
-Add headless service and RBAC resource definitions to Helm chart templates.
+Create shared resources that all cluster members use.
 
-Changes must:
-- Add headless service template
-- Add ServiceAccount template
-- Add Role template
-- Add RoleBinding template
-- Label all resources appropriately for tracking
+Shared resources:
+- One LoadBalancer service pointing to all three servers
+- Shared namespace (neo4j)
+- Shared storage class
+- Shared configuration (passwords, licenses)
 
 #### Phase 1 Todo List
 
-1. **Define headless service specification** - Create service definition with clusterIP None, discovery port 6000 named as "discovery", and selector for Neo4j pods
+1. **Remove invalid `replicas` parameter** - Delete the `--set replicas=$NODE_COUNT` line from helm-deployment.bicep as it's not supported by neo4j/neo4j chart
 
-2. **Create ServiceAccount specification** - Define ServiceAccount for Neo4j pods with appropriate metadata and labels
+2. **Create helm deployment loop** - Modify Bicep to install Helm chart 3 times using array iteration or separate deployment scripts
 
-3. **Create Role specification** - Define Role granting minimal permissions to list services in namespace
+3. **Configure unique release names** - Set release names to server-1, server-2, server-3 for each installation
 
-4. **Create RoleBinding specification** - Define RoleBinding connecting neo4j-sa ServiceAccount to service-reader Role
+4. **Set shared cluster name** - Ensure all three installations use `--set neo4j.name=neo4j-cluster`
 
-5. **Add templates to Helm chart** - Create template files for headless service, ServiceAccount, Role, and RoleBinding in Helm chart structure
+5. **Set minimumClusterSize** - Configure all installations with `--set neo4j.minimumClusterSize=3`
 
-6. **Update Bicep helm-deployment module** - Modify deployment script to deploy RBAC and headless service before StatefulSet
+6. **Handle sequential vs parallel** - Determine if installations should run sequentially (safer) or in parallel (faster)
 
-7. **Verify RBAC permissions** - Add validation that ServiceAccount can list services using kubectl auth can-i command
+7. **Update output collection** - Modify Bicep outputs to collect information from all three deployments
 
-8. **Test headless service DNS** - Validate DNS records are created for StatefulSet pods using nslookup or dig
+8. **Test basic deployment** - Verify all three Helm installations complete successfully
 
-9. **Update documentation** - Document headless service and RBAC architecture in technical documentation
+9. **Verify cluster formation** - Confirm three separate pods are created and join the cluster
 
-10. **Perform code review and testing** - Review all template changes, test deployment in AKS environment, verify headless service creates DNS records, validate RBAC permissions work correctly
+10. **Perform code review and testing** - Review Bicep changes, test 3-node deployment, verify all pods reach running state, validate cluster quorum is formed
 
 ---
 

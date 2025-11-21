@@ -64,8 +64,11 @@ class DeploymentOrchestrator:
         template_path = self.template_file.resolve()
         params_path = parameter_file.resolve()
 
-        # Touch Bicep template to ensure fresh compilation during validation
+        # Delete cached JSON and touch Bicep to ensure fresh compilation during validation
         if template_path.suffix == ".bicep":
+            json_path = template_path.with_suffix('.json')
+            if json_path.exists():
+                json_path.unlink()
             os.utime(template_path, None)
 
         # Run validation with --debug to get actual error messages
@@ -206,12 +209,31 @@ class DeploymentOrchestrator:
         template_path = self.template_file.resolve()
         params_path = parameter_file.resolve()
 
-        # IMPORTANT: Touch the Bicep template to force Azure CLI to recompile
-        # This ensures module changes are picked up even if main.bicep hasn't changed
-        # Bicep caching is based on parent file timestamp, not module timestamps
+        # IMPORTANT: For Bicep templates, pre-compile to JSON to avoid Azure CLI caching issues
+        # Azure CLI's internal Bicep compilation caching is unreliable and causes stale deployments
+        # By compiling ourselves, we ensure the latest code is always used
         if template_path.suffix == ".bicep":
-            os.utime(template_path, None)  # Update to current time
-            console.print(f"[dim]Refreshed template timestamp to force recompilation[/dim]")
+            json_path = template_path.with_suffix('.json')
+
+            # Always delete existing JSON and recompile fresh
+            if json_path.exists():
+                json_path.unlink()
+                console.print(f"[dim]Deleted cached {json_path.name}[/dim]")
+
+            # Compile Bicep to JSON
+            console.print(f"[dim]Compiling Bicep template...[/dim]")
+            compile_result = run_command(
+                f"az bicep build --file {template_path}",
+                check=False
+            )
+
+            if compile_result.returncode != 0:
+                console.print(f"[red]✗ Bicep compilation failed[/red]")
+                return False
+
+            console.print(f"[dim]Using compiled {json_path.name} for deployment[/dim]")
+            # Deploy the compiled JSON instead of Bicep
+            template_path = json_path
 
         # Note: Don't use @ symbol with local files - it causes Azure CLI errors
         # The @ symbol is only for inline JSON or URIs
