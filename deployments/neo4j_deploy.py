@@ -141,9 +141,7 @@ def validate(
     else:
         scenarios_to_validate = scenarios.scenarios
 
-    # Initialize components
-    base_template_dir = PathLib("../marketplace/neo4j-enterprise").resolve()
-    engine = DeploymentEngine(settings, base_template_dir)
+    # Initialize shared components
     validator = TemplateValidator()
     cost_estimator = CostEstimator()
     rg_manager = ResourceGroupManager()
@@ -167,9 +165,35 @@ def validate(
 
     all_valid = True
 
+    # Track deployment engines per deployment type to avoid recreating
+    engines = {}
+
     for s in scenarios_to_validate:
         console.print(f"\n[bold cyan]Scenario: {s.name}[/bold cyan]")
         console.print("=" * 60)
+
+        # Get or create deployment engine for this deployment type
+        from src.models import DeploymentType
+
+        if s.deployment_type not in engines:
+            if s.deployment_type == DeploymentType.AKS:
+                base_template_dir = PathLib("../marketplace/neo4j-enterprise-aks").resolve()
+                deployment_type = "aks"
+            elif s.deployment_type == DeploymentType.COMMUNITY:
+                base_template_dir = PathLib("../marketplace/neo4j-community").resolve()
+                deployment_type = "community"
+            else:
+                base_template_dir = PathLib("../marketplace/neo4j-enterprise").resolve()
+                deployment_type = "vm"
+
+            try:
+                engines[s.deployment_type] = DeploymentEngine(settings, base_template_dir, deployment_type=deployment_type)
+            except FileNotFoundError as e:
+                console.print(f"[red]✗ Template not found: {e}[/red]")
+                all_valid = False
+                continue
+
+        engine = engines[s.deployment_type]
 
         # Generate parameter file
         try:

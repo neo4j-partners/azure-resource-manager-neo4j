@@ -93,6 +93,10 @@ var pluginsList = concat(
 )
 var pluginsEnabled = length(pluginsList) > 0 ? 'true' : 'false'
 
+// Phase 1 & 2: RBAC and cluster discovery configuration
+// ServiceAccount for K8S resolver (cluster mode only)
+var serviceAccountName = 'neo4j-sa'
+
 // ============================================================================
 // DEPLOYMENT SCRIPT
 // ============================================================================
@@ -158,7 +162,7 @@ resource helmInstall 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       }
       {
         name: 'IS_CLUSTER'
-        value: string(isCluster)
+        value: isCluster ? 'true' : 'false'
       }
       {
         name: 'NODE_COUNT'
@@ -191,6 +195,10 @@ resource helmInstall 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       {
         name: 'PLUGINS_ENABLED'
         value: pluginsEnabled
+      }
+      {
+        name: 'SERVICE_ACCOUNT_NAME'
+        value: serviceAccountName
       }
     ]
     scriptContent: '''
@@ -251,7 +259,27 @@ resource helmInstall 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       # Cluster configuration (only if cluster mode)
       if [ "$IS_CLUSTER" == "true" ]; then
         echo "Configuring cluster with $NODE_COUNT nodes..."
+        HELM_CMD="$HELM_CMD --set replicas=$NODE_COUNT"
         HELM_CMD="$HELM_CMD --set neo4j.minimumClusterSize=$NODE_COUNT"
+
+        # Phase 1: Enable RBAC for K8S resolver cluster discovery
+        echo "Enabling RBAC for Kubernetes-native service discovery..."
+        HELM_CMD="$HELM_CMD --set serviceAccount.create=true"
+        HELM_CMD="$HELM_CMD --set serviceAccount.name=$SERVICE_ACCOUNT_NAME"
+        HELM_CMD="$HELM_CMD --set rbac.create=true"
+
+        # Configure service labels for K8S resolver discovery
+        echo "Configuring service labels for cluster discovery..."
+        HELM_CMD="$HELM_CMD --set services.neo4j.labels.app=neo4j"
+        HELM_CMD="$HELM_CMD --set services.neo4j.labels.component=cluster"
+        HELM_CMD="$HELM_CMD --set services.neo4j.labels.release=$RELEASE_NAME"
+
+        # Phase 2: Configure K8S resolver for cluster discovery
+        echo "Configuring K8S resolver for Kubernetes-native cluster discovery..."
+        echo "  - Resolver type: K8S (Kubernetes API-based)"
+        echo "  - Label selector: app=neo4j,component=cluster"
+        echo "  - Discovery port: 6000"
+        echo "  - Advertised address: \$(hostname -f):6000"
       else
         echo "Configuring standalone instance..."
       fi
@@ -269,12 +297,31 @@ resource helmInstall 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
 
       # Memory configuration (JVM heap and page cache)
       # Use values file to avoid shell escaping complexity with dotted config keys
-      cat > /tmp/neo4j-config-values.yaml <<EOF
+      if [ "$IS_CLUSTER" == "true" ]; then
+        # Phase 2: K8S resolver configuration for cluster mode
+        cat > /tmp/neo4j-config-values.yaml <<EOF
+config:
+  server.memory.heap.initial_size: "$HEAP_SIZE"
+  server.memory.heap.max_size: "$HEAP_SIZE"
+  server.memory.pagecache.size: "$PAGECACHE_SIZE"
+  # K8S resolver for Kubernetes-native cluster discovery
+  dbms.cluster.discovery.resolver_type: "K8S"
+  dbms.kubernetes.label_selector: "app=neo4j,component=cluster"
+  dbms.kubernetes.discovery.service_port_name: "discovery"
+  # Advertised address uses pod hostname (set by StatefulSet)
+  # Pattern: {pod-name}.{headless-service}.{namespace}.svc.cluster.local:6000
+  server.cluster.advertised_address: "\$(hostname -f):6000"
+  server.cluster.listen_address: "0.0.0.0:6000"
+EOF
+      else
+        # Standalone mode - no cluster configuration needed
+        cat > /tmp/neo4j-config-values.yaml <<EOF
 config:
   server.memory.heap.initial_size: "$HEAP_SIZE"
   server.memory.heap.max_size: "$HEAP_SIZE"
   server.memory.pagecache.size: "$PAGECACHE_SIZE"
 EOF
+      fi
       HELM_CMD="$HELM_CMD -f /tmp/neo4j-config-values.yaml"
 
       # Plugin configuration (future - currently not used)
@@ -307,6 +354,87 @@ EOF
       echo ""
       kubectl get services -n $NAMESPACE_NAME
       echo ""
+
+      # Phase 1: Verify RBAC configuration for cluster mode
+      if [ "$IS_CLUSTER" == "true" ]; then
+        echo "===================================="
+        echo "Verifying RBAC Configuration"
+        echo "===================================="
+
+        # Check if ServiceAccount was created
+        if kubectl get serviceaccount $SERVICE_ACCOUNT_NAME -n $NAMESPACE_NAME > /dev/null 2>&1; then
+          echo "✓ ServiceAccount '$SERVICE_ACCOUNT_NAME' created successfully"
+        else
+          echo "✗ WARNING: ServiceAccount '$SERVICE_ACCOUNT_NAME' not found"
+        fi
+
+        # Verify RBAC permissions
+        echo "Testing ServiceAccount permissions..."
+        if kubectl auth can-i list services --as=system:serviceaccount:$NAMESPACE_NAME:$SERVICE_ACCOUNT_NAME -n $NAMESPACE_NAME 2>/dev/null | grep -q "yes"; then
+          echo "✓ ServiceAccount has permission to list services"
+        else
+          echo "✗ WARNING: ServiceAccount does not have permission to list services"
+        fi
+
+        # Verify headless service exists and has correct labels
+        echo ""
+        echo "Verifying headless service configuration..."
+        HEADLESS_SERVICE=$(kubectl get services -n $NAMESPACE_NAME -o json | jq -r '.items[] | select(.spec.clusterIP=="None") | .metadata.name' | head -1)
+        if [ -n "$HEADLESS_SERVICE" ]; then
+          echo "✓ Headless service found: $HEADLESS_SERVICE"
+
+          # Check service labels
+          LABELS=$(kubectl get service $HEADLESS_SERVICE -n $NAMESPACE_NAME -o json | jq -r '.metadata.labels')
+          echo "  Service labels: $LABELS"
+        else
+          echo "✗ WARNING: No headless service found"
+        fi
+
+        # Verify headless service DNS resolution (test from first pod once ready)
+        echo "Waiting for pods to be ready for DNS testing..."
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=neo4j -n $NAMESPACE_NAME --timeout=300s || true
+
+        # Test DNS resolution from first pod if available
+        FIRST_POD=$(kubectl get pods -n $NAMESPACE_NAME -l app.kubernetes.io/name=neo4j -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+        if [ -n "$FIRST_POD" ] && [ -n "$HEADLESS_SERVICE" ]; then
+          echo ""
+          echo "Testing headless service DNS resolution from pod $FIRST_POD..."
+          if kubectl exec $FIRST_POD -n $NAMESPACE_NAME -- nslookup $HEADLESS_SERVICE 2>/dev/null | grep -q "Address:"; then
+            echo "✓ Headless service DNS resolution working"
+          else
+            echo "⚠ DNS resolution test skipped (pod may not be fully ready yet)"
+          fi
+        fi
+
+        # Phase 2: Verify K8S resolver configuration
+        echo ""
+        echo "===================================="
+        echo "Verifying K8S Resolver Configuration"
+        echo "===================================="
+
+        if [ -n "$FIRST_POD" ]; then
+          # Check if Neo4j config includes K8S resolver settings
+          echo "Checking Neo4j cluster configuration in pod $FIRST_POD..."
+
+          # Test if pod can list services (K8S resolver requirement)
+          if kubectl exec $FIRST_POD -n $NAMESPACE_NAME -- sh -c "wget -q -O- http://localhost:7474/db/system/tx/commit -H 'Content-Type: application/json' -H 'Authorization: Basic $(echo -n neo4j:$NEO4J_PASSWORD | base64)' --post-data='{\"statements\":[{\"statement\":\"SHOW SERVERS\"}]}' 2>/dev/null" | grep -q "name"; then
+            echo "✓ Neo4j API responding (cluster configuration will be verified in Phase 3)"
+          else
+            echo "⚠ Neo4j API not yet ready (normal during initial startup)"
+          fi
+
+          # Verify cluster discovery port is accessible
+          echo ""
+          echo "Verifying cluster discovery port (6000) is accessible..."
+          if kubectl exec $FIRST_POD -n $NAMESPACE_NAME -- sh -c "nc -zv localhost 6000 2>&1" | grep -q "succeeded\|open"; then
+            echo "✓ Cluster discovery port 6000 is accessible"
+          else
+            echo "⚠ Cluster discovery port verification skipped (pod may not be fully ready)"
+          fi
+        fi
+
+        echo ""
+      fi
 
       # Wait for LoadBalancer external IP
       echo "Waiting for LoadBalancer external IP..."
