@@ -38,7 +38,7 @@ DEFAULT_VM_SIZES: Final[dict[str, str]] = {
 }
 
 # Neo4j versions
-NEO4J_VERSIONS: Final[list[str]] = ["5", "4.4"]
+NEO4J_VERSIONS: Final[list[str]] = ["5"]
 
 # License types
 LICENSE_TYPES: Final[list[str]] = ["Enterprise", "Evaluation"]

@@ -55,7 +55,6 @@ param nodeCount int = 1
 @description('Neo4j graph database version.')
 @allowed([
   '5'
-  '4.4'
 ])
 param graphDatabaseVersion string = '5'
 
@@ -76,28 +75,12 @@ param adminPassword string
 ])
 param licenseType string = 'Evaluation'
 
-// Optional: Plugin Configuration
-@description('Install Graph Data Science plugin.')
+@description('Enable debug mode - adds verbose logging to help diagnose startup issues. Logs will be more accessible in Container Insights.')
 @allowed([
   'Yes'
   'No'
 ])
-param installGraphDataScience string = 'No'
-
-@description('Graph Data Science license key (if installing GDS).')
-@secure()
-param graphDataScienceLicenseKey string = ''
-
-@description('Install Bloom plugin.')
-@allowed([
-  'Yes'
-  'No'
-])
-param installBloom string = 'No'
-
-@description('Bloom license key (if installing Bloom).')
-@secure()
-param bloomLicenseKey string = ''
+param enableDebugMode string = 'No'
 
 // ============================================================================
 // VARIABLES
@@ -222,8 +205,7 @@ module neo4jApp 'modules/neo4j-app.bicep' = {
     adminPassword: adminPassword
     licenseType: licenseType
     diskSize: diskSize
-    installGraphDataScience: installGraphDataScience == 'Yes'
-    installBloom: installBloom == 'Yes'
+    debugMode: enableDebugMode == 'Yes'
     cpuRequest: '2'
     memoryRequest: '8Gi'
   }

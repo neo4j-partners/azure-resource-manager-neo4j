@@ -278,6 +278,10 @@ def deploy(
         bool,
         typer.Option("--dry-run", "-d", help="Preview deployment without executing")
     ] = False,
+    debug: Annotated[
+        bool,
+        typer.Option("--debug", help="Enable debug mode with verbose Neo4j logging")
+    ] = False,
 ) -> None:
     """
     Deploy one or more test scenarios to Azure.
@@ -289,6 +293,7 @@ def deploy(
         uv run neo4j-deploy deploy --scenario standalone-v5
         uv run neo4j-deploy deploy --scenario cluster-v5 --region eastus2
         uv run neo4j-deploy deploy --all --dry-run
+        uv run neo4j-deploy deploy --scenario cluster-3node-aks-v5 --debug
     """
     from pathlib import Path as PathLib
     from rich.table import Table
@@ -390,6 +395,8 @@ def deploy(
     console.print(table)
     console.print(f"\n[cyan]Total scenarios:[/cyan] {len(scenarios_to_deploy)}")
     console.print(f"[cyan]Dry run:[/cyan] {dry_run}")
+    if debug:
+        console.print(f"[yellow]Debug mode:[/yellow] ENABLED - Verbose Neo4j logging will be configured")
 
     # Generate parameter files
     console.print(f"\n[bold]Generating Parameter Files[/bold]\n")
@@ -400,6 +407,7 @@ def deploy(
             param_file = engine.generate_parameter_file(
                 scenario=s,
                 region=region,
+                debug_mode=debug,
             )
             param_files.append((s, param_file))
 

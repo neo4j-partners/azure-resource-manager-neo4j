@@ -62,7 +62,7 @@ db.sqlite3-journal
 .scrapy
 
 ## Sphinx documentation
-docs/_build/
+ai-docs/_build/
 
 ## PyBuilder
 .pybuilder/

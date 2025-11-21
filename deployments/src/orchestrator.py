@@ -427,14 +427,21 @@ class DeploymentOrchestrator:
         """
         try:
             # Determine which browser URL key to use based on node count and deployment type
-            # VM templates use: Neo4jBrowserURL, Neo4jClusterBrowserURL
-            # AKS templates use: neo4jBrowserUrl
+            # VM templates use: Neo4jBrowserURL (standalone), Neo4jClusterBrowserURL (cluster)
+            # AKS templates use: neo4jBrowserUrl (both standalone and cluster)
             if scenario.node_count == 1:
-                # Try AKS format first, then VM formats
+                # Standalone: Try AKS format first, then VM formats
                 browser_url_keys = ["neo4jBrowserUrl", "neo4jBrowserURL", "Neo4jBrowserURL"]
             else:
-                # Try cluster formats
-                browser_url_keys = ["neo4jClusterBrowserUrl", "neo4jClusterBrowserURL", "Neo4jClusterBrowserURL"]
+                # Cluster: Try VM cluster formats first, then AKS format (which uses same name for both)
+                browser_url_keys = [
+                    "neo4jClusterBrowserUrl",
+                    "neo4jClusterBrowserURL",
+                    "Neo4jClusterBrowserURL",
+                    "neo4jBrowserUrl",  # AKS uses same name for cluster
+                    "neo4jBrowserURL",
+                    "Neo4jBrowserURL"
+                ]
 
             # Extract browser URL - try each possible key
             browser_url_value = None

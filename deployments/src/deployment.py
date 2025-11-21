@@ -76,6 +76,7 @@ class DeploymentEngine:
         self,
         scenario: TestScenario,
         region: Optional[str] = None,
+        debug_mode: bool = False,
     ) -> Path:
         """
         Generate ARM template parameter file for a scenario.
@@ -83,6 +84,7 @@ class DeploymentEngine:
         Args:
             scenario: Test scenario configuration
             region: Override region (uses default from settings if None)
+            debug_mode: Enable debug mode with verbose logging
 
         Returns:
             Path to generated parameter file
@@ -104,6 +106,11 @@ class DeploymentEngine:
         params = self._apply_scenario_overrides(
             base_params, scenario, region or self.settings.default_region
         )
+
+        # Add debug mode if enabled (AKS deployments only)
+        if debug_mode and self.deployment_type == "aks":
+            console.print("[yellow]  → Debug mode enabled[/yellow]")
+            params["parameters"]["enableDebugMode"] = {"value": "Yes"}
 
         # Inject dynamic values
         params = self._inject_dynamic_values(params, password)

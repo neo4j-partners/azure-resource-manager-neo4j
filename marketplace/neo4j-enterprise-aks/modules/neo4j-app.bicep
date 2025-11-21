@@ -45,17 +45,14 @@ param licenseType string
 @description('Size of data disk per pod in GB')
 param diskSize int
 
-@description('Install Graph Data Science plugin')
-param installGraphDataScience bool = false
-
-@description('Install Bloom plugin')
-param installBloom bool = false
-
 @description('CPU request per pod')
 param cpuRequest string = '2'
 
 @description('Memory request per pod')
 param memoryRequest string = '8Gi'
+
+@description('Enable debug mode with verbose logging')
+param debugMode bool = false
 
 // ============================================================================
 // MODULE: Helm Deployment
@@ -76,8 +73,7 @@ module helmDeployment 'helm-deployment.bicep' = {
     diskSize: diskSize
     cpuRequest: '${cpuRequest}000m'  // Convert to millicores (e.g., "2" -> "2000m")
     memoryRequest: memoryRequest
-    installGraphDataScience: installGraphDataScience
-    installBloom: installBloom
+    debugMode: debugMode
     identityId: identityId
   }
 }

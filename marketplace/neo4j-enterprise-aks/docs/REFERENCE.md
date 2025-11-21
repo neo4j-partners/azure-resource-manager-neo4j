@@ -41,9 +41,8 @@ Bicep Parameters → helm-deployment.bicep → Helm Chart Values → Neo4j Confi
 #### `graphDatabaseVersion`
 - **Type:** string
 - **Description:** Neo4j version to deploy
-- **Allowed Values:** "5", "4.4"
+- **Allowed Values:** "5"
 - **Default:** "5"
-- **Recommendation:** Use "5" (4.4 is legacy support only)
 
 #### `licenseType`
 - **Type:** string
@@ -119,32 +118,6 @@ Bicep Parameters → helm-deployment.bicep → Helm Chart Values → Neo4j Confi
 - **Constraints:** 1-10
 - **Default:** 10
 - **Note:** Autoscaling based on CPU/memory pressure
-
-#### Neo4j Configuration
-
-##### `installGraphDataScience`
-- **Type:** string ("Yes" or "No")
-- **Description:** Install GDS plugin
-- **Default:** "No"
-- **Note:** Requires GDS license key for Enterprise features
-
-##### `graphDataScienceLicenseKey`
-- **Type:** securestring
-- **Description:** GDS Enterprise license key
-- **Default:** "" (empty, not required for Community GDS)
-- **Security:** @secure() parameter
-
-##### `installBloom`
-- **Type:** string ("Yes" or "No")
-- **Description:** Install Bloom visualization plugin
-- **Default:** "No"
-- **Note:** Requires Bloom license key
-
-##### `bloomLicenseKey`
-- **Type:** securestring
-- **Description:** Bloom license key
-- **Default:** "" (empty)
-- **Security:** @secure() parameter
 
 ---
 
@@ -410,16 +383,13 @@ az deployment group create \
   --parameters \
     nodeCount=1 \
     graphDatabaseVersion="5" \
-    adminPassword="GdsPassword123!" \
+    adminPassword="SecurePassword123!" \
     licenseType="Enterprise" \
     diskSize=128 \
-    userNodeSize="Standard_E8s_v5" \
-    installGraphDataScience="Yes" \
-    graphDataScienceLicenseKey="<your-gds-license>"
+    userNodeSize="Standard_E8s_v5"
 ```
 
-**Result:** Single Neo4j with GDS plugin, 128GB storage, large VM
-**Note:** GDS increases memory requirements (use larger VM)
+**Result:** Single Neo4j with 128GB storage, large VM
 
 ---
 
@@ -446,11 +416,6 @@ graphDatabaseVersion: "5"
 licenseType: "Evaluation"
 diskSize: 32
 
-# Plugins
-installGraphDataScience: "No"
-graphDataScienceLicenseKey: ""
-installBloom: "No"
-bloomLicenseKey: ""
 ```
 
 ---
@@ -508,25 +473,6 @@ Features:
 - 5-node cluster for redundancy
 - Large storage per node
 - Fixed node count (no autoscaling during operations)
-
-### Pattern 4: Analytics Workload with GDS
-
-**Use Case:** Graph analytics, machine learning
-
-```bash
-az deployment group create ... --parameters \
-  nodeCount=1 \
-  licenseType="Enterprise" \
-  diskSize=256 \
-  userNodeSize="Standard_E16s_v5" \
-  installGraphDataScience="Yes" \
-  graphDataScienceLicenseKey="<license>"
-```
-
-Features:
-- Very large VM (16 vCPU, 128GB RAM)
-- GDS plugin for graph algorithms
-- Large memory for in-memory graph projections
 
 ---
 
@@ -594,7 +540,6 @@ kubectl logs neo4j-0 -n neo4j | grep -i memory
 **Solution:**
 1. Increase `userNodeSize` for more memory
 2. Adjust heap size ratio (currently 50% of pod memory)
-3. Enable GDS only if needed (uses significant memory)
 
 ---
 

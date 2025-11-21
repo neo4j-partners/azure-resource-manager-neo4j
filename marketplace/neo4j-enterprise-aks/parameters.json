@@ -32,10 +32,7 @@
     "userNodeCountMax": {
       "value": 10
     },
-    "installGraphDataScience": {
-      "value": "No"
-    },
-    "installBloom": {
+    "enableDebugMode": {
       "value": "No"
     }
   }

@@ -40,13 +40,10 @@ Modular Bicep template deploying Neo4j on Azure VM Scale Sets:
 - `modules/identity.bicep` - Managed identity
 - `modules/loadbalancer.bicep` - Azure Load Balancer
 - `modules/vmss.bicep` - Primary cluster nodes
-- `modules/vmss-read-replica.bicep` - Optional read replicas
 
 **Deployment options:**
 - Standalone (1 node) or cluster (3-10 nodes)
-- Neo4j 5.x or 4.4
-- Read replicas (0-10)
-- Plugins: Graph Data Science, Bloom
+- Neo4j 5.x
 - License: Enterprise or Evaluation
 
 ### 2. VM-based Community (`marketplace/neo4j-community/`)
@@ -215,8 +212,6 @@ Scripts handle:
 
 **Enterprise scripts:**
 - `scripts/neo4j-enterprise/node.sh` - Neo4j 5.x
-- `scripts/neo4j-enterprise/node4.sh` - Neo4j 4.4
-- `scripts/neo4j-enterprise/readreplica4.sh` - Read replica setup
 
 **Community scripts:**
 - `scripts/neo4j-community/node.sh` - Neo4j 5.x Community
@@ -270,7 +265,7 @@ Two workflows test deployments:
 
 **`.github/workflows/enterprise.yml`** - Enterprise VM-based
 - Tests standalone, 3-node cluster, 5-node cluster scenarios
-- Neo4j 5.x and 4.4 versions
+- Neo4j 5.x
 - Runs on pull requests affecting enterprise templates
 
 **`.github/workflows/community.yml`** - Community VM-based
@@ -313,7 +308,7 @@ All templates accept parameter overrides via CLI:
 
 **Common parameters:**
 - `nodeCount` - Cluster size (1, 3-10)
-- `graphDatabaseVersion` - "5" or "4.4"
+- `graphDatabaseVersion` - "5"
 - `adminPassword` - Neo4j password (secure string)
 - `licenseType` - "Enterprise" or "Evaluation"
 - `vmSize` / `userNodeSize` - Azure VM size

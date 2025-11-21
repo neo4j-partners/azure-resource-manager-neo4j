@@ -318,15 +318,6 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
                 license_type="Evaluation",
             ),
             TestScenario(
-                name="standalone-v44",
-                deployment_type=DeploymentType.VM,
-                node_count=1,
-                graph_database_version="4.4",
-                vm_size="Standard_E4s_v5",
-                disk_size=32,
-                license_type="Evaluation",
-            ),
-            TestScenario(
                 name="community-standalone-v5",
                 deployment_type=DeploymentType.COMMUNITY,
                 node_count=1,

@@ -49,14 +49,13 @@ The `mainTemplate.json` deploys the following resources:
 
 1. **Network Security Group** - Opens ports 22 (SSH), 7473 (HTTPS), 7474 (HTTP), 7687 (Bolt)
 2. **Virtual Network** - 10.0.0.0/8 address space with 10.0.0.0/16 subnet
-3. **Public IP Address** - Created conditionally when `nodeCount >= 3` or read replicas exist
+3. **Public IP Address** - Created conditionally when `nodeCount >= 3`
 4. **Load Balancer** - Standard SKU with health probes, created for clusters only
 5. **User-Assigned Managed Identity** - For VMs to query scale set information
 6. **Custom Role Definition** - Minimal permissions for scale set discovery
 7. **Role Assignment** - Assigns custom role to managed identity
-8. **VM Scale Sets** - Two types:
+8. **VM Scale Sets**:
    - **Primary VMSS**: Core Neo4j cluster nodes (1-10 instances)
-   - **Read Replica VMSS**: Optional read replicas (0-10 instances, Neo4j 4.4 only)
 
 ### Key Template Parameters
 
@@ -65,27 +64,21 @@ The `mainTemplate.json` deploys the following resources:
 | `adminPassword` | securestring | (required) | Neo4j admin password |
 | `vmSize` | string | (required) | Azure VM size for cluster nodes |
 | `nodeCount` | int | (required) | 1 for standalone, 3-10 for cluster |
-| `graphDatabaseVersion` | string | (required) | "5" or "4.4" |
+| `graphDatabaseVersion` | string | (required) | "5" |
 | `diskSize` | int | (required) | Data disk size in GB |
 | `licenseType` | string | "Enterprise" | "Enterprise" or "Evaluation" |
-| `installGraphDataScience` | string | "No" | "Yes" or "No" |
-| `installBloom` | string | "No" | "Yes" or "No" |
-| `readReplicaCount` | int | 0 | Number of read replicas (4.4 only) |
 | `_artifactsLocation` | string | (auto) | Base URL for installation scripts |
 
 ### Template Outputs
 
 - **Neo4jBrowserURL** - URL for standalone deployments (nodeCount=1)
 - **Neo4jClusterBrowserURL** - URL for cluster deployments (nodeCount>=3)
-- **Neo4jBloomURL** / **Neo4jClusterBloomURL** - Bloom URLs if enabled
 - **Username** - Always returns "neo4j"
 
 ### Installation Scripts Referenced
 
 The template downloads and executes scripts from the `_artifactsLocation`:
 - `scripts/neo4j-enterprise/node.sh` - For Neo4j 5.x deployments
-- `scripts/neo4j-enterprise/node4.sh` - For Neo4j 4.4 cluster nodes
-- `scripts/neo4j-enterprise/readreplica4.sh` - For Neo4j 4.4 read replicas
 
 ---
 
@@ -119,7 +112,7 @@ Edit `parameters.json` to configure your test:
 - `vmSize`: Use smaller VMs for testing (e.g., "Standard_E4s_v5") to reduce costs
 - `diskSize`: Minimum 32 GB
 - `adminPassword`: Ensure it meets Azure complexity requirements
-- `graphDatabaseVersion`: "5" or "4.4"
+- `graphDatabaseVersion`: "5"
 - `licenseType`: Use "Evaluation" for testing
 
 #### 3. Deploy Using Existing Script
@@ -290,8 +283,6 @@ az group create \
 Create multiple parameter files instead of editing one:
 - `parameters.standalone.json` - Single node testing
 - `parameters.cluster.json` - 3-node cluster testing
-- `parameters.full.json` - Cluster with GDS and Bloom
-- `parameters.v44.json` - Neo4j 4.4 testing
 
 **Best Practice**: Version control different test scenarios and switch between them easily.
 
@@ -321,9 +312,7 @@ az deployment group wait \
 
 Deploy different configurations to separate resource groups simultaneously:
 - Standalone vs Cluster
-- Neo4j 5 vs 4.4
 - Enterprise vs Evaluation license
-- With and without plugins
 
 **Best Practice**: Parallel testing reduces total test time from hours to minutes.
 

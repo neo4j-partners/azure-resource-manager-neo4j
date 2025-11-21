@@ -287,7 +287,6 @@ var helmChartVersion = '5.24.0'  // Pinned version
 |---------------|---------------|--------|
 | 5.24.0 | 5.x | ✅ Current |
 | 5.23.x | 5.x | ⚠️ Older |
-| 5.x | 4.4 | ⚠️ Legacy support |
 
 **Check available versions:**
 ```bash

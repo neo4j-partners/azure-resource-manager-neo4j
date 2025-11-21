@@ -34,10 +34,6 @@ az deployment group create \
                diskSize=32 \
                graphDatabaseVersion="5" \
                licenseType="Evaluation" \
-               installGraphDataScience="No" \
-               graphDataScienceLicenseKey="None" \
-               installBloom="No" \
-               bloomLicenseKey="None" \
   --output none
 
 # Get Neo4j URL

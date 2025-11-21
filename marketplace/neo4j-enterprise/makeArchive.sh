@@ -30,8 +30,6 @@ cd tmp
 # Copy installation scripts
 mkdir -p scripts/neo4j-enterprise
 cp ../../../scripts/neo4j-enterprise/node.sh ./scripts/neo4j-enterprise/node.sh
-cp ../../../scripts/neo4j-enterprise/node4.sh ./scripts/neo4j-enterprise/node4.sh
-cp ../../../scripts/neo4j-enterprise/readreplica4.sh ./scripts/neo4j-enterprise/readreplica4.sh
 
 # Copy compiled ARM template and UI definition
 cp ../mainTemplate.json ./
@@ -64,8 +62,6 @@ echo "Archive contents:"
 echo "  - mainTemplate.json (compiled from main.bicep)"
 echo "  - createUiDefinition.json"
 echo "  - scripts/neo4j-enterprise/node.sh"
-echo "  - scripts/neo4j-enterprise/node4.sh"
-echo "  - scripts/neo4j-enterprise/readreplica4.sh"
 echo ""
 echo "Ready for Azure Marketplace publishing!"
 echo ""
