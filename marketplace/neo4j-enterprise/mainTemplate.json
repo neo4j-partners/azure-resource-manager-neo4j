@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "9435987205096699473"
+      "templateHash": "6062743337702708378"
     }
   },
   "parameters": {
@@ -18,35 +18,15 @@
     "vmSize": {
       "type": "string"
     },
-    "readReplicaVmSize": {
-      "type": "string",
-      "defaultValue": "Standard_B2s"
-    },
     "graphDatabaseVersion": {
       "type": "string",
       "allowedValues": [
-        "5",
-        "4.4"
+        "5"
       ]
-    },
-    "installGraphDataScience": {
-      "type": "string",
-      "defaultValue": "No"
     },
     "licenseType": {
       "type": "string",
       "defaultValue": "Enterprise"
-    },
-    "graphDataScienceLicenseKey": {
-      "type": "string",
-      "defaultValue": "None"
-    },
-    "installBloom": {
-      "type": "string",
-      "defaultValue": "No"
-    },
-    "bloomLicenseKey": {
-      "type": "string"
     },
     "nodeCount": {
       "type": "int",
@@ -62,29 +42,8 @@
         10
       ]
     },
-    "readReplicaCount": {
-      "type": "int",
-      "defaultValue": 0,
-      "allowedValues": [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8,
-        9,
-        10
-      ]
-    },
     "diskSize": {
       "type": "int"
-    },
-    "readReplicaDiskSize": {
-      "type": "int",
-      "defaultValue": 32
     },
     "location": {
       "type": "string",
@@ -101,11 +60,9 @@
   "variables": {
     "deploymentUniqueId": "[uniqueString(resourceGroup().id, deployment().name)]",
     "resourceSuffix": "[if(not(equals(parameters('utcValue'), '')), parameters('utcValue'), variables('deploymentUniqueId'))]",
-    "readReplicaEnabledCondition": "[and(greaterOrEquals(parameters('readReplicaCount'), 1), equals(parameters('graphDatabaseVersion'), '4.4'))]",
-    "loadBalancerCondition": "[or(greaterOrEquals(parameters('nodeCount'), 3), variables('readReplicaEnabledCondition'))]",
-    "cloudInitStandalone": "#cloud-config\n# Neo4j Enterprise 5 Standalone Deployment\n# This cloud-init configuration installs and configures Neo4j on a single Azure VM\n\n# Disable firewalld and SELinux\nbootcmd:\n  - systemctl stop firewalld\n  - systemctl disable firewalld\n  - setenforce 0\n  - sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config\n\n# Format and mount data disk\ndisk_setup:\n  /dev/disk/azure/scsi1/lun0:\n    table_type: gpt\n    layout: true\n    overwrite: false\n\nfs_setup:\n  - device: /dev/disk/azure/scsi1/lun0\n    partition: 1\n    filesystem: xfs\n\nmounts:\n  - [\"/dev/disk/azure/scsi1/lun0-part1\", \"/var/lib/neo4j\", \"xfs\", \"defaults\", \"0\", \"0\"]\n\n# Install Neo4j\nyum_repos:\n  neo4j:\n    name: Neo4j Yum Repo\n    baseurl: https://yum.neo4j.com/stable/5\n    enabled: true\n    gpgcheck: true\n    gpgkey: https://debian.neo4j.com/neotechnology.gpg.key\n\n# Run configuration commands\nruncmd:\n  # Import Neo4j GPG key and install\n  - rpm --import https://debian.neo4j.com/neotechnology.gpg.key\n  - export NEO4J_ACCEPT_LICENSE_AGREEMENT=${license_agreement}\n  - dnf install -y neo4j-enterprise\n\n  # Set license agreement for Neo4j service\n  - mkdir -p /etc/systemd/system/neo4j.service.d\n  - |\n    cat > /etc/systemd/system/neo4j.service.d/license.conf <<EOF\n    [Service]\n    Environment=\"NEO4J_ACCEPT_LICENSE_AGREEMENT=${license_agreement}\"\n    EOF\n  - systemctl daemon-reload\n\n  # Get instance metadata\n  - INSTANCE_METADATA=$(curl -H Metadata:true \"http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01\")\n  - NODE_INDEX=$(echo $INSTANCE_METADATA | jq -r \".name\" | sed 's/.*_//')\n  - PRIVATE_IP=$(hostname -i | awk '{print $NF}')\n  - UNIQUE_STRING=\"${unique_string}\"\n  - LOCATION=\"${location}\"\n  - PUBLIC_HOSTNAME=\"vm${NODE_INDEX}.neo4j-${UNIQUE_STRING}.${LOCATION}.cloudapp.azure.com\"\n\n  # Install APOC plugin\n  - mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins/\n\n  # Configure Neo4j network settings\n  - sed -i 's/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf\n  - sed -i \"s/#server.default_advertised_address=localhost/server.default_advertised_address=${PUBLIC_HOSTNAME}/g\" /etc/neo4j/neo4j.conf\n  - sed -i \"s/#server.bolt.advertised_address=:7687/server.bolt.advertised_address=${PUBLIC_HOSTNAME}:7687/g\" /etc/neo4j/neo4j.conf\n  - sed -i 's/#server.bolt.listen_address=:7687/server.bolt.listen_address=0.0.0.0:7687/g' /etc/neo4j/neo4j.conf\n\n  # Configure extensions and security\n  - sed -i 's~#server.unmanaged_extension_classes=org.neo4j.examples.server.unmanaged=/examples/unmanaged~server.unmanaged_extension_classes=com.neo4j.bloom.server=/bloom,semantics.extension=/rdf~g' /etc/neo4j/neo4j.conf\n  - sed -i 's/#dbms.security.procedures.unrestricted=my.extensions.example,my.procedures.*/dbms.security.procedures.unrestricted=gds.*,apoc.*/g' /etc/neo4j/neo4j.conf\n  - echo \"dbms.security.http_auth_allowlist=/,/browser.*,/bloom.*\" >> /etc/neo4j/neo4j.conf\n  - echo \"dbms.security.procedures.allowlist=apoc.*,gds.*,bloom.*\" >> /etc/neo4j/neo4j.conf\n\n  # Add memory recommendations\n  - neo4j-admin server memory-recommendation >> /etc/neo4j/neo4j.conf\n\n  # Add metrics configuration\n  - echo \"server.metrics.enabled=true\" >> /etc/neo4j/neo4j.conf\n  - echo \"server.metrics.jmx.enabled=true\" >> /etc/neo4j/neo4j.conf\n  - echo \"server.metrics.prefix=neo4j\" >> /etc/neo4j/neo4j.conf\n  - echo \"server.metrics.filter=*\" >> /etc/neo4j/neo4j.conf\n  - echo \"server.metrics.csv.interval=5s\" >> /etc/neo4j/neo4j.conf\n  - echo \"dbms.routing.default_router=SERVER\" >> /etc/neo4j/neo4j.conf\n\n  # SSRF protection\n  - echo \"internal.dbms.cypher_ip_blocklist=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.169.0/24,fc00::/7,fe80::/10,ff00::/8\" >> /etc/neo4j/neo4j.conf\n\n  # Decode and set admin password\n  - |\n    echo \"=== Password Configuration Started ===\"\n\n    # Decode base64-encoded password (safe from quote/escape issues)\n    PASSWORD_BASE64='${admin_password}'\n    ADMIN_PASSWORD=$(echo \"$PASSWORD_BASE64\" | base64 -d)\n\n    echo \"Password received and decoded successfully\"\n    echo \"=== Password Configuration Complete ===\"\n\n  # Set initial password BEFORE first start\n  - echo \"Setting Neo4j initial password...\"\n  - neo4j-admin dbms set-initial-password \"$ADMIN_PASSWORD\"\n  - echo \"Neo4j initial password set successfully\"\n\n  # Enable and start Neo4j\n  - systemctl enable neo4j\n  - systemctl start neo4j\n\n  # Wait for Neo4j to be fully ready\n  - |\n    until curl -s -o /dev/null -w '%{http_code}' http://localhost:7474 | grep -q \"200\"; do\n      echo \"Waiting for Neo4j to be ready...\"\n      sleep 5\n    done\n  - echo \"Neo4j is ready!\"\n\nwrite_files:\n  - path: /var/log/neo4j-cloud-init.log\n    content: |\n      Neo4j cloud-init started at $(date)\n    append: true\n",
-    "cloudInitCluster": "#cloud-config\n# Neo4j Enterprise 5 Cluster Deployment\n# This cloud-init configuration installs and configures Neo4j in cluster mode\n\n# Disable firewalld and SELinux\nbootcmd:\n  - systemctl stop firewalld\n  - systemctl disable firewalld\n  - setenforce 0\n  - sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config\n\n# Format and mount data disk\ndisk_setup:\n  /dev/disk/azure/scsi1/lun0:\n    table_type: gpt\n    layout: true\n    overwrite: false\n\nfs_setup:\n  - device: /dev/disk/azure/scsi1/lun0\n    partition: 1\n    filesystem: xfs\n\nmounts:\n  - [\"/dev/disk/azure/scsi1/lun0-part1\", \"/var/lib/neo4j\", \"xfs\", \"defaults\", \"0\", \"0\"]\n\n# Install Neo4j\nyum_repos:\n  neo4j:\n    name: Neo4j Yum Repo\n    baseurl: https://yum.neo4j.com/stable/5\n    enabled: true\n    gpgcheck: true\n    gpgkey: https://debian.neo4j.com/neotechnology.gpg.key\n\n# Run configuration commands\nruncmd:\n  # Import Neo4j GPG key and install\n  - rpm --import https://debian.neo4j.com/neotechnology.gpg.key\n  - export NEO4J_ACCEPT_LICENSE_AGREEMENT=${license_agreement}\n  - dnf install -y neo4j-enterprise\n\n  # Set license agreement for Neo4j service\n  - mkdir -p /etc/systemd/system/neo4j.service.d\n  - |\n    cat > /etc/systemd/system/neo4j.service.d/license.conf <<EOF\n    [Service]\n    Environment=\"NEO4J_ACCEPT_LICENSE_AGREEMENT=${license_agreement}\"\n    EOF\n  - systemctl daemon-reload\n\n  # Get instance metadata\n  - INSTANCE_METADATA=$(curl -H Metadata:true \"http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01\")\n  - NODE_INDEX=$(echo $INSTANCE_METADATA | jq -r \".name\" | sed 's/.*_//')\n  - INTERNAL_HOSTNAME=$(hostname)\n  - PRIVATE_IP=$(hostname -i | awk '{print $NF}')\n  - UNIQUE_STRING=\"${unique_string}\"\n  - LOCATION=\"${location}\"\n  - NODE_COUNT=${node_count}\n\n  # Public DNS for external access\n  - PUBLIC_HOSTNAME=\"vm${NODE_INDEX}.neo4j-${UNIQUE_STRING}.${LOCATION}.cloudapp.azure.com\"\n\n  # Generate cluster discovery endpoints using port 6000 (Neo4j 5.x cluster communication port)\n  - |\n    DISCOVERY_ENDPOINTS=\"\"\n    for i in $(seq 0 $((NODE_COUNT - 1))); do\n      if [ -n \"$DISCOVERY_ENDPOINTS\" ]; then\n        DISCOVERY_ENDPOINTS=\"${DISCOVERY_ENDPOINTS},\"\n      fi\n      DISCOVERY_ENDPOINTS=\"${DISCOVERY_ENDPOINTS}node$(printf '%06d' $i):6000\"\n    done\n    echo \"Generated cluster discovery endpoints: $DISCOVERY_ENDPOINTS\"\n\n  # Install APOC plugin\n  - mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins/\n\n  # Configure Neo4j network settings\n  - sed -i 's/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf\n  - sed -i \"s/#server.default_advertised_address=localhost/server.default_advertised_address=${INTERNAL_HOSTNAME}/g\" /etc/neo4j/neo4j.conf\n  - sed -i \"s/#server.bolt.advertised_address=:7687/server.bolt.advertised_address=${PUBLIC_HOSTNAME}:7687/g\" /etc/neo4j/neo4j.conf\n  - sed -i 's/#server.bolt.listen_address=:7687/server.bolt.listen_address=0.0.0.0:7687/g' /etc/neo4j/neo4j.conf\n\n  # Configure cluster mode\n  - echo \"server.cluster.system_database_mode=PRIMARY\" >> /etc/neo4j/neo4j.conf\n\n  # Neo4j 5.x Cluster Configuration (correct ports per official docs)\n  # Cluster communication / transaction shipping - port 6000\n  - echo \"server.cluster.advertised_address=${INTERNAL_HOSTNAME}:6000\" >> /etc/neo4j/neo4j.conf\n  - echo \"server.cluster.listen_address=0.0.0.0:6000\" >> /etc/neo4j/neo4j.conf\n\n  # Raft consensus protocol - port 7000\n  - echo \"server.cluster.raft.advertised_address=${INTERNAL_HOSTNAME}:7000\" >> /etc/neo4j/neo4j.conf\n  - echo \"server.cluster.raft.listen_address=0.0.0.0:7000\" >> /etc/neo4j/neo4j.conf\n\n  # Cluster discovery endpoints - use V2 discovery (recommended for Neo4j 5.23+)\n  - echo \"dbms.cluster.discovery.version=V2_ONLY\" >> /etc/neo4j/neo4j.conf\n  - echo \"dbms.cluster.discovery.v2.endpoints=${DISCOVERY_ENDPOINTS}\" >> /etc/neo4j/neo4j.conf\n  - echo \"dbms.cluster.minimum_initial_system_primaries_count=${NODE_COUNT}\" >> /etc/neo4j/neo4j.conf\n\n  # Configure extensions and security\n  - sed -i 's~#server.unmanaged_extension_classes=org.neo4j.examples.server.unmanaged=/examples/unmanaged~server.unmanaged_extension_classes=com.neo4j.bloom.server=/bloom,semantics.extension=/rdf~g' /etc/neo4j/neo4j.conf\n  - sed -i 's/#dbms.security.procedures.unrestricted=my.extensions.example,my.procedures.*/dbms.security.procedures.unrestricted=gds.*,apoc.*/g' /etc/neo4j/neo4j.conf\n  - echo \"dbms.security.http_auth_allowlist=/,/browser.*,/bloom.*\" >> /etc/neo4j/neo4j.conf\n  - echo \"dbms.security.procedures.allowlist=apoc.*,gds.*,bloom.*\" >> /etc/neo4j/neo4j.conf\n\n  # Add memory recommendations\n  - neo4j-admin server memory-recommendation >> /etc/neo4j/neo4j.conf\n\n  # Add metrics configuration\n  - echo \"server.metrics.enabled=true\" >> /etc/neo4j/neo4j.conf\n  - echo \"server.metrics.jmx.enabled=true\" >> /etc/neo4j/neo4j.conf\n  - echo \"server.metrics.prefix=neo4j\" >> /etc/neo4j/neo4j.conf\n  - echo \"server.metrics.filter=*\" >> /etc/neo4j/neo4j.conf\n  - echo \"server.metrics.csv.interval=5s\" >> /etc/neo4j/neo4j.conf\n  - echo \"dbms.routing.default_router=SERVER\" >> /etc/neo4j/neo4j.conf\n\n  # SSRF protection\n  - echo \"internal.dbms.cypher_ip_blocklist=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.169.0/24,fc00::/7,fe80::/10,ff00::/8\" >> /etc/neo4j/neo4j.conf\n\n  # Decode and set admin password\n  - |\n    echo \"=== Password Configuration Started ===\"\n\n    # Decode base64-encoded password (safe from quote/escape issues)\n    PASSWORD_BASE64='${admin_password}'\n    ADMIN_PASSWORD=$(echo \"$PASSWORD_BASE64\" | base64 -d)\n\n    echo \"Password received and decoded successfully\"\n    echo \"=== Password Configuration Complete ===\"\n\n  # Set initial password BEFORE first start\n  - echo \"Setting Neo4j initial password...\"\n  - neo4j-admin dbms set-initial-password \"$ADMIN_PASSWORD\"\n  - echo \"Neo4j initial password set successfully\"\n\n  # Enable and start Neo4j\n  - systemctl enable neo4j\n  - systemctl start neo4j\n\n  # Wait for Neo4j to be fully ready\n  - |\n    until curl -s -o /dev/null -w '%{http_code}' http://localhost:7474 | grep -q \"200\"; do\n      echo \"Waiting for Neo4j to be ready...\"\n      sleep 5\n    done\n  - echo \"Neo4j cluster node is ready!\"\n\nwrite_files:\n  - path: /var/log/neo4j-cloud-init.log\n    content: |\n      Neo4j cluster cloud-init started at $(date)\n    append: true\n",
-    "cloudInitReadReplica": "#cloud-config\n# Neo4j Enterprise 4.4 Read Replica Deployment\n# This cloud-init configuration installs and configures Neo4j 4.4 as a read replica\n\n# Disable firewalld and SELinux\nbootcmd:\n  - systemctl stop firewalld\n  - systemctl disable firewalld\n  - setenforce 0\n  - sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config\n\n# Format and mount data disk\ndisk_setup:\n  /dev/disk/azure/scsi1/lun0:\n    table_type: gpt\n    layout: true\n    overwrite: false\n\nfs_setup:\n  - device: /dev/disk/azure/scsi1/lun0\n    partition: 1\n    filesystem: xfs\n\nmounts:\n  - [\"/dev/disk/azure/scsi1/lun0-part1\", \"/var/lib/neo4j\", \"xfs\", \"defaults\", \"0\", \"0\"]\n\n# Install Azure CLI and Neo4j\nyum_repos:\n  azure-cli:\n    name: Azure CLI\n    baseurl: https://packages.microsoft.com/yumrepos/azure-cli\n    enabled: true\n    gpgcheck: true\n    gpgkey: https://packages.microsoft.com/keys/microsoft.asc\n  neo4j:\n    name: Neo4j Yum Repo\n    baseurl: https://yum.neo4j.com/stable/4.4\n    enabled: true\n    gpgcheck: true\n    gpgkey: https://debian.neo4j.com/neotechnology.gpg.key\n\n# Run configuration commands\nruncmd:\n  # Import GPG keys\n  - rpm --import https://packages.microsoft.com/keys/microsoft.asc\n  - rpm --import https://debian.neo4j.com/neotechnology.gpg.key\n\n  # Install packages\n  - export NEO4J_ACCEPT_LICENSE_AGREEMENT=yes\n  - dnf install -y azure-cli neo4j-enterprise jq\n\n  # Set license agreement for Neo4j service\n  - mkdir -p /etc/systemd/system/neo4j.service.d\n  - |\n    cat > /etc/systemd/system/neo4j.service.d/license.conf <<EOF\n    [Service]\n    Environment=\"NEO4J_ACCEPT_LICENSE_AGREEMENT=yes\"\n    EOF\n  - systemctl daemon-reload\n\n  # Azure login with managed identity\n  - az login --identity -u \"${identity_id}\"\n\n  # Get private IP\n  - PRIVATE_IP=$(hostname -i | awk '{print $NF}')\n\n  # Get core members from primary VMSS\n  - |\n    CORE_MEMBERS=$(az vmss nic list -g \"${resource_group}\" --vmss-name \"${vmss_name}\" | jq -r '.[] | .ipConfigurations[] | .privateIPAddress' | sed 's/$/:5000/g' | tr '\\n' ',' | sed 's/,$//g')\n    echo \"Core members: $CORE_MEMBERS\"\n\n  # Install APOC plugin\n  - mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins/\n\n  # Install Graph Data Science if requested\n  - |\n    if [ \"${install_gds}\" = \"Yes\" ]; then\n      echo \"Installing Graph Data Science...\"\n      cp /var/lib/neo4j/products/neo4j-graph-data-science-*.jar /var/lib/neo4j/plugins/\n      chown neo4j:neo4j /var/lib/neo4j/plugins/neo4j-graph-data-science-*.jar\n    fi\n\n  # Configure GDS license if provided\n  - |\n    if [ \"${gds_license_key}\" != \"None\" ]; then\n      echo \"Writing GDS license key...\"\n      mkdir -p /etc/neo4j/licenses\n      echo \"${gds_license_key}\" > /etc/neo4j/licenses/neo4j-gds.license\n      echo \"gds.enterprise.license_file=/etc/neo4j/licenses/neo4j-gds.license\" >> /etc/neo4j/neo4j.conf\n      chown -R neo4j:neo4j /etc/neo4j/licenses\n    fi\n\n  # Install Bloom if requested\n  - |\n    if [ \"${install_bloom}\" = \"Yes\" ]; then\n      echo \"Installing Bloom...\"\n      cp /var/lib/neo4j/products/bloom-plugin-*.jar /var/lib/neo4j/plugins/\n      chown neo4j:neo4j /var/lib/neo4j/plugins/bloom-plugin-*.jar\n    fi\n\n  # Configure Bloom license if provided\n  - |\n    if [ \"${bloom_license_key}\" != \"None\" ]; then\n      echo \"Writing Bloom license key...\"\n      mkdir -p /etc/neo4j/licenses\n      echo \"${bloom_license_key}\" > /etc/neo4j/licenses/neo4j-bloom.license\n      echo \"neo4j.bloom.license_file=/etc/neo4j/licenses/neo4j-bloom.license\" >> /etc/neo4j/neo4j.conf\n      chown -R neo4j:neo4j /etc/neo4j/licenses\n    fi\n\n  # Configure Neo4j as read replica\n  - sed -i 's/#dbms.default_listen_address=0.0.0.0/dbms.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf\n  - sed -i \"s/#dbms.default_advertised_address=localhost/dbms.default_advertised_address=${PRIVATE_IP}/g\" /etc/neo4j/neo4j.conf\n\n  # Set read replica mode\n  - sed -i 's/#dbms.mode=CORE/dbms.mode=READ_REPLICA/g' /etc/neo4j/neo4j.conf\n\n  # Configure cluster discovery\n  - sed -i \"s/#causal_clustering.initial_discovery_members=localhost:5000,localhost:5001,localhost:5002/causal_clustering.initial_discovery_members=${CORE_MEMBERS}/g\" /etc/neo4j/neo4j.conf\n\n  # Configure routing\n  - sed -i 's/#dbms.routing.enabled=false/dbms.routing.enabled=true/g' /etc/neo4j/neo4j.conf\n  - sed -i \"s/#dbms.routing.advertised_address=:7688/dbms.routing.advertised_address=${PRIVATE_IP}:7688/g\" /etc/neo4j/neo4j.conf\n  - sed -i \"s/#dbms.routing.listen_address=0.0.0.0:7688/dbms.routing.listen_address=${PRIVATE_IP}:7688/g\" /etc/neo4j/neo4j.conf\n  - echo \"dbms.routing.default_router=SERVER\" >> /etc/neo4j/neo4j.conf\n\n  # Configure extensions and security\n  - sed -i 's~#dbms.unmanaged_extension_classes=org.neo4j.examples.server.unmanaged=/examples/unmanaged~dbms.unmanaged_extension_classes=com.neo4j.bloom.server=/bloom,semantics.extension=/rdf~g' /etc/neo4j/neo4j.conf\n  - sed -i 's/#dbms.security.procedures.unrestricted=my.extensions.example,my.procedures.*/dbms.security.procedures.unrestricted=gds.*,apoc.*,bloom.*/g' /etc/neo4j/neo4j.conf\n  - echo \"dbms.security.http_auth_allowlist=/,/browser.*,/bloom.*\" >> /etc/neo4j/neo4j.conf\n  - echo \"dbms.security.procedures.allowlist=apoc.*,gds.*,bloom.*\" >> /etc/neo4j/neo4j.conf\n\n  # Add memory recommendations\n  - neo4j-admin memrec >> /etc/neo4j/neo4j.conf\n\n  # Decode and set admin password\n  - |\n    echo \"=== Password Configuration Started ===\"\n\n    # Decode base64-encoded password (safe from quote/escape issues)\n    PASSWORD_BASE64='${admin_password}'\n    ADMIN_PASSWORD=$(echo \"$PASSWORD_BASE64\" | base64 -d)\n\n    echo \"Password received and decoded successfully\"\n    echo \"=== Password Configuration Complete ===\"\n\n  # Set initial password\n  - echo \"Setting Neo4j initial password...\"\n  - neo4j-admin set-initial-password \"$ADMIN_PASSWORD\"\n  - echo \"Neo4j initial password set successfully\"\n\n  # Enable and start Neo4j\n  - systemctl enable neo4j\n  - systemctl start neo4j\n\n  # Wait for Neo4j to be fully ready\n  - |\n    until curl -s -o /dev/null -w '%{http_code}' http://localhost:7474 | grep -q \"200\"; do\n      echo \"Waiting for Neo4j read replica to be ready...\"\n      sleep 5\n    done\n  - echo \"Neo4j read replica is ready!\"\n\nwrite_files:\n  - path: /var/log/neo4j-cloud-init.log\n    content: |\n      Neo4j read replica cloud-init started at $(date)\n    append: true\n",
+    "loadBalancerCondition": "[greaterOrEquals(parameters('nodeCount'), 3)]",
+    "cloudInitStandalone": "#cloud-config\n# Neo4j Enterprise 5 Standalone Deployment\n# This cloud-init configuration installs and configures Neo4j on a single Azure VM\n\n# Disable firewalld and SELinux\nbootcmd:\n  - systemctl stop firewalld\n  - systemctl disable firewalld\n  - setenforce 0\n  - sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config\n\n# Format and mount data disk\ndisk_setup:\n  /dev/disk/azure/scsi1/lun0:\n    table_type: gpt\n    layout: true\n    overwrite: false\n\nfs_setup:\n  - device: /dev/disk/azure/scsi1/lun0\n    partition: 1\n    filesystem: xfs\n\nmounts:\n  - [\"/dev/disk/azure/scsi1/lun0-part1\", \"/var/lib/neo4j\", \"xfs\", \"defaults\", \"0\", \"0\"]\n\n# Install Neo4j\nyum_repos:\n  neo4j:\n    name: Neo4j Yum Repo\n    baseurl: https://yum.neo4j.com/stable/5\n    enabled: true\n    gpgcheck: true\n    gpgkey: https://debian.neo4j.com/neotechnology.gpg.key\n\n# Run configuration commands\nruncmd:\n  # Import Neo4j GPG key and install\n  - rpm --import https://debian.neo4j.com/neotechnology.gpg.key\n  - export NEO4J_ACCEPT_LICENSE_AGREEMENT=${license_agreement}\n  - dnf install -y neo4j-enterprise\n\n  # Set license agreement for Neo4j service\n  - mkdir -p /etc/systemd/system/neo4j.service.d\n  - |\n    cat > /etc/systemd/system/neo4j.service.d/license.conf <<EOF\n    [Service]\n    Environment=\"NEO4J_ACCEPT_LICENSE_AGREEMENT=${license_agreement}\"\n    EOF\n  - systemctl daemon-reload\n\n  # Get instance metadata\n  - INSTANCE_METADATA=$(curl -H Metadata:true \"http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01\")\n  - NODE_INDEX=$(echo $INSTANCE_METADATA | jq -r \".name\" | sed 's/.*_//')\n  - PRIVATE_IP=$(hostname -i | awk '{print $NF}')\n  - UNIQUE_STRING=\"${unique_string}\"\n  - LOCATION=\"${location}\"\n  - PUBLIC_HOSTNAME=\"vm${NODE_INDEX}.neo4j-${UNIQUE_STRING}.${LOCATION}.cloudapp.azure.com\"\n\n  # Install APOC plugin\n  - mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins/\n\n  # Configure Neo4j network settings\n  - sed -i 's/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf\n  - sed -i \"s/#server.default_advertised_address=localhost/server.default_advertised_address=${PUBLIC_HOSTNAME}/g\" /etc/neo4j/neo4j.conf\n  - sed -i \"s/#server.bolt.advertised_address=:7687/server.bolt.advertised_address=${PUBLIC_HOSTNAME}:7687/g\" /etc/neo4j/neo4j.conf\n  - sed -i 's/#server.bolt.listen_address=:7687/server.bolt.listen_address=0.0.0.0:7687/g' /etc/neo4j/neo4j.conf\n\n  # Configure extensions and security\n  - sed -i 's~#server.unmanaged_extension_classes=org.neo4j.examples.server.unmanaged=/examples/unmanaged~server.unmanaged_extension_classes=com.neo4j.bloom.server=/bloom,semantics.extension=/rdf~g' /etc/neo4j/neo4j.conf\n  - sed -i 's/#dbms.security.procedures.unrestricted=my.extensions.example,my.procedures.*/dbms.security.procedures.unrestricted=gds.*,apoc.*/g' /etc/neo4j/neo4j.conf\n  - echo \"dbms.security.http_auth_allowlist=/,/browser.*,/bloom.*\" >> /etc/neo4j/neo4j.conf\n  - echo \"dbms.security.procedures.allowlist=apoc.*,gds.*,bloom.*\" >> /etc/neo4j/neo4j.conf\n\n  # Add memory recommendations\n  - neo4j-admin server memory-recommendation >> /etc/neo4j/neo4j.conf\n\n  # Configure routing for driver compatibility\n  - echo \"dbms.routing.default_router=SERVER\" >> /etc/neo4j/neo4j.conf\n\n  # SSRF protection\n  - echo \"internal.dbms.cypher_ip_blocklist=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.169.0/24,fc00::/7,fe80::/10,ff00::/8\" >> /etc/neo4j/neo4j.conf\n\n  # Decode and set admin password\n  - |\n    echo \"=== Password Configuration Started ===\"\n\n    # Decode base64-encoded password (safe from quote/escape issues)\n    PASSWORD_BASE64='${admin_password}'\n    ADMIN_PASSWORD=$(echo \"$PASSWORD_BASE64\" | base64 -d)\n\n    echo \"Password received and decoded successfully\"\n    echo \"=== Password Configuration Complete ===\"\n\n  # Set initial password BEFORE first start\n  - echo \"Setting Neo4j initial password...\"\n  - neo4j-admin dbms set-initial-password \"$ADMIN_PASSWORD\"\n  - echo \"Neo4j initial password set successfully\"\n\n  # Enable and start Neo4j\n  - systemctl enable neo4j\n  - systemctl start neo4j\n\n  # Wait for Neo4j to be fully ready\n  - |\n    until curl -s -o /dev/null -w '%{http_code}' http://localhost:7474 | grep -q \"200\"; do\n      echo \"Waiting for Neo4j to be ready...\"\n      sleep 5\n    done\n  - echo \"Neo4j is ready!\"\n\nwrite_files:\n  - path: /var/log/neo4j-cloud-init.log\n    content: |\n      Neo4j cloud-init started at $(date)\n    append: true\n",
+    "cloudInitCluster": "#cloud-config\n# Neo4j Enterprise 5 Cluster Deployment\n# This cloud-init configuration installs and configures Neo4j in cluster mode\n\n# Disable firewalld and SELinux\nbootcmd:\n  - systemctl stop firewalld\n  - systemctl disable firewalld\n  - setenforce 0\n  - sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config\n\n# Format and mount data disk\ndisk_setup:\n  /dev/disk/azure/scsi1/lun0:\n    table_type: gpt\n    layout: true\n    overwrite: false\n\nfs_setup:\n  - device: /dev/disk/azure/scsi1/lun0\n    partition: 1\n    filesystem: xfs\n\nmounts:\n  - [\"/dev/disk/azure/scsi1/lun0-part1\", \"/var/lib/neo4j\", \"xfs\", \"defaults\", \"0\", \"0\"]\n\n# Install Neo4j\nyum_repos:\n  neo4j:\n    name: Neo4j Yum Repo\n    baseurl: https://yum.neo4j.com/stable/5\n    enabled: true\n    gpgcheck: true\n    gpgkey: https://debian.neo4j.com/neotechnology.gpg.key\n\n# Run configuration commands\nruncmd:\n  # Import Neo4j GPG key and install\n  - rpm --import https://debian.neo4j.com/neotechnology.gpg.key\n  - export NEO4J_ACCEPT_LICENSE_AGREEMENT=${license_agreement}\n  - dnf install -y neo4j-enterprise\n\n  # Set license agreement for Neo4j service\n  - mkdir -p /etc/systemd/system/neo4j.service.d\n  - |\n    cat > /etc/systemd/system/neo4j.service.d/license.conf <<EOF\n    [Service]\n    Environment=\"NEO4J_ACCEPT_LICENSE_AGREEMENT=${license_agreement}\"\n    EOF\n  - systemctl daemon-reload\n\n  # Get instance metadata\n  - INSTANCE_METADATA=$(curl -H Metadata:true \"http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01\")\n  - NODE_INDEX=$(echo $INSTANCE_METADATA | jq -r \".name\" | sed 's/.*_//')\n  - INTERNAL_HOSTNAME=$(hostname)\n  - PRIVATE_IP=$(hostname -i | awk '{print $NF}')\n  - UNIQUE_STRING=\"${unique_string}\"\n  - LOCATION=\"${location}\"\n  - NODE_COUNT=${node_count}\n\n  # Public DNS for external access\n  - PUBLIC_HOSTNAME=\"vm${NODE_INDEX}.neo4j-${UNIQUE_STRING}.${LOCATION}.cloudapp.azure.com\"\n\n  # Generate cluster discovery endpoints using port 6000 (Neo4j 5.x cluster communication port)\n  - |\n    DISCOVERY_ENDPOINTS=\"\"\n    for i in $(seq 0 $((NODE_COUNT - 1))); do\n      if [ -n \"$DISCOVERY_ENDPOINTS\" ]; then\n        DISCOVERY_ENDPOINTS=\"${DISCOVERY_ENDPOINTS},\"\n      fi\n      DISCOVERY_ENDPOINTS=\"${DISCOVERY_ENDPOINTS}node$(printf '%06d' $i):6000\"\n    done\n    echo \"Generated cluster discovery endpoints: $DISCOVERY_ENDPOINTS\"\n\n  # Install APOC plugin\n  - mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins/\n\n  # Configure Neo4j network settings\n  - sed -i 's/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf\n  - sed -i \"s/#server.default_advertised_address=localhost/server.default_advertised_address=${INTERNAL_HOSTNAME}/g\" /etc/neo4j/neo4j.conf\n  - sed -i \"s/#server.bolt.advertised_address=:7687/server.bolt.advertised_address=${PUBLIC_HOSTNAME}:7687/g\" /etc/neo4j/neo4j.conf\n  - sed -i 's/#server.bolt.listen_address=:7687/server.bolt.listen_address=0.0.0.0:7687/g' /etc/neo4j/neo4j.conf\n\n  # Configure cluster mode\n  - echo \"server.cluster.system_database_mode=PRIMARY\" >> /etc/neo4j/neo4j.conf\n\n  # Neo4j 5.x Cluster Configuration (correct ports per official docs)\n  # Cluster communication / transaction shipping - port 6000\n  - echo \"server.cluster.advertised_address=${INTERNAL_HOSTNAME}:6000\" >> /etc/neo4j/neo4j.conf\n  - echo \"server.cluster.listen_address=0.0.0.0:6000\" >> /etc/neo4j/neo4j.conf\n\n  # Raft consensus protocol - port 7000\n  - echo \"server.cluster.raft.advertised_address=${INTERNAL_HOSTNAME}:7000\" >> /etc/neo4j/neo4j.conf\n  - echo \"server.cluster.raft.listen_address=0.0.0.0:7000\" >> /etc/neo4j/neo4j.conf\n\n  # Cluster discovery endpoints - use V2 discovery (recommended for Neo4j 5.23+)\n  - echo \"dbms.cluster.discovery.version=V2_ONLY\" >> /etc/neo4j/neo4j.conf\n  - echo \"dbms.cluster.discovery.v2.endpoints=${DISCOVERY_ENDPOINTS}\" >> /etc/neo4j/neo4j.conf\n  - echo \"dbms.cluster.minimum_initial_system_primaries_count=${NODE_COUNT}\" >> /etc/neo4j/neo4j.conf\n\n  # Configure extensions and security\n  - sed -i 's~#server.unmanaged_extension_classes=org.neo4j.examples.server.unmanaged=/examples/unmanaged~server.unmanaged_extension_classes=com.neo4j.bloom.server=/bloom,semantics.extension=/rdf~g' /etc/neo4j/neo4j.conf\n  - sed -i 's/#dbms.security.procedures.unrestricted=my.extensions.example,my.procedures.*/dbms.security.procedures.unrestricted=gds.*,apoc.*/g' /etc/neo4j/neo4j.conf\n  - echo \"dbms.security.http_auth_allowlist=/,/browser.*,/bloom.*\" >> /etc/neo4j/neo4j.conf\n  - echo \"dbms.security.procedures.allowlist=apoc.*,gds.*,bloom.*\" >> /etc/neo4j/neo4j.conf\n\n  # Add memory recommendations\n  - neo4j-admin server memory-recommendation >> /etc/neo4j/neo4j.conf\n\n  # Configure routing for driver compatibility\n  - echo \"dbms.routing.default_router=SERVER\" >> /etc/neo4j/neo4j.conf\n\n  # SSRF protection\n  - echo \"internal.dbms.cypher_ip_blocklist=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.169.0/24,fc00::/7,fe80::/10,ff00::/8\" >> /etc/neo4j/neo4j.conf\n\n  # Decode and set admin password\n  - |\n    echo \"=== Password Configuration Started ===\"\n\n    # Decode base64-encoded password (safe from quote/escape issues)\n    PASSWORD_BASE64='${admin_password}'\n    ADMIN_PASSWORD=$(echo \"$PASSWORD_BASE64\" | base64 -d)\n\n    echo \"Password received and decoded successfully\"\n    echo \"=== Password Configuration Complete ===\"\n\n  # Set initial password BEFORE first start\n  - echo \"Setting Neo4j initial password...\"\n  - neo4j-admin dbms set-initial-password \"$ADMIN_PASSWORD\"\n  - echo \"Neo4j initial password set successfully\"\n\n  # Enable and start Neo4j\n  - systemctl enable neo4j\n  - systemctl start neo4j\n\n  # Wait for Neo4j to be fully ready\n  - |\n    until curl -s -o /dev/null -w '%{http_code}' http://localhost:7474 | grep -q \"200\"; do\n      echo \"Waiting for Neo4j to be ready...\"\n      sleep 5\n    done\n  - echo \"Neo4j cluster node is ready!\"\n\nwrite_files:\n  - path: /var/log/neo4j-cloud-init.log\n    content: |\n      Neo4j cluster cloud-init started at $(date)\n    append: true\n",
     "passwordBase64": "[base64(parameters('adminPassword'))]",
     "cloudInitTemplate": "[if(equals(parameters('nodeCount'), 1), variables('cloudInitStandalone'), variables('cloudInitCluster'))]",
     "licenseAgreement": "[if(equals(parameters('licenseType'), 'Evaluation'), 'eval', 'yes')]",
@@ -116,7 +73,6 @@
     "cloudInitStep5": "[replace(variables('cloudInitStep4'), '${node_count}', string(parameters('nodeCount')))]",
     "cloudInitData": "[variables('cloudInitStep5')]",
     "cloudInitBase64": "[base64(variables('cloudInitData'))]",
-    "rrStep1": "[replace(variables('cloudInitReadReplica'), '${admin_password}', variables('passwordBase64'))]",
     "adminUsername": "neo4j"
   },
   "resources": [
@@ -806,200 +762,6 @@
         "[resourceId('Microsoft.Resources/deployments', 'loadbalancer-deployment')]",
         "[resourceId('Microsoft.Resources/deployments', 'network-deployment')]"
       ]
-    },
-    {
-      "condition": "[variables('readReplicaEnabledCondition')]",
-      "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2025-04-01",
-      "name": "read-replica-vmss-deployment",
-      "properties": {
-        "expressionEvaluationOptions": {
-          "scope": "inner"
-        },
-        "mode": "Incremental",
-        "parameters": {
-          "location": {
-            "value": "[parameters('location')]"
-          },
-          "resourceSuffix": {
-            "value": "[variables('resourceSuffix')]"
-          },
-          "adminPassword": {
-            "value": "[parameters('adminPassword')]"
-          },
-          "readReplicaVmSize": {
-            "value": "[parameters('readReplicaVmSize')]"
-          },
-          "readReplicaCount": {
-            "value": "[parameters('readReplicaCount')]"
-          },
-          "readReplicaDiskSize": {
-            "value": "[parameters('readReplicaDiskSize')]"
-          },
-          "identityId": {
-            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'identity-deployment'), '2025-04-01').outputs.identityId.value]"
-          },
-          "subnetId": {
-            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'network-deployment'), '2025-04-01').outputs.subnetId.value]"
-          },
-          "loadBalancerBackendAddressPools": {
-            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'loadbalancer-deployment'), '2025-04-01').outputs.loadBalancerBackendAddressPools.value]"
-          },
-          "adminUsername": {
-            "value": "[variables('adminUsername')]"
-          },
-          "cloudInitBase64": {
-            "value": "[base64(replace(replace(replace(replace(replace(replace(replace(variables('rrStep1'), '${identity_id}', reference(resourceId('Microsoft.Resources/deployments', 'identity-deployment'), '2025-04-01').outputs.identityId.value), '${resource_group}', resourceGroup().name), '${vmss_name}', reference(resourceId('Microsoft.Resources/deployments', 'vmss-deployment'), '2025-04-01').outputs.vmScaleSetsName.value), '${install_gds}', parameters('installGraphDataScience')), '${gds_license_key}', parameters('graphDataScienceLicenseKey')), '${install_bloom}', parameters('installBloom')), '${bloom_license_key}', parameters('bloomLicenseKey')))]"
-          }
-        },
-        "template": {
-          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-          "contentVersion": "1.0.0.0",
-          "metadata": {
-            "_generator": {
-              "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "1129485085609045935"
-            }
-          },
-          "parameters": {
-            "location": {
-              "type": "string"
-            },
-            "resourceSuffix": {
-              "type": "string"
-            },
-            "adminPassword": {
-              "type": "securestring"
-            },
-            "readReplicaVmSize": {
-              "type": "string"
-            },
-            "readReplicaCount": {
-              "type": "int"
-            },
-            "readReplicaDiskSize": {
-              "type": "int"
-            },
-            "identityId": {
-              "type": "string"
-            },
-            "subnetId": {
-              "type": "string"
-            },
-            "loadBalancerBackendAddressPools": {
-              "type": "array"
-            },
-            "adminUsername": {
-              "type": "string"
-            },
-            "cloudInitBase64": {
-              "type": "string"
-            }
-          },
-          "variables": {
-            "readReplicaVmScaleSetsName": "[format('read-replica-vmss-neo4j-{0}-{1}', parameters('location'), parameters('resourceSuffix'))]"
-          },
-          "resources": [
-            {
-              "type": "Microsoft.Compute/virtualMachineScaleSets",
-              "apiVersion": "2025-04-01",
-              "name": "[variables('readReplicaVmScaleSetsName')]",
-              "location": "[parameters('location')]",
-              "identity": {
-                "type": "UserAssigned",
-                "userAssignedIdentities": {
-                  "[format('{0}', parameters('identityId'))]": {}
-                }
-              },
-              "plan": {
-                "publisher": "neo4j",
-                "product": "neo4j-ee-vm",
-                "name": "byol"
-              },
-              "sku": {
-                "name": "[parameters('readReplicaVmSize')]",
-                "capacity": "[parameters('readReplicaCount')]"
-              },
-              "properties": {
-                "overprovision": false,
-                "upgradePolicy": {
-                  "mode": "Manual"
-                },
-                "virtualMachineProfile": {
-                  "storageProfile": {
-                    "osDisk": {
-                      "createOption": "FromImage"
-                    },
-                    "imageReference": {
-                      "publisher": "Neo4j",
-                      "offer": "neo4j-ee-vm",
-                      "sku": "byol",
-                      "version": "latest"
-                    },
-                    "dataDisks": [
-                      {
-                        "lun": 0,
-                        "createOption": "Empty",
-                        "managedDisk": {
-                          "storageAccountType": "Premium_LRS"
-                        },
-                        "caching": "None",
-                        "diskSizeGB": "[parameters('readReplicaDiskSize')]"
-                      }
-                    ]
-                  },
-                  "osProfile": {
-                    "computerNamePrefix": "node",
-                    "adminUsername": "[parameters('adminUsername')]",
-                    "adminPassword": "[parameters('adminPassword')]",
-                    "customData": "[parameters('cloudInitBase64')]"
-                  },
-                  "networkProfile": {
-                    "networkInterfaceConfigurations": [
-                      {
-                        "name": "nic-read-replica",
-                        "properties": {
-                          "primary": true,
-                          "ipConfigurations": [
-                            {
-                              "name": "ipconfig-read-replica",
-                              "properties": {
-                                "subnet": {
-                                  "id": "[parameters('subnetId')]"
-                                },
-                                "publicIPAddressConfiguration": {
-                                  "name": "public-read-replica",
-                                  "properties": {
-                                    "idleTimeoutInMinutes": 30,
-                                    "dnsSettings": {
-                                      "domainNameLabel": "[format('rr-{0}', parameters('resourceSuffix'))]"
-                                    }
-                                  }
-                                },
-                                "loadBalancerBackendAddressPools": "[parameters('loadBalancerBackendAddressPools')]"
-                              }
-                            }
-                          ]
-                        }
-                      }
-                    ]
-                  },
-                  "extensionProfile": {
-                    "extensions": []
-                  }
-                }
-              }
-            }
-          ]
-        }
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.Resources/deployments', 'identity-deployment')]",
-        "[resourceId('Microsoft.Resources/deployments', 'loadbalancer-deployment')]",
-        "[resourceId('Microsoft.Resources/deployments', 'network-deployment')]",
-        "[resourceId('Microsoft.Resources/deployments', 'vmss-deployment')]"
-      ]
     }
   ],
   "outputs": {
@@ -1042,14 +804,6 @@
     "Neo4jClusterBrowserURL": {
       "type": "string",
       "value": "[if(variables('loadBalancerCondition'), uri(format('http://{0}:7474', reference(resourceId('Microsoft.Resources/deployments', 'loadbalancer-deployment'), '2025-04-01').outputs.publicIpFqdn.value), ''), '')]"
-    },
-    "Neo4jClusterBloomURL": {
-      "type": "string",
-      "value": "[if(variables('loadBalancerCondition'), uri(format('http://{0}:7474', reference(resourceId('Microsoft.Resources/deployments', 'loadbalancer-deployment'), '2025-04-01').outputs.publicIpFqdn.value), 'bloom'), '')]"
-    },
-    "Neo4jBloomURL": {
-      "type": "string",
-      "value": "[uri(format('http://vm0.neo4j-{0}.{1}.cloudapp.azure.com:7474', variables('deploymentUniqueId'), parameters('location')), 'bloom')]"
     },
     "Username": {
       "type": "string",

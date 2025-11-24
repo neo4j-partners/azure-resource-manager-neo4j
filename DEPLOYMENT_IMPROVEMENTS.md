@@ -68,7 +68,7 @@ We replaced the Azure API-based cluster discovery mechanism with a simpler DNS-b
 **Cluster Member Discovery Process:**
 1. Deploy Azure Resource Manager template (requires Contributor permissions)
 2. VMs use predictable internal DNS hostnames provided by VMSS
-3. Generate cluster member list using simple naming pattern (vm0, vm1, vm2, etc.)
+3. Generate cluster member list using simple naming pattern (node000000, node000001, node000002, etc.)
 4. Configure Neo4j cluster with DNS-based addresses
 
 **Permission Requirements:**
@@ -85,7 +85,7 @@ We replaced the Azure API-based cluster discovery mechanism with a simpler DNS-b
 Eliminated custom role definitions and role assignments from ARM templates. These resources required Owner permissions to create and were solely used for VM self-tagging operations that are now handled directly by the template.
 
 ### 2. Implemented DNS-Based Cluster Discovery
-Azure VMSS automatically provides internal DNS resolution for instances. Each VM can be addressed using predictable hostnames (vm0, vm1, vm2) that resolve to the correct private IP addresses within the virtual network. This eliminates the need for runtime API queries.
+Azure VMSS automatically provides internal DNS resolution for instances. Each VM can be addressed using predictable hostnames (node000000, node000001, node000002) that resolve to the correct private IP addresses within the virtual network. This eliminates the need for runtime API queries.
 
 ### 3. Removed Azure CLI Dependency
 Since cluster discovery no longer requires Azure API calls, we removed the entire Azure CLI installation process from the VM provisioning scripts. This reduces deployment time and eliminates a significant dependency.
@@ -322,7 +322,6 @@ DIRECT_PASSWORD=$(echo "$DIRECT_PASSWORD_BASE64" | base64 -d)
 **Security:**
 - ✅ Password never appears in logs (base64 encoded)
 - ✅ Follows Azure security best practices
-- ✅ Compatible with Key Vault integration
 - ✅ No additional exposure compared to plaintext substitution
 
 **Maintainability:**
@@ -347,7 +346,6 @@ Neo4j initial password set successfully
 
 Logs show:
 - Password was received and decoded (without exposing actual value)
-- Whether using Key Vault or direct parameter
 - Success/failure of password configuration
 - Neo4j service initialization status
 
