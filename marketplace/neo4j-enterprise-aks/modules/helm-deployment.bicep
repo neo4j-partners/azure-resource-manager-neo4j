@@ -157,25 +157,46 @@ resource createNamespace 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
 
       echo "✓ Namespace created: $NAMESPACE_NAME"
 
-      # For cluster mode, create shared headless service for DNS discovery
-      # This service MUST exist before Neo4j pods start so they can discover each other
+      # For cluster mode, install the official neo4j-headless-service helm chart
+      # This creates a properly configured headless service for DNS-based cluster discovery
       if [ "$IS_CLUSTER" == "true" ]; then
         echo ""
         echo "===================================="
-        echo "Creating Headless Service for DNS Discovery"
+        echo "Installing Neo4j Headless Service Helm Chart"
         echo "===================================="
-        echo "Service: ${CLUSTER_NAME}-internals"
+
+        # Install Helm (needed for headless service chart)
+        curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+        # Add Neo4j Helm repository
+        helm repo add neo4j https://helm.neo4j.com/neo4j
+        helm repo update
+
+        # Install the neo4j-headless-service chart
+        # This creates a headless service that selects all cluster members
+        echo "Installing neo4j-headless-service chart for cluster: $CLUSTER_NAME"
+        helm upgrade --install ${CLUSTER_NAME}-headless neo4j/neo4j-headless-service \
+          --namespace $NAMESPACE_NAME \
+          --set neo4j.name=$CLUSTER_NAME \
+          --wait
+
+        echo "✓ Neo4j headless service chart installed"
+
+        # Also create a discovery-specific headless service with port 5000 (V1) and 6000 (V2)
+        # The official chart only exposes client ports (7474, 7687), not discovery ports
+        echo ""
+        echo "Creating discovery headless service with ports 5000 and 6000..."
 
         cat <<SERVICEEOF | kubectl apply -f -
 apiVersion: v1
 kind: Service
 metadata:
-  name: ${CLUSTER_NAME}-internals
+  name: ${CLUSTER_NAME}-discovery
   namespace: $NAMESPACE_NAME
   labels:
     app: $CLUSTER_NAME
     helm.neo4j.com/clustering: "true"
-    helm.neo4j.com/service: "internals"
+    helm.neo4j.com/service: "discovery"
 spec:
   type: ClusterIP
   clusterIP: None
@@ -184,7 +205,11 @@ spec:
     app: $CLUSTER_NAME
     helm.neo4j.com/clustering: "true"
   ports:
-    - name: tcp-discovery
+    - name: tcp-discovery-v1
+      port: 5000
+      targetPort: 5000
+      protocol: TCP
+    - name: tcp-discovery-v2
       port: 6000
       targetPort: 6000
       protocol: TCP
@@ -196,18 +221,10 @@ spec:
       port: 7688
       targetPort: 7688
       protocol: TCP
-    - name: tcp-bolt
-      port: 7687
-      targetPort: 7687
-      protocol: TCP
-    - name: tcp-http
-      port: 7474
-      targetPort: 7474
-      protocol: TCP
 SERVICEEOF
 
-        echo "✓ Headless service created: ${CLUSTER_NAME}-internals"
-        kubectl get service ${CLUSTER_NAME}-internals -n $NAMESPACE_NAME
+        echo "✓ Discovery headless service created: ${CLUSTER_NAME}-discovery"
+        kubectl get service -n $NAMESPACE_NAME | grep -E "headless|discovery"
       fi
 
       # Save output
@@ -215,7 +232,8 @@ SERVICEEOF
 {
   "namespaceName": "$NAMESPACE_NAME",
   "clusterName": "$CLUSTER_NAME",
-  "headlessService": "${CLUSTER_NAME}-internals",
+  "headlessService": "${CLUSTER_NAME}-headless",
+  "discoveryService": "${CLUSTER_NAME}-discovery",
   "status": "Created"
 }
 EOF
@@ -429,13 +447,16 @@ resource helmInstall 'Microsoft.Resources/deploymentScripts@2023-08-01' = [for (
 
       # Memory and cluster discovery configuration
       # DNS resolver uses headless service DNS A records for cluster member discovery
-      # DNS endpoint format: <cluster-name>-internals.<namespace>.svc.cluster.local:6000
+      # Uses V2 discovery protocol with port 6000 (more modern approach)
 
       # Build configuration with DNS resolver and optional debug settings
       if [ "$IS_CLUSTER" == "true" ]; then
-        # DNS endpoint for cluster discovery - points to headless internals service
-        DNS_ENDPOINT="${CLUSTER_NAME}-internals.${NAMESPACE_NAME}.svc.cluster.local:6000"
-        echo "DNS discovery endpoint: $DNS_ENDPOINT"
+        # DNS endpoint for cluster discovery - points to our discovery headless service
+        # Port 5000 = V1 discovery, Port 6000 = V2 discovery
+        DNS_ENDPOINT_V1="${CLUSTER_NAME}-discovery.${NAMESPACE_NAME}.svc.cluster.local:5000"
+        DNS_ENDPOINT_V2="${CLUSTER_NAME}-discovery.${NAMESPACE_NAME}.svc.cluster.local:6000"
+        echo "DNS discovery endpoint (V1): $DNS_ENDPOINT_V1"
+        echo "DNS discovery endpoint (V2): $DNS_ENDPOINT_V2"
 
         if [ "$DEBUG_MODE" == "true" ]; then
           echo "Debug mode enabled - configuring verbose logging..."
@@ -445,8 +466,12 @@ config:
   server.memory.heap.max_size: "$HEAP_SIZE"
   server.memory.pagecache.size: "$PAGECACHE_SIZE"
   # DNS-based cluster discovery configuration
+  # Override default K8S resolver with DNS resolver
   dbms.cluster.discovery.resolver_type: "DNS"
-  dbms.cluster.discovery.endpoints: "$DNS_ENDPOINT"
+  # V1 discovery endpoints (used when discovery.version includes V1)
+  dbms.cluster.discovery.endpoints: "$DNS_ENDPOINT_V1"
+  # V2 discovery endpoints (used when discovery.version includes V2)
+  dbms.cluster.discovery.v2.endpoints: "$DNS_ENDPOINT_V2"
   # Debug logging configuration
   server.logs.debug.level: "DEBUG"
   dbms.logs.debug.level: "DEBUG"
@@ -463,8 +488,12 @@ config:
   server.memory.heap.max_size: "$HEAP_SIZE"
   server.memory.pagecache.size: "$PAGECACHE_SIZE"
   # DNS-based cluster discovery configuration
+  # Override default K8S resolver with DNS resolver
   dbms.cluster.discovery.resolver_type: "DNS"
-  dbms.cluster.discovery.endpoints: "$DNS_ENDPOINT"
+  # V1 discovery endpoints (used when discovery.version includes V1)
+  dbms.cluster.discovery.endpoints: "$DNS_ENDPOINT_V1"
+  # V2 discovery endpoints (used when discovery.version includes V2)
+  dbms.cluster.discovery.v2.endpoints: "$DNS_ENDPOINT_V2"
 EOF
         fi
       else
@@ -535,28 +564,32 @@ EOF
         echo "===================================="
 
         # DNS endpoint for cluster discovery
-        DNS_ENDPOINT="${CLUSTER_NAME}-internals.${NAMESPACE_NAME}.svc.cluster.local"
-        echo "DNS discovery endpoint: $DNS_ENDPOINT:6000"
+        # Neo4j 5.x uses port 5000 for V1 discovery and port 6000 for V2
+        DNS_ENDPOINT="${CLUSTER_NAME}-discovery.${NAMESPACE_NAME}.svc.cluster.local"
+        echo "DNS discovery endpoint (V1): $DNS_ENDPOINT:5000"
+        echo "DNS discovery endpoint (V2): $DNS_ENDPOINT:6000"
 
-        # Check for internals service (headless or ClusterIP)
+        # Check for discovery headless service
         echo ""
-        echo "Checking internals service..."
-        INTERNALS_SERVICE=$(kubectl get services -n $NAMESPACE_NAME -o json | jq -r '.items[] | select(.metadata.name | contains("internals")) | .metadata.name' | head -1)
-        if [ -n "$INTERNALS_SERVICE" ]; then
-          CLUSTER_IP=$(kubectl get service $INTERNALS_SERVICE -n $NAMESPACE_NAME -o jsonpath='{.spec.clusterIP}' 2>/dev/null || echo "")
+        echo "Checking discovery headless service..."
+        DISCOVERY_SERVICE="${CLUSTER_NAME}-discovery"
+        if kubectl get service $DISCOVERY_SERVICE -n $NAMESPACE_NAME &>/dev/null; then
+          CLUSTER_IP=$(kubectl get service $DISCOVERY_SERVICE -n $NAMESPACE_NAME -o jsonpath='{.spec.clusterIP}' 2>/dev/null || echo "")
           if [ "$CLUSTER_IP" == "None" ]; then
-            echo "✓ Headless internals service found: $INTERNALS_SERVICE (clusterIP=None)"
+            echo "✓ Headless discovery service found: $DISCOVERY_SERVICE (clusterIP=None)"
           else
-            echo "✓ Internals service found: $INTERNALS_SERVICE (clusterIP=$CLUSTER_IP)"
+            echo "✓ Discovery service found: $DISCOVERY_SERVICE (clusterIP=$CLUSTER_IP)"
           fi
 
-          # Show service endpoints
-          ENDPOINTS=$(kubectl get endpoints $INTERNALS_SERVICE -n $NAMESPACE_NAME -o jsonpath='{.subsets[*].addresses[*].ip}' 2>/dev/null || echo "")
+          # Show service endpoints (pod IPs)
+          ENDPOINTS=$(kubectl get endpoints $DISCOVERY_SERVICE -n $NAMESPACE_NAME -o jsonpath='{.subsets[*].addresses[*].ip}' 2>/dev/null || echo "")
           if [ -n "$ENDPOINTS" ]; then
-            echo "  Endpoints: $ENDPOINTS"
+            echo "  Pod IPs: $ENDPOINTS"
+          else
+            echo "  No endpoints yet (pods not ready)"
           fi
         else
-          echo "⚠ Internals service not yet created (will be created by Helm)"
+          echo "⚠ Discovery service not found: $DISCOVERY_SERVICE"
         fi
 
         # Wait for pods to be ready for DNS testing
@@ -579,13 +612,19 @@ EOF
             echo "⚠ DNS resolution test skipped (pod may not be fully ready yet)"
           fi
 
-          # Verify cluster discovery port is accessible
+          # Verify cluster discovery ports are accessible
+          # Neo4j 5.x: Port 5000 (V1 discovery), Port 6000 (V2 discovery)
           echo ""
-          echo "Verifying cluster discovery port (6000) is accessible..."
-          if kubectl exec $FIRST_POD -n $NAMESPACE_NAME -- sh -c "nc -zv localhost 6000 2>&1" | grep -q "succeeded\|open"; then
-            echo "✓ Cluster discovery port 6000 is accessible"
+          echo "Verifying cluster discovery ports (5000 and 6000) are accessible..."
+          if kubectl exec $FIRST_POD -n $NAMESPACE_NAME -- sh -c "nc -zv localhost 5000 2>&1" | grep -q "succeeded\|open"; then
+            echo "✓ Cluster discovery port 5000 (V1) is accessible"
           else
-            echo "⚠ Cluster discovery port verification skipped (pod may not be fully ready)"
+            echo "⚠ Cluster discovery port 5000 verification skipped (pod may not be fully ready)"
+          fi
+          if kubectl exec $FIRST_POD -n $NAMESPACE_NAME -- sh -c "nc -zv localhost 6000 2>&1" | grep -q "succeeded\|open"; then
+            echo "✓ Cluster discovery port 6000 (V2) is accessible"
+          else
+            echo "⚠ Cluster discovery port 6000 verification skipped (pod may not be fully ready)"
           fi
 
           # Check Neo4j cluster configuration

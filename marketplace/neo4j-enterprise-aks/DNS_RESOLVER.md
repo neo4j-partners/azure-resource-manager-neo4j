@@ -21,23 +21,45 @@ Neo4j supports two primary discovery mechanisms for Kubernetes clusters:
 
 ---
 
+## Neo4j 5.x Port Configuration
+
+Based on [Neo4j Operations Manual](https://neo4j.com/docs/operations-manual/current/configuration/ports/):
+
+| Port | Purpose | Neo4j 5.x | Neo4j 2025+ |
+|------|---------|-----------|-------------|
+| **5000** | Discovery (V1) | ✓ Used | ❌ Removed |
+| **6000** | Internal cluster/Discovery (V2) | ✓ Used | ✓ Primary |
+| **7000** | Raft consensus | ✓ Used | ✓ Used |
+| **7688** | Transaction routing | ✓ Used | ✓ Used |
+
+**Important:** Neo4j 5.x uses port 5000 for V1 discovery. Starting with Neo4j 2025.01, port 5000 is removed and only port 6000 is used.
+
+---
+
 ## Changes Made
 
 ### 1. Namespace Creation Script (Pre-deployment)
 
-Added creation of a **shared headless service** before Neo4j pods start:
+Added creation of **two headless services** before Neo4j pods start:
 
+#### Official Neo4j Headless Service Chart
+```bash
+helm upgrade --install neo4j-cluster-headless neo4j/neo4j-headless-service \
+  --namespace neo4j \
+  --set neo4j.name=neo4j-cluster
+```
+
+#### Custom Discovery Headless Service
 ```yaml
-# Created in namespace creation step
 apiVersion: v1
 kind: Service
 metadata:
-  name: neo4j-cluster-internals
+  name: neo4j-cluster-discovery
   namespace: neo4j
   labels:
     app: neo4j-cluster
     helm.neo4j.com/clustering: "true"
-    helm.neo4j.com/service: "internals"
+    helm.neo4j.com/service: "discovery"
 spec:
   type: ClusterIP
   clusterIP: None                    # Headless - returns pod IPs directly
@@ -46,22 +68,24 @@ spec:
     app: neo4j-cluster
     helm.neo4j.com/clustering: "true"
   ports:
-    - name: tcp-discovery
-      port: 6000
+    - name: tcp-discovery-v1
+      port: 5000                     # V1 discovery (Neo4j 5.x)
+      targetPort: 5000
+    - name: tcp-discovery-v2
+      port: 6000                     # V2 discovery
+      targetPort: 6000
     - name: tcp-raft
       port: 7000
+      targetPort: 7000
     - name: tcp-tx
       port: 7688
-    - name: tcp-bolt
-      port: 7687
-    - name: tcp-http
-      port: 7474
+      targetPort: 7688
 ```
 
 **Key points:**
 - `clusterIP: None` makes it headless (DNS returns pod IPs, not a virtual IP)
 - `publishNotReadyAddresses: true` ensures pods are discoverable before becoming ready
-- Selector matches all Neo4j cluster pods
+- Exposes both V1 (5000) and V2 (6000) discovery ports for compatibility
 
 ### 2. Helm Values Configuration
 
@@ -77,15 +101,18 @@ Added DNS resolver configuration via values file:
 ```yaml
 config:
   dbms.cluster.discovery.resolver_type: "DNS"
-  dbms.cluster.discovery.endpoints: "neo4j-cluster-internals.neo4j.svc.cluster.local:6000"
+  # V1 discovery (Neo4j 5.x default with V1_ONLY)
+  dbms.cluster.discovery.endpoints: "neo4j-cluster-discovery.neo4j.svc.cluster.local:5000"
+  # V2 discovery (for compatibility)
+  dbms.cluster.discovery.v2.endpoints: "neo4j-cluster-discovery.neo4j.svc.cluster.local:6000"
 ```
 
 ### 3. File Changes
 
 **Modified:** `modules/helm-deployment.bicep`
-- Lines 102-225: Added headless service creation in namespace setup
-- Lines 391-414: Removed K8S RBAC settings, added DNS resolver config
-- Lines 435-496: Added DNS endpoint configuration to values file
+- Lines 160-228: Added headless service chart installation and discovery service creation
+- Lines 452-498: Added DNS resolver config with both V1 and V2 endpoints
+- Lines 560-630: Updated verification to check discovery service and both ports
 
 ---
 
@@ -93,7 +120,7 @@ config:
 
 ```
                                     ┌─────────────────────────────┐
-                                    │   neo4j-cluster-internals   │
+                                    │   neo4j-cluster-discovery   │
                                     │   (Headless Service)        │
                                     │   clusterIP: None           │
                                     └─────────────────────────────┘
@@ -102,44 +129,67 @@ config:
                                     ┌────────────┼────────────┐
                                     │            │            │
                                     ▼            ▼            ▼
-                              10.1.0.34    10.1.0.78    10.1.0.18
+                              10.1.0.20    10.1.0.34    10.1.0.xx
                               (server-1)  (server-2)   (server-3)
                                     │            │            │
                                     └────────────┼────────────┘
                                                  │
-                              All pods connect on port 6000
-                              to form Raft consensus cluster
+                              Neo4j 5.x: Connect on port 5000 (V1)
+                              Neo4j 2025+: Connect on port 6000 (V2)
 ```
 
 **Discovery flow:**
 1. Neo4j pod starts and reads `dbms.cluster.discovery.endpoints`
-2. Performs DNS lookup: `neo4j-cluster-internals.neo4j.svc.cluster.local`
+2. Performs DNS lookup: `neo4j-cluster-discovery.neo4j.svc.cluster.local`
 3. DNS returns A records for all pods matching the service selector
-4. Neo4j connects to each IP on port 6000 (discovery port)
+4. Neo4j connects to each IP on discovery port (5000 for V1, 6000 for V2)
 5. Raft consensus forms when `minimumClusterSize` members join
 
 ---
 
-## Verified Working
+## Latest Deployment Status (November 25, 2025)
 
-From deployment logs, DNS resolution IS working:
+### What's Working
 
+**Services created correctly:**
 ```
-INFO  Resolved endpoints with DNS{endpoints:'[neo4j-cluster-internals.neo4j.svc.cluster.local:6000]'}
-      to '[10.1.0.14:6000, 10.1.0.53:6000, 10.1.0.89:6000]'
+NAME                      TYPE           CLUSTER-IP       EXTERNAL-IP     PORTS
+neo4j-cluster-discovery   ClusterIP      None             <none>          5000,6000,7000,7688
+neo4j-cluster-headless    ClusterIP      None             <none>          7474,7473,7687
+neo4j-cluster-lb-neo4j    LoadBalancer   172.16.211.143   4.175.188.141   7474,7473,7687
+server-1-internals        ClusterIP      172.16.91.2      <none>          6362,7687,7474,7688,5000,7000,6000
+server-2-internals        ClusterIP      172.16.157.214   <none>          6362,7687,7474,7688,5000,7000,6000
 ```
 
-**What works:**
-- Headless service created successfully (`clusterIP=None`)
-- All 3 pod IPs appear in service endpoints
-- DNS resolution returns all 3 IPs
-- Neo4j logs show successful DNS resolution
+**Discovery endpoints populated:**
+```yaml
+# kubectl get endpoints neo4j-cluster-discovery -n neo4j
+subsets:
+- addresses:
+  - ip: 10.1.0.20  # server-1-0
+  - ip: 10.1.0.34  # server-2-0
+  ports:
+  - name: tcp-discovery-v1
+    port: 5000
+  - name: tcp-discovery-v2
+    port: 6000
+  - name: tcp-raft
+    port: 7000
+  - name: tcp-tx
+    port: 7688
+```
 
----
+**User config applied correctly:**
+```yaml
+# kubectl get configmap server-1-user-config -n neo4j
+dbms.cluster.discovery.resolver_type: DNS
+dbms.cluster.discovery.endpoints: neo4j-cluster-discovery.neo4j.svc.cluster.local:5000
+dbms.cluster.discovery.v2.endpoints: neo4j-cluster-discovery.neo4j.svc.cluster.local:6000
+```
 
-## Current Issues
+### Current Issues
 
-### Issue 1: Configuration Conflict
+#### Issue 1: Configuration Conflict (Persists)
 
 The Helm chart creates TWO ConfigMaps that are merged:
 
@@ -148,58 +198,32 @@ The Helm chart creates TWO ConfigMaps that are merged:
 | `server-1-default-config` | `dbms.cluster.discovery.resolver_type: K8S` | Helm chart default |
 | `server-1-user-config` | `dbms.cluster.discovery.resolver_type: DNS` | Our override |
 
-The `default-config` also sets K8S-specific settings:
+The `default-config` still sets K8S-specific settings:
 ```yaml
+dbms.cluster.discovery.resolver_type: K8S
 dbms.cluster.discovery.version: V1_ONLY
 dbms.kubernetes.service_port_name: tcp-discovery
 dbms.kubernetes.label_selector: app=neo4j-cluster,helm.neo4j.com/service=internals,...
 dbms.kubernetes.discovery.v2.service_port_name: tcp-tx
 ```
 
-**Hypothesis:** These K8S-specific settings may interfere with DNS resolver even when `resolver_type` is overridden to DNS.
+**Question:** Does `user-config` actually override `default-config`? The Neo4j startup script should merge configs with user-config taking precedence, but this hasn't been verified.
 
-### Issue 2: Cluster Not Forming
+#### Issue 2: Cluster Not Forming (Persists)
 
-Despite DNS resolution working, the cluster doesn't form:
-- All 3 pods stay at `0/1 Running` (not ready)
-- Startup probes fail: `dial tcp <ip>:7687: connect: connection refused`
-- Pods have been running 40+ minutes without becoming ready
+Despite correct DNS configuration:
+- Pods stay at `0/1 Running` (not ready)
+- Startup probes fail: `dial tcp 10.1.0.20:7687: connect: connection refused`
+- Neo4j not accepting Bolt connections after several minutes
 
-### Issue 3: AKS Kubelet Connectivity
+#### Issue 3: AKS Kubelet Connectivity (Persists)
 
-Persistent `504 Gateway Timeout` errors when accessing pod logs:
+Cannot view pod logs due to konnectivity-agent issues:
 ```
-Error from server: proxy error from localhost:9443 while dialing 10.1.0.33:10250, code 504
-```
-
-This is an AKS konnectivity-agent issue that prevents debugging via `kubectl logs`.
-
----
-
-## Potential Solutions
-
-### Option A: Disable K8S Resolver Settings in Default Config
-
-Override ALL K8S-related discovery settings in user-config:
-```yaml
-config:
-  dbms.cluster.discovery.resolver_type: "DNS"
-  dbms.cluster.discovery.endpoints: "neo4j-cluster-internals.neo4j.svc.cluster.local:6000"
-  # Explicitly disable K8S resolver settings
-  dbms.kubernetes.label_selector: ""
-  dbms.kubernetes.service_port_name: ""
+Error from server: proxy error from localhost:9443 while dialing 10.1.0.4:10250, code 504
 ```
 
-### Option B: Revert to K8S Resolver with Proper RBAC
-
-If DNS resolver continues to have issues, revert to K8S resolver with:
-- Explicit ServiceAccount creation
-- RBAC role with `list services` permission
-- `automountServiceAccountToken=true` to override AKS Workload Identity
-
-### Option C: Use Neo4j Cluster Headless Service Helm Chart
-
-Neo4j provides a separate Helm chart `neo4j-cluster-headless-service` specifically for DNS-based discovery that may handle the configuration properly.
+This prevents debugging the actual Neo4j startup process.
 
 ---
 
@@ -208,8 +232,9 @@ Neo4j provides a separate Helm chart `neo4j-cluster-headless-service` specifical
 ### Current user-config (DNS Resolver)
 ```yaml
 # In server-N-user-config ConfigMap
-dbms.cluster.discovery.endpoints: neo4j-cluster-internals.neo4j.svc.cluster.local:6000
 dbms.cluster.discovery.resolver_type: DNS
+dbms.cluster.discovery.endpoints: neo4j-cluster-discovery.neo4j.svc.cluster.local:5000
+dbms.cluster.discovery.v2.endpoints: neo4j-cluster-discovery.neo4j.svc.cluster.local:6000
 server.memory.heap.initial_size: "3500M"
 server.memory.heap.max_size: "3500M"
 server.memory.pagecache.size: "3G"
@@ -223,22 +248,51 @@ dbms.cluster.discovery.version: V1_ONLY
 dbms.kubernetes.label_selector: app=neo4j-cluster,helm.neo4j.com/service=internals,helm.neo4j.com/clustering=true
 dbms.kubernetes.service_port_name: tcp-discovery
 dbms.kubernetes.discovery.v2.service_port_name: tcp-tx
+server.discovery.advertised_address: $(bash -c 'echo ${SERVICE_NEO4J_INTERNALS}')
 ```
+
+---
+
+## Things Tried
+
+### Attempt 1: Basic DNS Resolver
+- Created manual `neo4j-cluster-internals` headless service
+- Set `dbms.cluster.discovery.resolver_type: DNS`
+- Set `dbms.cluster.discovery.endpoints` to port 6000
+- **Result:** DNS resolution worked but cluster didn't form
+
+### Attempt 2: Neo4j Headless Service Helm Chart
+- Installed official `neo4j/neo4j-headless-service` chart
+- Created separate `neo4j-cluster-discovery` service
+- **Result:** Services created correctly, still investigating
+
+### Attempt 3: Dual V1/V2 Discovery Ports
+- Added both port 5000 (V1) and port 6000 (V2) to discovery service
+- Configured both `dbms.cluster.discovery.endpoints` (V1) and `dbms.cluster.discovery.v2.endpoints` (V2)
+- **Result:** Configuration applied correctly, cluster still not forming
+
+### Port Verification
+- Confirmed Neo4j 5.x uses port 5000 for V1 discovery
+- Confirmed Neo4j 2025+ will use port 6000 only
+- Updated verification scripts to check both ports
 
 ---
 
 ## Next Steps
 
-1. **Investigate config merge order** - Verify `user-config` actually overrides `default-config`
-2. **Try explicit K8S setting overrides** - Set empty values for `dbms.kubernetes.*` settings
-3. **Check Neo4j debug logs** - Once kubelet connectivity is resolved, examine full startup logs
-4. **Consider reverting to K8S resolver** - If DNS continues to fail, K8S resolver with proper RBAC may be more reliable
+1. **Resolve kubelet connectivity** - Fix AKS konnectivity-agent issue to enable log access
+2. **Verify config merge order** - Confirm `user-config` overrides `default-config`
+3. **Try explicit K8S setting overrides** - Set empty/null values for `dbms.kubernetes.*` settings in user-config
+4. **Enable debug logging** - Deploy with `enableDebugMode=Yes` to get verbose startup logs
+5. **Consider reverting to K8S resolver** - If DNS continues to fail, K8S resolver with proper RBAC may be more reliable
 
 ---
 
 ## Related Documentation
 
 - [Neo4j Cluster Discovery](https://neo4j.com/docs/operations-manual/current/clustering/setup/discovery/)
+- [Neo4j Ports Configuration](https://neo4j.com/docs/operations-manual/current/configuration/ports/)
+- [Neo4j Changes in 2025.x](https://neo4j.com/docs/operations-manual/current/changes-deprecations-removals/)
 - [Neo4j Kubernetes Configuration](https://neo4j.com/docs/operations-manual/current/kubernetes/configuration/)
 - [Neo4j Helm Charts](https://github.com/neo4j/helm-charts)
 - [CLUSTER_BEST_PRACTICES.md](./CLUSTER_BEST_PRACTICES.md) - Multi-installation approach documentation
@@ -246,4 +300,4 @@ dbms.kubernetes.discovery.v2.service_port_name: tcp-tx
 ---
 
 **Last Updated:** November 25, 2025
-**Status:** DNS resolver configured but cluster not forming - investigation ongoing
+**Status:** DNS resolver configured with V1/V2 ports, services working, cluster not forming - kubelet connectivity blocking debug
