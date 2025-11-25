@@ -55,3 +55,6 @@ Example templates are in `.arm-testing/templates/`
 - Git (for automatic branch detection)
 - Active Azure subscription
 
+## Documentation
+
+See SCRIPT_PROPOSAL.md in marketplace/neo4j-enterprise/ for detailed implementation specifications.

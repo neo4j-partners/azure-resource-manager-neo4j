@@ -39,6 +39,7 @@ This project modernizes the Neo4j Azure deployment infrastructure with:
 **Required:**
 - Azure CLI 2.50.0+
 - Bicep CLI 0.20.0+ (bundled with Azure CLI)
+- Python 3.12+ with [uv](https://docs.astral.sh/uv/)
 - Git 2.30.0+
 
 **Recommended:**
@@ -47,38 +48,73 @@ This project modernizes the Neo4j Azure deployment infrastructure with:
 ### 2. Verify Your Environment
 
 ```bash
-# Run the validation script
 ./scripts/validate-environment.sh
 ```
 
-## Deployment
+### 3. Deploy and Test Templates
 
-### Enterprise Edition (Bicep)
+The `deployments/` directory contains a comprehensive CLI for deployment testing:
 
-The Enterprise edition now uses Bicep templates:
+```bash
+cd deployments
+
+# First-time setup
+uv run neo4j-deploy setup
+
+# Deploy a scenario
+uv run neo4j-deploy deploy --scenario standalone-v5
+
+# Check deployment status
+uv run neo4j-deploy status
+
+# Test the deployment
+uv run neo4j-deploy test
+
+# Clean up resources
+uv run neo4j-deploy cleanup --all --force
+```
+
+See **[deployments/README.md](deployments/README.md)** for full command reference.
+
+### 4. Build Marketplace Package
+
+```bash
+cd deployments
+
+# Setup: copy .env.sample to .env and add your Partner Center PID
+cp ../.env.sample ../.env
+
+# Build enterprise package (creates mainTemplate.json and neo4j-enterprise.zip)
+uv run neo4j-deploy package
+
+# Build community package
+uv run neo4j-deploy package --template community
+```
+
+### 5. Setup GitHub Actions Credentials
+
+Generate Azure Service Principal credentials for GitHub Actions CI/CD:
+
+```bash
+cd deployments
+uv run setup-azure-credentials
+```
+
+This will:
+1. Create a Service Principal with Contributor role
+2. Save credentials to `azure-credentials.json`
+3. Provide instructions for adding to GitHub Secrets
+
+## Manual Deployment
+
+### Enterprise Edition
 
 ```bash
 cd marketplace/neo4j-enterprise
 ./deploy.sh <resource-group-name>
 ```
 
-The deployment script will:
-1. Create the resource group
-2. Compile Bicep to ARM JSON
-3. Deploy using Azure CLI
-4. Display deployment status and outputs
-
-**For marketplace publishing:**
-```bash
-cd marketplace/neo4j-enterprise
-./makeArchive.sh
-```
-
-This generates `archive.zip` containing the compiled ARM template ready for Azure Marketplace.
-
-### Community Edition (Coming Soon)
-
-Community edition Bicep migration is planned for Phase 2.5:
+### Community Edition
 
 ```bash
 cd marketplace/neo4j-community

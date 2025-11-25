@@ -365,14 +365,76 @@ The older **Labs Helm Chart** (deprecated) did support `core.numberOfServers`:
 
 ---
 
+## Cluster Discovery: DNS vs K8S Resolver
+
+### Overview
+
+Neo4j supports two primary discovery mechanisms for Kubernetes clusters:
+
+| Resolver Type | Description | Configuration |
+|---------------|-------------|---------------|
+| **K8S** | Uses Kubernetes API to list services | `dbms.cluster.discovery.resolver_type=K8S` |
+| **DNS** | Uses DNS A records from headless service | `dbms.cluster.discovery.resolver_type=DNS` |
+
+### K8S Resolver (Helm Chart Default)
+
+The official Neo4j Helm chart defaults to K8S resolver:
+
+```yaml
+dbms.cluster.discovery.resolver_type: K8S
+dbms.kubernetes.discovery.service_port_name: tcp-tx
+dbms.kubernetes.label_selector: app=<cluster-name>,helm.neo4j.com/service=internals,helm.neo4j.com/clustering=true
+```
+
+**Requirements:**
+- ServiceAccount with RBAC permissions to list services
+- Service account token mounting enabled (`automountServiceAccountToken=true`)
+- May conflict with AKS Workload Identity
+
+### DNS Resolver (Current Implementation)
+
+Our implementation uses DNS resolver for simpler cluster discovery:
+
+```yaml
+dbms.cluster.discovery.resolver_type: DNS
+dbms.cluster.discovery.endpoints: <cluster-name>-internals.<namespace>.svc.cluster.local:6000
+```
+
+**Advantages:**
+- Simpler configuration - no RBAC/ServiceAccount requirements
+- Uses standard Kubernetes DNS
+- Works seamlessly with AKS Workload Identity
+- No special permissions needed
+
+**How it works:**
+1. Each Neo4j server starts and queries the DNS endpoint
+2. DNS returns A records for all pods backing the headless/internals service
+3. Servers use these IPs to connect on discovery port 6000
+4. Cluster forms when `minimumClusterSize` members join
+
+### Configuration in helm-deployment.bicep
+
+```bash
+# DNS endpoint for cluster discovery
+DNS_ENDPOINT="${CLUSTER_NAME}-internals.${NAMESPACE_NAME}.svc.cluster.local:6000"
+
+# Set in neo4j-config-values.yaml
+config:
+  dbms.cluster.discovery.resolver_type: "DNS"
+  dbms.cluster.discovery.endpoints: "$DNS_ENDPOINT"
+```
+
+---
+
 ## Conclusion
 
 The Neo4j official Helm chart requires **three separate installations** to deploy a 3-node cluster, not a single installation with `replicas=3`. This is **by design** per the Neo4j Kubernetes Operations Manual and is the **only supported approach** for the neo4j/neo4j Helm chart v5.x.
 
-Our implementation has been corrected to follow this official pattern, ensuring compatibility with Neo4j's supported deployment architecture.
+Our implementation uses **DNS-based discovery** instead of the K8S API resolver for simpler configuration and better compatibility with AKS Workload Identity.
 
 ---
 
 **Document Maintainer:** Claude Code
-**Review Status:** Initial version
+**Review Status:** Updated with DNS resolver documentation
+**Last Updated:** November 2025
 **Next Review:** After successful 3-node cluster deployment
