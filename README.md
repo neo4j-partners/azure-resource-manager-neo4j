@@ -10,7 +10,6 @@ This project modernizes the Neo4j Azure deployment infrastructure with:
 
 - **Azure Bicep** - Modern, declarative infrastructure-as-code replacing ARM JSON
 - **Cloud-Init** - Declarative VM provisioning replacing complex bash scripts
-- **Key Vault Integration** - Secure secret management with VM Managed Identity
 - **Automated Linting** - Quality and security validation via Bicep linter
 - **Simplified Architecture** - Clean, maintainable templates without over-engineering
 

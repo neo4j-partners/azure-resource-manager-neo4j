@@ -207,15 +207,8 @@ class DeploymentEngine:
             # Community doesn't have nodeCount, plugins, or version params in template
             # Those are fixed: always standalone (1 node), Neo4j 5, no plugins
 
-        # Plugins (Enterprise VM and AKS only - not supported in Community)
-        if self.deployment_type in ("vm", "aks"):
-            set_param("installGraphDataScience", "Yes" if scenario.install_graph_data_science else "No")
-            if scenario.install_graph_data_science and scenario.graph_data_science_license_key != "None":
-                set_param("graphDataScienceLicenseKey", scenario.graph_data_science_license_key)
-
-            set_param("installBloom", "Yes" if scenario.install_bloom else "No")
-            if scenario.install_bloom and scenario.bloom_license_key != "None":
-                set_param("bloomLicenseKey", scenario.bloom_license_key)
+        # Note: Plugin parameters (installGraphDataScience, installBloom) removed
+        # VM templates now use cloud-init with plugins configured directly in scripts
 
         return params
 

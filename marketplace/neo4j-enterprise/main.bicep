@@ -25,11 +25,23 @@ param nodeCount int
 param diskSize int
 
 param location string = resourceGroup().location
-@description('Optional UTC value for testing. Leave empty for deterministic deployments.')
-param utcValue string = ''
+
+// Customer Usage Attribution - Partner tracking GUID
+#disable-next-line no-deployments-resources
+resource partnerUsageAttribution 'Microsoft.Resources/deployments@2021-04-01' = {
+  name: 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX'
+  properties: {
+    mode: 'Incremental'
+    template: {
+      '$schema': 'https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#'
+      contentVersion: '1.0.0.0'
+      resources: []
+    }
+  }
+}
 
 var deploymentUniqueId = uniqueString(resourceGroup().id, deployment().name)
-var resourceSuffix = utcValue != '' ? utcValue : deploymentUniqueId
+var resourceSuffix = deploymentUniqueId
 
 module network 'modules/network.bicep' = {
   name: 'network-deployment'

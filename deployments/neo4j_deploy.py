@@ -1010,6 +1010,79 @@ def report(
         console.print(f"[cyan]Output:[/cyan] {output}")
 
 
+@app.command()
+def package(
+    template: Annotated[
+        str,
+        typer.Option("--template", "-t", help="Template to package (enterprise, community, aks)")
+    ] = "enterprise",
+    env_file: Annotated[
+        Optional[Path],
+        typer.Option("--env", "-e", help="Path to .env file (default: ../.env from deployments/)")
+    ] = None,
+) -> None:
+    """
+    Build marketplace package with PID from .env file.
+
+    This command:
+    1. Reads NEO4J_PARTNER_PID from .env file
+    2. Updates main.bicep with the PID
+    3. Compiles Bicep to mainTemplate.json
+    4. Creates marketplace zip archive in root directory
+
+    The .env file should contain:
+        NEO4J_PARTNER_PID=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+
+    Examples:
+        uv run neo4j-deploy package                    # Package enterprise template
+        uv run neo4j-deploy package --template community
+        uv run neo4j-deploy package --env /path/to/.env
+    """
+    from pathlib import Path as PathLib
+
+    from src.package import PackageBuilder
+
+    # Determine paths (run from deployments/ directory)
+    deployments_dir = PathLib(__file__).parent.resolve()
+    root_dir = deployments_dir.parent
+
+    # Map template names to directories
+    template_map = {
+        "enterprise": "neo4j-enterprise",
+        "community": "neo4j-community",
+        "aks": "neo4j-enterprise-aks",
+    }
+
+    if template not in template_map:
+        console.print(f"[red]Error: Unknown template '{template}'[/red]")
+        console.print(f"[cyan]Valid templates: {', '.join(template_map.keys())}[/cyan]")
+        raise typer.Exit(1)
+
+    template_dir = root_dir / "marketplace" / template_map[template]
+
+    if not template_dir.exists():
+        console.print(f"[red]Error: Template directory not found: {template_dir}[/red]")
+        raise typer.Exit(1)
+
+    # Resolve .env file path
+    if env_file:
+        env_path = PathLib(env_file).resolve()
+    else:
+        env_path = root_dir / ".env"
+
+    # Build the package
+    builder = PackageBuilder(
+        template_dir=template_dir,
+        env_file=env_path,
+        output_dir=root_dir,
+    )
+
+    success = builder.build(template_name=template_map[template])
+
+    if not success:
+        raise typer.Exit(1)
+
+
 def main() -> int:
     """
     Main entry point for the CLI.

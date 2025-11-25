@@ -5,12 +5,6 @@ param loadBalancerCondition bool
 var loadBalancerName = 'lb-neo4j-${location}-${resourceSuffix}'
 var publicIpName = 'ip-neo4j-${location}-${resourceSuffix}'
 
-var loadBalancerBackendAddressPools = [
-  {
-    id: resourceId('Microsoft.Network/loadBalancers/backendAddressPools', loadBalancerName, 'backend')
-  }
-]
-
 resource publicIp 'Microsoft.Network/publicIPAddresses@2025-01-01' = if (loadBalancerCondition) {
   name: publicIpName
   location: location
@@ -143,6 +137,6 @@ resource loadBalancer 'Microsoft.Network/loadBalancers@2025-01-01' = if (loadBal
   }
 }
 
-output loadBalancerBackendAddressPools array = (loadBalancerCondition ? loadBalancer.properties.backendAddressPools : [])
-output publicIpAddress string = (loadBalancerCondition ? publicIp.properties.ipAddress : '')
-output publicIpFqdn string = (loadBalancerCondition ? publicIp.properties.dnsSettings.fqdn : '')
+output loadBalancerBackendAddressPools array = loadBalancerCondition ? loadBalancer!.properties.backendAddressPools : []
+output publicIpAddress string = loadBalancerCondition ? publicIp!.properties.ipAddress : ''
+output publicIpFqdn string = loadBalancerCondition ? publicIp!.properties.dnsSettings.fqdn : ''

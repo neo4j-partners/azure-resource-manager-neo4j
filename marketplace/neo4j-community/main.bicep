@@ -11,11 +11,8 @@ param diskSize int
 @description('Azure region for all resources')
 param location string = resourceGroup().location
 
-@description('Optional UTC value for testing. Leave empty for deterministic deployments.')
-param utcValue string = ''
-
 var deploymentUniqueId = uniqueString(resourceGroup().id, deployment().name)
-var resourceSuffix = utcValue != '' ? utcValue : deploymentUniqueId
+var resourceSuffix = deploymentUniqueId
 var adminUsername = 'neo4j'
 
 // Cloud-init configuration for standalone deployment
