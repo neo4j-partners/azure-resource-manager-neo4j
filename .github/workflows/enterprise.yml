@@ -1,4 +1,16 @@
-name: Test ARM Template for Enterprise
+name: Test Bicep Template for Enterprise
+
+# This workflow validates Neo4j Enterprise deployments using:
+# - Bicep templates (compiled to ARM JSON)
+# - Python-based validation (validate_deploy)
+#
+# Test scenarios (Neo4j v5 only):
+# - Cluster (3 nodes) with Enterprise license
+# - Standalone with Enterprise license
+# - Cluster (3 nodes) with Evaluation license
+# - Standalone with Evaluation license
+#
+# Note: Neo4j v4.4 tests removed - not yet migrated to Bicep
 
 on:
   workflow_dispatch:
@@ -6,88 +18,241 @@ on:
     paths:
       - marketplace/neo4j-enterprise/**
       - scripts/neo4j-enterprise/**
+      - deployments/**
       - .github/**
-    branches:    
+    branches:
       - main
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  TEMPLATE_PATH: marketplace/neo4j-enterprise
+  DEPLOYMENTS_PATH: deployments
 
 jobs:
   test-template-cluster-v5:
     name: Test ARM (Neo4j Cluster)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
     env:
       ResourceGroupLocation: westeurope
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Azure Login
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
 
-    - name: Configure Resource Group and Deployment variables
-      id: variables
-      run: |
-        DATE=`echo $(date '+%Y%m%d-%S-%2N')`
-        RGNAME=`echo ghactions-rg-$DATE`
-        DEPNAME=`echo ghactions-dep-$DATE`
-        ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/`
-        if ${{ github.event_name == 'workflow_dispatch' }}; then
-          ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/`
-        fi
-        echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
-        echo "artifactsLocation=$ARTIFACTS_LOCATION" >> $GITHUB_OUTPUT
-        echo "depName=$DEPNAME" >> $GITHUB_OUTPUT
-        echo "Resource Group name: $RGNAME"
-        echo "Deployment name: $DEPNAME"
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/uv
+          key: ${{ runner.os }}-uv-0.9.x
 
-    - name: Create Resource Group
-      uses: Azure/CLI@v1
-      id: rgCreate
-      with:
-        inlineScript: |
-          #!/bin/bash
-          az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
-          echo "Azure resource group created"
-          echo "Artifacts Location = ${{ steps.variables.outputs.artifactsLocation }}"
+      - name: Install uv
+        run: |
+          set -euo pipefail
+          if [ ! -f ~/.local/bin/uv ]; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-    - name: Deploy ARM Template (Neo4j Cluster v5)
-      id: deployARM
-      uses: azure/arm-deploy@v1
-      with:
-        resourceGroupName: ${{ steps.variables.outputs.rgName }}
-        template: ./marketplace/neo4j-enterprise/mainTemplate.json
-        parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="3" graphDatabaseVersion="5" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
-        deploymentName: ${{ steps.variables.outputs.depName }}
+      - name: Verify uv installation
+        run: |
+          uv --version
 
-    - name: Execute tests
-      run: |
-        URI=$(echo "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g') 
-        PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
-        curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
-        chmod +x ./neo4jtester_linux
-        ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}" "Enterprise"
+      - name: Install validation dependencies
+        run: |
+          set -euo pipefail
+          cd ${{ env.DEPLOYMENTS_PATH }}
+          uv sync
 
-    - name: Delete Resource Group
-      if: always()
-      uses: Azure/CLI@v1
-      with:
-        inlineScript: |
-          #!/bin/bash
-          az group delete --name ${{ steps.variables.outputs.rgName }} --yes
-          echo "Azure resource group deleted !!"
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Configure Resource Group and Deployment variables
+        id: variables
+        run: |
+          set -euo pipefail
+          TIMESTAMP=$(date '+%Y%m%d-%H%M%S')
+          RGNAME="ghactions-rg-${TIMESTAMP}-${{ github.run_id }}-${{ github.run_attempt }}"
+          DEPNAME="ghactions-dep-${TIMESTAMP}"
+          echo "rgName=${RGNAME}" >> $GITHUB_OUTPUT
+          echo "depName=${DEPNAME}" >> $GITHUB_OUTPUT
+          echo "Resource Group name: ${RGNAME}"
+          echo "Deployment name: ${DEPNAME}"
+
+      - name: Create Resource Group
+        uses: Azure/CLI@v1
+        with:
+          inlineScript: |
+            set -euo pipefail
+            az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
+            echo "Azure resource group created"
+
+      - name: Compile Bicep template to ARM JSON
+        run: |
+          set -euo pipefail
+          cd ${{ env.TEMPLATE_PATH }}
+          az bicep build --file main.bicep --outfile mainTemplate-generated.json
+          echo "Bicep template compiled successfully"
+
+      - name: Deploy ARM Template (Neo4j Cluster v5)
+        id: deployARM
+        uses: azure/arm-deploy@v1
+        with:
+          resourceGroupName: ${{ steps.variables.outputs.rgName }}
+          template: ./${{ env.TEMPLATE_PATH }}/mainTemplate-generated.json
+          parameters: ./${{ env.TEMPLATE_PATH }}/parameters.json nodeCount="3" graphDatabaseVersion="5"
+          deploymentName: ${{ steps.variables.outputs.depName }}
+
+      - name: Validate deployment
+        run: |
+          set -euo pipefail
+
+          # Validate deployment output exists
+          if [ -z "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" ]; then
+            echo "ERROR: Deployment output 'neo4jClusterBrowserURL' is missing"
+            exit 1
+          fi
+
+          # Extract hostname from URL for troubleshooting
+          BROWSER_URL="${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}"
+          HOSTNAME=$(echo "$BROWSER_URL" | sed 's#http://##;s#:.*##')
+
+          echo "=== Deployment Information ==="
+          echo "Browser URL: $BROWSER_URL"
+          echo "Hostname: $HOSTNAME"
+          echo ""
+
+          # Wait and check connectivity in a loop
+          echo "=== Waiting for Neo4j to be ready (max 15 minutes) ==="
+          MAX_ATTEMPTS=90  # 90 * 10 seconds = 15 minutes
+          ATTEMPT=0
+
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking connectivity..."
+
+            # Check DNS resolution (skip if hostname is an IP address)
+            if [[ ! "$HOSTNAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              if ! nslookup "$HOSTNAME" > /dev/null 2>&1; then
+                echo "  ✗ DNS resolution failed"
+                sleep 10
+                continue
+              fi
+              echo "  ✓ DNS resolved"
+            else
+              echo "  ℹ Hostname is an IP address, skipping DNS check"
+            fi
+
+            # Check if port 7687 is open
+            if ! nc -z -w5 "$HOSTNAME" 7687 > /dev/null 2>&1; then
+              echo "  ✗ Port 7687 not accessible"
+              sleep 10
+              continue
+            fi
+            echo "  ✓ Port 7687 is open"
+
+            # Check if HTTP endpoint responds
+            if curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$BROWSER_URL" | grep -q "200\|404"; then
+              echo "  ✓ HTTP endpoint responding"
+              echo "  ✓ Neo4j appears to be ready!"
+              break
+            else
+              echo "  ✗ HTTP endpoint not responding yet"
+            fi
+
+            sleep 10
+          done
+
+          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+            echo ""
+            echo "=== ERROR: Neo4j did not become ready within 15 minutes ==="
+            echo "Last checks:"
+            echo "DNS lookup:"
+            nslookup "$HOSTNAME" || true
+            echo ""
+            echo "Port check:"
+            nc -zv "$HOSTNAME" 7687 || true
+            echo ""
+            echo "HTTP check:"
+            curl -v --max-time 10 "$BROWSER_URL" || true
+            exit 1
+          fi
+
+          # Transform URI for Bolt connection
+          URI=$(echo "$BROWSER_URL" | sed 's/http/neo4j/g;s/7474\//7687/g')
+
+          # Validate transformed URI
+          if [[ ! "$URI" =~ ^neo4j:// ]]; then
+            echo "ERROR: URI transformation failed. Got: $URI"
+            exit 1
+          fi
+
+          PASSWORD=$(cat ./${{ env.TEMPLATE_PATH }}/parameters.json | jq -r .adminPassword.value)
+
+          echo ""
+          echo "=== Running Neo4j Validation ==="
+          echo "URI: $URI"
+          cd ${{ env.DEPLOYMENTS_PATH }}
+          uv run validate_deploy "${URI}" "neo4j" "${PASSWORD}" "Enterprise" "3"
+
+      - name: Delete Resource Group
+        if: always()
+        uses: Azure/CLI@v1
+        with:
+          inlineScript: |
+            set -euo pipefail
+            az group delete --name ${{ steps.variables.outputs.rgName }} --yes
+            echo "Azure resource group deleted"
 
   test-template-standalone-v5:
     name: Test ARM (Neo4j Standalone)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       ResourceGroupLocation: eastus2
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/uv
+          key: ${{ runner.os }}-uv-0.9.x
+
+      - name: Install uv
+        run: |
+          set -euo pipefail
+          if [ ! -f ~/.local/bin/uv ]; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Verify uv installation
+        run: |
+          uv --version
+
+      - name: Install validation dependencies
+        run: |
+          set -euo pipefail
+          cd ${{ env.DEPLOYMENTS_PATH }}
+          uv sync
 
       - name: Azure Login
-        uses: azure/login@v1
+        uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
@@ -97,12 +262,7 @@ jobs:
           DATE=`echo $(date '+%Y%m%d-%S-%2N')`
           RGNAME=`echo ghactions-rg-$DATE`
           DEPNAME=`echo ghactions-dep-$DATE`
-          ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/`
-          if ${{ github.event_name == 'workflow_dispatch' }}; then
-            ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/`
-          fi
           echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
-          echo "artifactsLocation=$ARTIFACTS_LOCATION" >> $GITHUB_OUTPUT          
           echo "depName=$DEPNAME" >> $GITHUB_OUTPUT
           echo "Resource Group name: $RGNAME"
           echo "Deployment name: $DEPNAME"
@@ -115,24 +275,119 @@ jobs:
             #!/bin/bash
             az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
             echo "Azure resource group created"
-            echo "Artifacts Location = ${{ steps.variables.outputs.artifactsLocation }}"
+
+      - name: Compile Bicep template to ARM JSON
+        run: |
+          cd marketplace/neo4j-enterprise
+          az bicep build --file main.bicep --outfile mainTemplate-generated.json
+          echo "Bicep template compiled successfully"
 
       - name: Deploy ARM Template (Neo4j Standalone v5)
         id: deployARM
         uses: azure/arm-deploy@v1
         with:
           resourceGroupName: ${{ steps.variables.outputs.rgName }}
-          template: ./marketplace/neo4j-enterprise/mainTemplate.json
-          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="1" graphDatabaseVersion="5" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
+          template: ./marketplace/neo4j-enterprise/mainTemplate-generated.json
+          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="1" graphDatabaseVersion="5"
           deploymentName: ${{ steps.variables.outputs.depName }}
 
-      - name: Execute tests
+      - name: Check VM provisioning status
         run: |
-          URI=$(echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g') 
+          echo "=== Checking VMSS provisioning status ==="
+          VMSS_NAME="${{ steps.deployARM.outputs.vmScaleSetsName }}"
+          RG_NAME="${{ steps.variables.outputs.rgName }}"
+
+          echo "VMSS: $VMSS_NAME"
+          echo "Resource Group: $RG_NAME"
+          echo ""
+
+          # List VMSS instances and their provisioning state
+          echo "Checking instance status..."
+          az vmss list-instances --name "$VMSS_NAME" --resource-group "$RG_NAME" --output table || true
+
+          # Get detailed provisioning state
+          az vmss list-instances --name "$VMSS_NAME" --resource-group "$RG_NAME" \
+            --query "[].{Name:name, ProvisioningState:provisioningState, PowerState:instanceView.statuses[1].displayStatus}" \
+            --output table || true
+
+      - name: Validate deployment
+        run: |
+          BROWSER_URL="${{ steps.deployARM.outputs.neo4jBrowserURL }}"
+          HOSTNAME=$(echo "$BROWSER_URL" | sed 's#http://##;s#:.*##')
+          VMSS_NAME="${{ steps.deployARM.outputs.vmScaleSetsName }}"
+          RG_NAME="${{ steps.variables.outputs.rgName }}"
+
+          echo "=== Deployment Information ==="
+          echo "Browser URL: $BROWSER_URL"
+          echo "Hostname: $HOSTNAME"
+          echo "VMSS: $VMSS_NAME"
+          echo ""
+
+          # Wait and check connectivity in a loop
+          echo "=== Waiting for Neo4j to be ready (max 20 minutes) ==="
+          MAX_ATTEMPTS=120  # 120 * 10 seconds = 20 minutes
+          ATTEMPT=0
+
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking connectivity..."
+
+            # Check DNS resolution (skip if hostname is an IP address)
+            if [[ ! "$HOSTNAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              if ! nslookup "$HOSTNAME" > /dev/null 2>&1; then
+                echo "  ✗ DNS resolution failed"
+                sleep 10
+                continue
+              fi
+              echo "  ✓ DNS resolved"
+            else
+              echo "  ℹ Hostname is an IP address, skipping DNS check"
+            fi
+
+            if ! nc -z -w5 "$HOSTNAME" 7687 > /dev/null 2>&1; then
+              echo "  ✗ Port 7687 not accessible"
+              sleep 10
+              continue
+            fi
+            echo "  ✓ Port 7687 is open"
+
+            if curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$BROWSER_URL" | grep -q "200\|404"; then
+              echo "  ✓ HTTP endpoint responding"
+              echo "  ✓ Neo4j appears to be ready!"
+              break
+            else
+              echo "  ✗ HTTP endpoint not responding yet"
+            fi
+
+            sleep 10
+          done
+
+          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+            echo ""
+            echo "=== ERROR: Neo4j did not become ready within 20 minutes ==="
+            echo ""
+            echo "Checking VM status..."
+            az vmss list-instances --name "$VMSS_NAME" --resource-group "$RG_NAME" --output table || true
+            echo ""
+            echo "Attempting to retrieve cloud-init logs from VM instance 0..."
+            az vmss run-command invoke \
+              --resource-group "$RG_NAME" \
+              --name "$VMSS_NAME" \
+              --instance-id 0 \
+              --command-id RunShellScript \
+              --scripts "echo '=== Cloud-init status ==='; cloud-init status; echo ''; echo '=== Last 100 lines of cloud-init log ==='; tail -100 /var/log/cloud-init-output.log; echo ''; echo '=== Neo4j service status ==='; systemctl status neo4j || true" \
+              --query 'value[0].message' \
+              --output tsv || echo "Failed to retrieve logs"
+            exit 1
+          fi
+
+          URI=$(echo "$BROWSER_URL" | sed 's/http/neo4j/g;s/7474\//7687/g')
           PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
-          curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
-          chmod +x ./neo4jtester_linux
-          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}" "Enterprise"
+
+          echo ""
+          echo "=== Running Neo4j Validation ==="
+          cd ${{ env.DEPLOYMENTS_PATH }}
+          uv run validate_deploy "${URI}" "neo4j" "${PASSWORD}" "Enterprise"
 
       - name: Delete Resource Group
         if: always()
@@ -145,15 +400,44 @@ jobs:
 
   test-template-cluster-v5-evaluation:
     name: Test ARM (Neo4j Cluster Evaluation)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       ResourceGroupLocation: westeurope
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/uv
+          key: ${{ runner.os }}-uv-0.9.x
+
+      - name: Install uv
+        run: |
+          set -euo pipefail
+          if [ ! -f ~/.local/bin/uv ]; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Verify uv installation
+        run: |
+          uv --version
+
+      - name: Install validation dependencies
+        run: |
+          set -euo pipefail
+          cd ${{ env.DEPLOYMENTS_PATH }}
+          uv sync
 
       - name: Azure Login
-        uses: azure/login@v1
+        uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
@@ -163,12 +447,7 @@ jobs:
           DATE=`echo $(date '+%Y%m%d-%S-%2N')`
           RGNAME=`echo ghactions-rg-$DATE`
           DEPNAME=`echo ghactions-dep-$DATE`
-          ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/`
-          if ${{ github.event_name == 'workflow_dispatch' }}; then
-            ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/`
-          fi
           echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
-          echo "artifactsLocation=$ARTIFACTS_LOCATION" >> $GITHUB_OUTPUT
           echo "depName=$DEPNAME" >> $GITHUB_OUTPUT
           echo "Resource Group name: $RGNAME"
           echo "Deployment name: $DEPNAME"
@@ -181,24 +460,82 @@ jobs:
             #!/bin/bash
             az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
             echo "Azure resource group created"
-            echo "Artifacts Location = ${{ steps.variables.outputs.artifactsLocation }}"
+
+      - name: Compile Bicep template to ARM JSON
+        run: |
+          cd marketplace/neo4j-enterprise
+          az bicep build --file main.bicep --outfile mainTemplate-generated.json
+          echo "Bicep template compiled successfully"
 
       - name: Deploy ARM Template (Neo4j Cluster v5)
         id: deployARM
         uses: azure/arm-deploy@v1
         with:
           resourceGroupName: ${{ steps.variables.outputs.rgName }}
-          template: ./marketplace/neo4j-enterprise/mainTemplate.json
-          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="3" graphDatabaseVersion="5" licenseType="Evaluation" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
+          template: ./marketplace/neo4j-enterprise/mainTemplate-generated.json
+          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="3" graphDatabaseVersion="5" licenseType="Evaluation"
           deploymentName: ${{ steps.variables.outputs.depName }}
 
-      - name: Execute tests
+      - name: Validate deployment
         run: |
-          URI=$(echo "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g') 
+          BROWSER_URL="${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}"
+          HOSTNAME=$(echo "$BROWSER_URL" | sed 's#http://##;s#:.*##')
+
+          echo "=== Deployment Information ==="
+          echo "Browser URL: $BROWSER_URL"
+          echo "Hostname: $HOSTNAME"
+          echo ""
+
+          echo "=== Waiting for Neo4j to be ready (max 15 minutes) ==="
+          MAX_ATTEMPTS=90
+          ATTEMPT=0
+
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking connectivity..."
+
+            # Check DNS resolution (skip if hostname is an IP address)
+            if [[ ! "$HOSTNAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              if ! nslookup "$HOSTNAME" > /dev/null 2>&1; then
+                echo "  ✗ DNS resolution failed"
+                sleep 10
+                continue
+              fi
+              echo "  ✓ DNS resolved"
+            else
+              echo "  ℹ Hostname is an IP address, skipping DNS check"
+            fi
+
+            if ! nc -z -w5 "$HOSTNAME" 7687 > /dev/null 2>&1; then
+              echo "  ✗ Port 7687 not accessible"
+              sleep 10
+              continue
+            fi
+            echo "  ✓ Port 7687 is open"
+
+            if curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$BROWSER_URL" | grep -q "200\|404"; then
+              echo "  ✓ HTTP endpoint responding"
+              echo "  ✓ Neo4j appears to be ready!"
+              break
+            else
+              echo "  ✗ HTTP endpoint not responding yet"
+            fi
+
+            sleep 10
+          done
+
+          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+            echo "=== ERROR: Neo4j did not become ready within 15 minutes ==="
+            exit 1
+          fi
+
+          URI=$(echo "$BROWSER_URL" | sed 's/http/neo4j/g;s/7474\//7687/g')
           PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
-          curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
-          chmod +x ./neo4jtester_linux
-          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}" "Evaluation"
+
+          echo ""
+          echo "=== Running Neo4j Validation ==="
+          cd ${{ env.DEPLOYMENTS_PATH }}
+          uv run validate_deploy "${URI}" "neo4j" "${PASSWORD}" "Evaluation" "3"
 
       - name: Delete Resource Group
         if: always()
@@ -211,15 +548,44 @@ jobs:
 
   test-template-standalone-v5-evaluation:
     name: Test ARM (Neo4j Standalone Evaluation)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       ResourceGroupLocation: eastus2
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/uv
+          key: ${{ runner.os }}-uv-0.9.x
+
+      - name: Install uv
+        run: |
+          set -euo pipefail
+          if [ ! -f ~/.local/bin/uv ]; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Verify uv installation
+        run: |
+          uv --version
+
+      - name: Install validation dependencies
+        run: |
+          set -euo pipefail
+          cd ${{ env.DEPLOYMENTS_PATH }}
+          uv sync
 
       - name: Azure Login
-        uses: azure/login@v1
+        uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
@@ -229,12 +595,7 @@ jobs:
           DATE=`echo $(date '+%Y%m%d-%S-%2N')`
           RGNAME=`echo ghactions-rg-$DATE`
           DEPNAME=`echo ghactions-dep-$DATE`
-          ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/`
-          if ${{ github.event_name == 'workflow_dispatch' }}; then
-            ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/`
-          fi
           echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
-          echo "artifactsLocation=$ARTIFACTS_LOCATION" >> $GITHUB_OUTPUT
           echo "depName=$DEPNAME" >> $GITHUB_OUTPUT
           echo "Resource Group name: $RGNAME"
           echo "Deployment name: $DEPNAME"
@@ -247,156 +608,82 @@ jobs:
             #!/bin/bash
             az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
             echo "Azure resource group created"
-            echo "Artifacts Location = ${{ steps.variables.outputs.artifactsLocation }}"
+
+      - name: Compile Bicep template to ARM JSON
+        run: |
+          cd marketplace/neo4j-enterprise
+          az bicep build --file main.bicep --outfile mainTemplate-generated.json
+          echo "Bicep template compiled successfully"
 
       - name: Deploy ARM Template (Neo4j Standalone v5)
         id: deployARM
         uses: azure/arm-deploy@v1
         with:
           resourceGroupName: ${{ steps.variables.outputs.rgName }}
-          template: ./marketplace/neo4j-enterprise/mainTemplate.json
-          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="1" graphDatabaseVersion="5" licenseType="Evaluation" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
+          template: ./marketplace/neo4j-enterprise/mainTemplate-generated.json
+          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="1" graphDatabaseVersion="5" licenseType="Evaluation"
           deploymentName: ${{ steps.variables.outputs.depName }}
 
-      - name: Execute tests
+      - name: Validate deployment
         run: |
-          URI=$(echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g') 
-          PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
-          curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
-          chmod +x ./neo4jtester_linux
-          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}" "Evaluation"
+          BROWSER_URL="${{ steps.deployARM.outputs.neo4jBrowserURL }}"
+          HOSTNAME=$(echo "$BROWSER_URL" | sed 's#http://##;s#:.*##')
 
-      - name: Delete Resource Group
-        if: always()
-        uses: Azure/CLI@v1
-        with:
-          inlineScript: |
-            #!/bin/bash
-            az group delete --name ${{ steps.variables.outputs.rgName }} --yes
-            echo "Azure resource group deleted !!"
+          echo "=== Deployment Information ==="
+          echo "Browser URL: $BROWSER_URL"
+          echo "Hostname: $HOSTNAME"
+          echo ""
 
-  test-template-cluster-v44:
-    name: Test ARM (Neo4j Cluster v4.4)
-    runs-on: ubuntu-latest
-    env:
-      ResourceGroupLocation: uksouth
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+          echo "=== Waiting for Neo4j to be ready (max 15 minutes) ==="
+          MAX_ATTEMPTS=90
+          ATTEMPT=0
 
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking connectivity..."
 
-      - name: Configure Resource Group and Deployment variables
-        id: variables
-        run: |
-          DATE=`echo $(date '+%Y%m%d-%S-%2N')`
-          RGNAME=`echo ghactions-rg-$DATE`
-          DEPNAME=`echo ghactions-dep-$DATE`
-          ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/`
-          if ${{ github.event_name == 'workflow_dispatch' }}; then
-            ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/`
+            # Check DNS resolution (skip if hostname is an IP address)
+            if [[ ! "$HOSTNAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              if ! nslookup "$HOSTNAME" > /dev/null 2>&1; then
+                echo "  ✗ DNS resolution failed"
+                sleep 10
+                continue
+              fi
+              echo "  ✓ DNS resolved"
+            else
+              echo "  ℹ Hostname is an IP address, skipping DNS check"
+            fi
+
+            if ! nc -z -w5 "$HOSTNAME" 7687 > /dev/null 2>&1; then
+              echo "  ✗ Port 7687 not accessible"
+              sleep 10
+              continue
+            fi
+            echo "  ✓ Port 7687 is open"
+
+            if curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$BROWSER_URL" | grep -q "200\|404"; then
+              echo "  ✓ HTTP endpoint responding"
+              echo "  ✓ Neo4j appears to be ready!"
+              break
+            else
+              echo "  ✗ HTTP endpoint not responding yet"
+            fi
+
+            sleep 10
+          done
+
+          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+            echo "=== ERROR: Neo4j did not become ready within 15 minutes ==="
+            exit 1
           fi
-          echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
-          echo "artifactsLocation=$ARTIFACTS_LOCATION" >> $GITHUB_OUTPUT
-          echo "depName=$DEPNAME" >> $GITHUB_OUTPUT
-          echo "Resource Group name: $RGNAME"
-          echo "Deployment name: $DEPNAME"
 
-      - name: Create Resource Group
-        uses: Azure/CLI@v1
-        id: rgCreate
-        with:
-          inlineScript: |
-            #!/bin/bash
-            az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
-            echo "Azure resource group created"
-            echo "Artifacts Location = ${{ steps.variables.outputs.artifactsLocation }}"
-
-      - name: Deploy ARM Template (Neo4j Cluster v4.4)
-        id: deployARM
-        uses: azure/arm-deploy@v1
-        with:
-          resourceGroupName: ${{ steps.variables.outputs.rgName }}
-          template: ./marketplace/neo4j-enterprise/mainTemplate.json
-          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="3" graphDatabaseVersion="4.4" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
-          deploymentName: ${{ steps.variables.outputs.depName }}
-
-      - name: Execute tests
-        run: |
-          URI=$(echo "${{ steps.deployARM.outputs.neo4jClusterBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g') 
+          URI=$(echo "$BROWSER_URL" | sed 's/http/neo4j/g;s/7474\//7687/g')
           PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
-          curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
-          chmod +x ./neo4jtester_linux
-          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}" "Enterprise"
 
-      - name: Delete Resource Group
-        if: always()
-        uses: Azure/CLI@v1
-        with:
-          inlineScript: |
-            #!/bin/bash
-            az group delete --name ${{ steps.variables.outputs.rgName }} --yes
-            echo "Azure resource group deleted !!"
-
-  test-template-standalone-v44:
-    name: Test ARM (Neo4j Standalone v4.4)
-    runs-on: ubuntu-latest
-    env:
-      ResourceGroupLocation: swedencentral
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Configure Resource Group and Deployment variables
-        id: variables
-        run: |
-          DATE=`echo $(date '+%Y%m%d-%S-%2N')`
-          RGNAME=`echo ghactions-rg-$DATE`
-          DEPNAME=`echo ghactions-dep-$DATE`
-          ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.head_ref }}/`
-          if ${{ github.event_name == 'workflow_dispatch' }}; then
-            ARTIFACTS_LOCATION=`echo https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/`
-          fi
-          echo "rgName=$RGNAME" >> $GITHUB_OUTPUT
-          echo "artifactsLocation=$ARTIFACTS_LOCATION" >> $GITHUB_OUTPUT
-          echo "depName=$DEPNAME" >> $GITHUB_OUTPUT
-          echo "Resource Group name: $RGNAME"
-          echo "Deployment name: $DEPNAME"
-
-      - name: Create Resource Group
-        uses: Azure/CLI@v1
-        id: rgCreate
-        with:
-          inlineScript: |
-            #!/bin/bash
-            az group create --name ${{ steps.variables.outputs.rgName }} --location ${{ env.ResourceGroupLocation }}
-            echo "Azure resource group created"
-            echo "Artifacts Location = ${{ steps.variables.outputs.artifactsLocation }}"
-
-      - name: Deploy ARM Template (Neo4j Standalone v4.4)
-        id: deployARM
-        uses: azure/arm-deploy@v1
-        with:
-          resourceGroupName: ${{ steps.variables.outputs.rgName }}
-          template: ./marketplace/neo4j-enterprise/mainTemplate.json
-          parameters: ./marketplace/neo4j-enterprise/parameters.json nodeCount="1" graphDatabaseVersion="4.4" _artifactsLocation=${{ steps.variables.outputs.artifactsLocation }}
-          deploymentName: ${{ steps.variables.outputs.depName }}
-
-      - name: Execute tests
-        run: |
-          URI=$(echo "${{ steps.deployARM.outputs.neo4jBrowserURL }}" | sed 's/http/neo4j/g;s/7474\//7687/g') 
-          PASSWORD=$(cat ./marketplace/neo4j-enterprise/parameters.json | jq .adminPassword.value | sed 's/"//g')
-          curl -LJO https://github.com/neo4j/neo4jtester/raw/main/build/neo4jtester_linux
-          chmod +x ./neo4jtester_linux
-          ./neo4jtester_linux "${URI}" "neo4j" "${PASSWORD}" "Enterprise"
+          echo ""
+          echo "=== Running Neo4j Validation ==="
+          cd ${{ env.DEPLOYMENTS_PATH }}
+          uv run validate_deploy "${URI}" "neo4j" "${PASSWORD}" "Evaluation"
 
       - name: Delete Resource Group
         if: always()

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "resourceNamePrefix": {
+      "value": "neo4j"
+    },
+    "kubernetesVersion": {
+      "value": "1.31"
+    },
+    "nodeCount": {
+      "value": 1
+    },
+    "graphDatabaseVersion": {
+      "value": "5"
+    },
+    "diskSize": {
+      "value": 32
+    },
+    "adminPassword": {
+      "value": "TestPassword123!"
+    },
+    "licenseType": {
+      "value": "Evaluation"
+    },
+    "userNodeSize": {
+      "value": "Standard_E4s_v5"
+    },
+    "userNodeCountMin": {
+      "value": 1
+    },
+    "userNodeCountMax": {
+      "value": 10
+    },
+    "enableDebugMode": {
+      "value": "No"
+    }
+  }
+}

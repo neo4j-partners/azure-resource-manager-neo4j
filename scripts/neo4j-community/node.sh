@@ -37,28 +37,6 @@ mount_data_disk() {
   mount -a
 }
 
-install_azure_from_dnf() {
-
-  sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
-  sudo dnf install -y https://packages.microsoft.com/config/rhel/8/packages-microsoft-prod.rpm
-
-  cat <<EOF >/etc/yum.repos.d/azure-cli.repo
-[azure-cli]
-name=Azure CLI
-baseurl=https://packages.microsoft.com/yumrepos/azure-cli
-enabled=1
-gpgcheck=1
-gpgkey=https://packages.microsoft.com/keys/microsoft.asc
-EOF
-
-sudo dnf install -y azure-cli
-}
-
-perform_az_login() {
-  echo "Performing az login"
-  az login --identity -u "${azLoginIdentity}"
-}
-
 install_neo4j_from_yum() {
 
   echo "Adding neo4j yum repo..."
@@ -161,11 +139,10 @@ build_neo4j_conf_file() {
 }
 
 mount_data_disk
-install_azure_from_dnf
-perform_az_login
+# Azure CLI no longer needed - community edition doesn't use clustering
 install_neo4j_from_yum
 install_apoc_plugin
 extension_config
 build_neo4j_conf_file
 start_neo4j
-set_vm_tags
+# set_vm_tags - REMOVED: Tags now set by ARM template

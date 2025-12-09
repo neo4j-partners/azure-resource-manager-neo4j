@@ -1,0 +1,30 @@
+[project]
+name = "neo4j_azure_deploy"
+version = "0.1.0"
+description = "Automated deployment and testing framework for Neo4j Enterprise on Azure"
+requires-python = ">=3.12"
+dependencies = [
+    "gitpython>=3.1.45",
+    "neo4j==5.28.2",
+    "pydantic>=2.12.4",
+    "python-dotenv>=1.0.0",
+    "pyyaml>=6.0.3",
+    "requests>=2.32.5",
+    "rich>=14.2.0",
+    "typer>=0.20.0",
+]
+
+[project.scripts]
+neo4j-deploy = "neo4j_deploy:main"
+validate_deploy = "src.validate_deploy:main"
+setup-azure-credentials = "src.azure_credentials:app"
+
+[tool.uv]
+package = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

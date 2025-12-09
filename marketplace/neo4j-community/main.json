@@ -1,0 +1,519 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.39.26.7824",
+      "templateHash": "14523655009637682347"
+    }
+  },
+  "parameters": {
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Admin password for Neo4j VM."
+      }
+    },
+    "vmSize": {
+      "type": "string",
+      "defaultValue": "Standard_B2s",
+      "metadata": {
+        "description": "VM size for Neo4j instance"
+      }
+    },
+    "diskSize": {
+      "type": "int",
+      "metadata": {
+        "description": "Data disk size in GB"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for all resources"
+      }
+    }
+  },
+  "variables": {
+    "deploymentUniqueId": "[uniqueString(resourceGroup().id, deployment().name)]",
+    "resourceSuffix": "[variables('deploymentUniqueId')]",
+    "adminUsername": "neo4j",
+    "cloudInitStandalone": "#cloud-config\n# Neo4j Community 5 Standalone Deployment\n# This cloud-init configuration installs and configures Neo4j Community Edition on a single Azure VM\n\n# Disable firewalld and SELinux\nbootcmd:\n  - systemctl stop firewalld\n  - systemctl disable firewalld\n  - setenforce 0\n  - sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config\n\n# Format and mount data disk\ndisk_setup:\n  /dev/disk/azure/scsi1/lun0:\n    table_type: gpt\n    layout: true\n    overwrite: false\n\nfs_setup:\n  - device: /dev/disk/azure/scsi1/lun0\n    partition: 1\n    filesystem: xfs\n\nmounts:\n  - [\"/dev/disk/azure/scsi1/lun0-part1\", \"/var/lib/neo4j\", \"xfs\", \"defaults\", \"0\", \"0\"]\n\n# Install Neo4j\nyum_repos:\n  neo4j:\n    name: Neo4j Yum Repo\n    baseurl: https://yum.neo4j.com/stable/5\n    enabled: true\n    gpgcheck: true\n    gpgkey: https://debian.neo4j.com/neotechnology.gpg.key\n\n# Run configuration commands\nruncmd:\n  # Import Neo4j GPG key and install\n  - rpm --import https://debian.neo4j.com/neotechnology.gpg.key\n  - dnf install -y neo4j\n\n  # Get instance metadata\n  - UNIQUE_STRING=\"${unique_string}\"\n  - LOCATION=\"${location}\"\n  - PUBLIC_HOSTNAME=\"node-${UNIQUE_STRING}.${LOCATION}.cloudapp.azure.com\"\n  - PRIVATE_IP=$(hostname -i | awk '{print $NF}')\n\n  # Install APOC plugin\n  - mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins/\n\n  # Configure Neo4j network settings\n  - sed -i 's/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf\n  - sed -i \"s/#server.default_advertised_address=localhost/server.default_advertised_address=${PUBLIC_HOSTNAME}/g\" /etc/neo4j/neo4j.conf\n  - sed -i \"s/#server.bolt.advertised_address=:7687/server.bolt.advertised_address=${PUBLIC_HOSTNAME}:7687/g\" /etc/neo4j/neo4j.conf\n  - sed -i 's/#server.bolt.listen_address=:7687/server.bolt.listen_address=0.0.0.0:7687/g' /etc/neo4j/neo4j.conf\n\n  # Configure extensions and security\n  - sed -i 's~#server.unmanaged_extension_classes=org.neo4j.examples.server.unmanaged=/examples/unmanaged~server.unmanaged_extension_classes=com.neo4j.bloom.server=/bloom,semantics.extension=/rdf~g' /etc/neo4j/neo4j.conf\n  - sed -i 's/#dbms.security.procedures.unrestricted=my.extensions.example,my.procedures.*/dbms.security.procedures.unrestricted=gds.*,apoc.*,bloom.*/g' /etc/neo4j/neo4j.conf\n  - echo \"dbms.security.http_auth_allowlist=/,/browser.*,/bloom.*\" >> /etc/neo4j/neo4j.conf\n  - echo \"dbms.security.procedures.allowlist=apoc.*,gds.*,bloom.*\" >> /etc/neo4j/neo4j.conf\n\n  # Add memory recommendations\n  - neo4j-admin server memory-recommendation >> /etc/neo4j/neo4j.conf\n\n  # Configure routing for driver compatibility\n  - echo \"dbms.routing.default_router=SERVER\" >> /etc/neo4j/neo4j.conf\n\n  # SSRF protection\n  - echo \"internal.dbms.cypher_ip_blocklist=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.169.0/24,fc00::/7,fe80::/10,ff00::/8\" >> /etc/neo4j/neo4j.conf\n\n  # Decode and set admin password\n  - |\n    echo \"=== Password Configuration Started ===\"\n    PASSWORD_BASE64='${admin_password}'\n    ADMIN_PASSWORD=$(echo \"$PASSWORD_BASE64\" | base64 -d)\n    echo \"Password received and decoded successfully\"\n    echo \"=== Password Configuration Complete ===\"\n\n  # Set initial password BEFORE first start\n  - echo \"Setting Neo4j initial password...\"\n  - neo4j-admin dbms set-initial-password \"$ADMIN_PASSWORD\"\n  - echo \"Neo4j initial password set successfully\"\n\n  # Enable and start Neo4j\n  - systemctl enable neo4j\n  - systemctl start neo4j\n\n  # Wait for Neo4j to be fully ready\n  - |\n    until curl -s -o /dev/null -w '%{http_code}' http://localhost:7474 | grep -q \"200\"; do\n      echo \"Waiting for Neo4j to be ready...\"\n      sleep 5\n    done\n  - echo \"Neo4j is ready!\"\n\nwrite_files:\n  - path: /var/log/neo4j-cloud-init.log\n    content: |\n      Neo4j Community cloud-init started at $(date)\n    append: true\n",
+    "passwordBase64": "[base64(parameters('adminPassword'))]",
+    "cloudInitStep1": "[replace(variables('cloudInitStandalone'), '${unique_string}', variables('deploymentUniqueId'))]",
+    "cloudInitStep2": "[replace(variables('cloudInitStep1'), '${location}', parameters('location'))]",
+    "cloudInitStep3": "[replace(variables('cloudInitStep2'), '${admin_password}', variables('passwordBase64'))]",
+    "cloudInitData": "[variables('cloudInitStep3')]",
+    "cloudInitBase64": "[base64(variables('cloudInitData'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "network-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "resourceSuffix": {
+            "value": "[variables('resourceSuffix')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.39.26.7824",
+              "templateHash": "9923175803082319502"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "resourceSuffix": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "networkSGName": "[format('nsg-neo4j-{0}-{1}', parameters('location'), parameters('resourceSuffix'))]",
+            "vnetName": "[format('vnet-neo4j-{0}-{1}', parameters('location'), parameters('resourceSuffix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2025-01-01",
+              "name": "[variables('networkSGName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "securityRules": [
+                  {
+                    "name": "SSH",
+                    "properties": {
+                      "description": "SSH",
+                      "protocol": "Tcp",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "22",
+                      "sourceAddressPrefix": "Internet",
+                      "destinationAddressPrefix": "*",
+                      "access": "Allow",
+                      "priority": 100,
+                      "direction": "Inbound"
+                    }
+                  },
+                  {
+                    "name": "HTTPS",
+                    "properties": {
+                      "description": "HTTPS",
+                      "protocol": "Tcp",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "7473",
+                      "sourceAddressPrefix": "Internet",
+                      "destinationAddressPrefix": "*",
+                      "access": "Allow",
+                      "priority": 101,
+                      "direction": "Inbound"
+                    }
+                  },
+                  {
+                    "name": "HTTP",
+                    "properties": {
+                      "description": "HTTP",
+                      "protocol": "Tcp",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "7474",
+                      "sourceAddressPrefix": "Internet",
+                      "destinationAddressPrefix": "*",
+                      "access": "Allow",
+                      "priority": 102,
+                      "direction": "Inbound"
+                    }
+                  },
+                  {
+                    "name": "Bolt",
+                    "properties": {
+                      "description": "Bolt",
+                      "protocol": "Tcp",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "7687",
+                      "sourceAddressPrefix": "Internet",
+                      "destinationAddressPrefix": "*",
+                      "access": "Allow",
+                      "priority": 103,
+                      "direction": "Inbound"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2025-01-01",
+              "name": "[variables('vnetName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "10.0.0.0/8"
+                  ]
+                },
+                "subnets": [
+                  {
+                    "name": "subnet",
+                    "properties": {
+                      "addressPrefix": "10.0.0.0/16",
+                      "networkSecurityGroup": {
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSGName'))]"
+                      }
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSGName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "vnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+            },
+            "subnetId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')), '2025-01-01').subnets[0].id]"
+            },
+            "nsgId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSGName'))]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "identity-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "resourceSuffix": {
+            "value": "[variables('resourceSuffix')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.39.26.7824",
+              "templateHash": "18344337343103739404"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "resourceSuffix": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "identityName": "[format('usermanaged-neo4j-{0}-{1}', parameters('location'), parameters('resourceSuffix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[variables('identityName')]",
+              "location": "[parameters('location')]"
+            }
+          ],
+          "outputs": {
+            "identityId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"
+            },
+            "identityPrincipalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId]"
+            },
+            "identityName": {
+              "type": "string",
+              "value": "[variables('identityName')]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "vm-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "resourceSuffix": {
+            "value": "[variables('resourceSuffix')]"
+          },
+          "uniqueString": {
+            "value": "[variables('deploymentUniqueId')]"
+          },
+          "adminUsername": {
+            "value": "[variables('adminUsername')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('adminPassword')]"
+          },
+          "vmSize": {
+            "value": "[parameters('vmSize')]"
+          },
+          "diskSize": {
+            "value": "[parameters('diskSize')]"
+          },
+          "cloudInitBase64": {
+            "value": "[variables('cloudInitBase64')]"
+          },
+          "identityId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'identity-deployment'), '2025-04-01').outputs.identityId.value]"
+          },
+          "subnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'network-deployment'), '2025-04-01').outputs.subnetId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.39.26.7824",
+              "templateHash": "7602325357944817598"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "resourceSuffix": {
+              "type": "string"
+            },
+            "uniqueString": {
+              "type": "string"
+            },
+            "adminUsername": {
+              "type": "string"
+            },
+            "adminPassword": {
+              "type": "securestring"
+            },
+            "vmSize": {
+              "type": "string"
+            },
+            "diskSize": {
+              "type": "int"
+            },
+            "cloudInitBase64": {
+              "type": "string"
+            },
+            "identityId": {
+              "type": "string"
+            },
+            "subnetId": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "vmName": "[format('vm-neo4j-{0}-{1}', parameters('location'), parameters('resourceSuffix'))]",
+            "nicName": "[format('nic-{0}', parameters('resourceSuffix'))]",
+            "publicIpName": "[format('ip-neo4j-{0}', parameters('resourceSuffix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/publicIPAddresses",
+              "apiVersion": "2025-01-01",
+              "name": "[variables('publicIpName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "publicIPAllocationMethod": "Dynamic",
+                "dnsSettings": {
+                  "domainNameLabel": "[format('node-{0}', parameters('uniqueString'))]"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Network/networkInterfaces",
+              "apiVersion": "2025-01-01",
+              "name": "[variables('nicName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "ipConfigurations": [
+                  {
+                    "name": "ipConfig",
+                    "properties": {
+                      "primary": true,
+                      "privateIPAllocationMethod": "Dynamic",
+                      "publicIPAddress": {
+                        "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
+                      },
+                      "subnet": {
+                        "id": "[parameters('subnetId')]"
+                      }
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Compute/virtualMachines",
+              "apiVersion": "2025-04-01",
+              "name": "[variables('vmName')]",
+              "location": "[parameters('location')]",
+              "tags": {
+                "Neo4jEdition": "Community",
+                "Neo4jVersion": "5",
+                "DeployedBy": "bicep-template",
+                "TemplateVersion": "2.0.0"
+              },
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('identityId'))]": {}
+                }
+              },
+              "plan": {
+                "publisher": "neo4j",
+                "product": "neo4j-ee-vm",
+                "name": "byol"
+              },
+              "properties": {
+                "hardwareProfile": {
+                  "vmSize": "[parameters('vmSize')]"
+                },
+                "storageProfile": {
+                  "osDisk": {
+                    "createOption": "FromImage"
+                  },
+                  "imageReference": {
+                    "publisher": "Neo4j",
+                    "offer": "neo4j-ee-vm",
+                    "sku": "byol",
+                    "version": "latest"
+                  },
+                  "dataDisks": [
+                    {
+                      "lun": 0,
+                      "createOption": "Empty",
+                      "managedDisk": {
+                        "storageAccountType": "Premium_LRS"
+                      },
+                      "caching": "None",
+                      "diskSizeGB": "[parameters('diskSize')]"
+                    }
+                  ]
+                },
+                "osProfile": {
+                  "computerName": "[format('node-{0}', parameters('uniqueString'))]",
+                  "adminUsername": "[parameters('adminUsername')]",
+                  "adminPassword": "[parameters('adminPassword')]",
+                  "customData": "[parameters('cloudInitBase64')]"
+                },
+                "networkProfile": {
+                  "networkInterfaces": [
+                    {
+                      "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]",
+                      "properties": {
+                        "primary": true
+                      }
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "vmId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName'))]"
+            },
+            "vmName": {
+              "type": "string",
+              "value": "[variables('vmName')]"
+            },
+            "publicIpFqdn": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName')), '2025-01-01').dnsSettings.fqdn]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'identity-deployment')]",
+        "[resourceId('Microsoft.Resources/deployments', 'network-deployment')]"
+      ]
+    }
+  ],
+  "outputs": {
+    "Neo4jBrowserURL": {
+      "type": "string",
+      "value": "[uri(format('http://node-{0}.{1}.cloudapp.azure.com:7474', variables('deploymentUniqueId'), parameters('location')), '')]"
+    },
+    "Username": {
+      "type": "string",
+      "value": "neo4j"
+    },
+    "vnetId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'network-deployment'), '2025-04-01').outputs.vnetId.value]"
+    },
+    "subnetId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'network-deployment'), '2025-04-01').outputs.subnetId.value]"
+    },
+    "nsgId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'network-deployment'), '2025-04-01').outputs.nsgId.value]"
+    },
+    "identityId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'identity-deployment'), '2025-04-01').outputs.identityId.value]"
+    },
+    "vmId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vm-deployment'), '2025-04-01').outputs.vmId.value]"
+    },
+    "vmName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vm-deployment'), '2025-04-01').outputs.vmName.value]"
+    }
+  }
+}

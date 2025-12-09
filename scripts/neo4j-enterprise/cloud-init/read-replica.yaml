@@ -1,0 +1,170 @@
+#cloud-config
+# Neo4j Enterprise 4.4 Read Replica Deployment
+# This cloud-init configuration installs and configures Neo4j 4.4 as a read replica
+
+# Disable firewalld and SELinux
+bootcmd:
+  - systemctl stop firewalld
+  - systemctl disable firewalld
+  - setenforce 0
+  - sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
+
+# Format and mount data disk
+disk_setup:
+  /dev/disk/azure/scsi1/lun0:
+    table_type: gpt
+    layout: true
+    overwrite: false
+
+fs_setup:
+  - device: /dev/disk/azure/scsi1/lun0
+    partition: 1
+    filesystem: xfs
+
+mounts:
+  - ["/dev/disk/azure/scsi1/lun0-part1", "/var/lib/neo4j", "xfs", "defaults", "0", "0"]
+
+# Install Azure CLI and Neo4j
+yum_repos:
+  azure-cli:
+    name: Azure CLI
+    baseurl: https://packages.microsoft.com/yumrepos/azure-cli
+    enabled: true
+    gpgcheck: true
+    gpgkey: https://packages.microsoft.com/keys/microsoft.asc
+  neo4j:
+    name: Neo4j Yum Repo
+    baseurl: https://yum.neo4j.com/stable/4.4
+    enabled: true
+    gpgcheck: true
+    gpgkey: https://debian.neo4j.com/neotechnology.gpg.key
+
+# Run configuration commands
+runcmd:
+  # Import GPG keys
+  - rpm --import https://packages.microsoft.com/keys/microsoft.asc
+  - rpm --import https://debian.neo4j.com/neotechnology.gpg.key
+
+  # Install packages
+  - export NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
+  - dnf install -y azure-cli neo4j-enterprise jq
+
+  # Set license agreement for Neo4j service
+  - mkdir -p /etc/systemd/system/neo4j.service.d
+  - |
+    cat > /etc/systemd/system/neo4j.service.d/license.conf <<EOF
+    [Service]
+    Environment="NEO4J_ACCEPT_LICENSE_AGREEMENT=yes"
+    EOF
+  - systemctl daemon-reload
+
+  # Azure login with managed identity
+  - az login --identity -u "${identity_id}"
+
+  # Get private IP
+  - PRIVATE_IP=$(hostname -i | awk '{print $NF}')
+
+  # Get core members from primary VMSS
+  - |
+    CORE_MEMBERS=$(az vmss nic list -g "${resource_group}" --vmss-name "${vmss_name}" | jq -r '.[] | .ipConfigurations[] | .privateIPAddress' | sed 's/$/:5000/g' | tr '\n' ',' | sed 's/,$//g')
+    echo "Core members: $CORE_MEMBERS"
+
+  # Install APOC plugin
+  - mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins/
+
+  # Install Graph Data Science if requested
+  - |
+    if [ "${install_gds}" = "Yes" ]; then
+      echo "Installing Graph Data Science..."
+      cp /var/lib/neo4j/products/neo4j-graph-data-science-*.jar /var/lib/neo4j/plugins/
+      chown neo4j:neo4j /var/lib/neo4j/plugins/neo4j-graph-data-science-*.jar
+    fi
+
+  # Configure GDS license if provided
+  - |
+    if [ "${gds_license_key}" != "None" ]; then
+      echo "Writing GDS license key..."
+      mkdir -p /etc/neo4j/licenses
+      echo "${gds_license_key}" > /etc/neo4j/licenses/neo4j-gds.license
+      echo "gds.enterprise.license_file=/etc/neo4j/licenses/neo4j-gds.license" >> /etc/neo4j/neo4j.conf
+      chown -R neo4j:neo4j /etc/neo4j/licenses
+    fi
+
+  # Install Bloom if requested
+  - |
+    if [ "${install_bloom}" = "Yes" ]; then
+      echo "Installing Bloom..."
+      cp /var/lib/neo4j/products/bloom-plugin-*.jar /var/lib/neo4j/plugins/
+      chown neo4j:neo4j /var/lib/neo4j/plugins/bloom-plugin-*.jar
+    fi
+
+  # Configure Bloom license if provided
+  - |
+    if [ "${bloom_license_key}" != "None" ]; then
+      echo "Writing Bloom license key..."
+      mkdir -p /etc/neo4j/licenses
+      echo "${bloom_license_key}" > /etc/neo4j/licenses/neo4j-bloom.license
+      echo "neo4j.bloom.license_file=/etc/neo4j/licenses/neo4j-bloom.license" >> /etc/neo4j/neo4j.conf
+      chown -R neo4j:neo4j /etc/neo4j/licenses
+    fi
+
+  # Configure Neo4j as read replica
+  - sed -i 's/#dbms.default_listen_address=0.0.0.0/dbms.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf
+  - sed -i "s/#dbms.default_advertised_address=localhost/dbms.default_advertised_address=${PRIVATE_IP}/g" /etc/neo4j/neo4j.conf
+
+  # Set read replica mode
+  - sed -i 's/#dbms.mode=CORE/dbms.mode=READ_REPLICA/g' /etc/neo4j/neo4j.conf
+
+  # Configure cluster discovery
+  - sed -i "s/#causal_clustering.initial_discovery_members=localhost:5000,localhost:5001,localhost:5002/causal_clustering.initial_discovery_members=${CORE_MEMBERS}/g" /etc/neo4j/neo4j.conf
+
+  # Configure routing
+  - sed -i 's/#dbms.routing.enabled=false/dbms.routing.enabled=true/g' /etc/neo4j/neo4j.conf
+  - sed -i "s/#dbms.routing.advertised_address=:7688/dbms.routing.advertised_address=${PRIVATE_IP}:7688/g" /etc/neo4j/neo4j.conf
+  - sed -i "s/#dbms.routing.listen_address=0.0.0.0:7688/dbms.routing.listen_address=${PRIVATE_IP}:7688/g" /etc/neo4j/neo4j.conf
+  - echo "dbms.routing.default_router=SERVER" >> /etc/neo4j/neo4j.conf
+
+  # Configure extensions and security
+  - sed -i 's~#dbms.unmanaged_extension_classes=org.neo4j.examples.server.unmanaged=/examples/unmanaged~dbms.unmanaged_extension_classes=com.neo4j.bloom.server=/bloom,semantics.extension=/rdf~g' /etc/neo4j/neo4j.conf
+  - sed -i 's/#dbms.security.procedures.unrestricted=my.extensions.example,my.procedures.*/dbms.security.procedures.unrestricted=gds.*,apoc.*,bloom.*/g' /etc/neo4j/neo4j.conf
+  - echo "dbms.security.http_auth_allowlist=/,/browser.*,/bloom.*" >> /etc/neo4j/neo4j.conf
+  - echo "dbms.security.procedures.allowlist=apoc.*,gds.*,bloom.*" >> /etc/neo4j/neo4j.conf
+
+  # Add memory recommendations
+  - neo4j-admin memrec >> /etc/neo4j/neo4j.conf
+
+  # Decode and set admin password, then start Neo4j
+  # IMPORTANT: All password handling must be in ONE script block because
+  # shell variables don't persist across separate runcmd entries in cloud-init
+  - |
+    echo "=== Password Configuration Started ==="
+
+    # Decode base64-encoded password (safe from quote/escape issues)
+    PASSWORD_BASE64='${admin_password}'
+    ADMIN_PASSWORD=$(echo "$PASSWORD_BASE64" | base64 -d)
+
+    echo "Password received and decoded successfully"
+    echo "=== Password Configuration Complete ==="
+
+    # Set initial password BEFORE first start
+    echo "Setting Neo4j initial password..."
+    neo4j-admin set-initial-password "$ADMIN_PASSWORD"
+    echo "Neo4j initial password set successfully"
+
+    # Enable and start Neo4j
+    systemctl enable neo4j
+    systemctl start neo4j
+
+  # Wait for Neo4j to be fully ready
+  - |
+    until curl -s -o /dev/null -w '%{http_code}' http://localhost:7474 | grep -q "200"; do
+      echo "Waiting for Neo4j read replica to be ready..."
+      sleep 5
+    done
+  - echo "Neo4j read replica is ready!"
+
+write_files:
+  - path: /var/log/neo4j-cloud-init.log
+    content: |
+      Neo4j read replica cloud-init started at $(date)
+    append: true

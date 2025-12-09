@@ -1,7 +1,27 @@
-# marketplace
-This template is used by the Neo4j Azure Marketplace offer.  It is not intended to be used outside the marketplace.
+# Neo4j Enterprise - Azure Marketplace
 
-Unless you are a Neo4j employee updating the Azure Marketplace listing, you probably want to be using either the Marketplace listing itself.
+This template is used by the Neo4j Azure Marketplace offer. It is not intended to be used outside the marketplace.
+
+Unless you are a Neo4j employee updating the Azure Marketplace listing, you should use the [Azure Marketplace listing](https://azuremarketplace.microsoft.com/marketplace/apps/neo4j.neo4j-ee) itself.
+
+---
+
+## Features
+
+### Secure Password Management
+
+The marketplace deployment uses Azure's secure string parameters to securely handle passwords:
+- Passwords are encrypted in deployment metadata using Azure platform encryption
+- Password entry is protected in the Azure Portal UI
+- Simple, straightforward password management
+
+## For Marketplace Users
+
+If you're deploying Neo4j from the Azure Marketplace, you'll be prompted to enter an admin password during deployment.
+
+---
+
+## For Neo4j Employees
 
 # Test the Template
 Documentation on how to do this is [here](https://docs.microsoft.com/en-us/azure/azure-resource-manager/templates/test-toolkit).  I haven't been able to get that working and have just used the portal.

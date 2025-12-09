@@ -1,0 +1,118 @@
+#cloud-config
+# Neo4j Enterprise 5 Standalone Deployment
+# This cloud-init configuration installs and configures Neo4j on a single Azure VM
+
+# Disable firewalld and SELinux
+bootcmd:
+  - systemctl stop firewalld
+  - systemctl disable firewalld
+  - setenforce 0
+  - sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
+
+# Format and mount data disk
+disk_setup:
+  /dev/disk/azure/scsi1/lun0:
+    table_type: gpt
+    layout: true
+    overwrite: false
+
+fs_setup:
+  - device: /dev/disk/azure/scsi1/lun0
+    partition: 1
+    filesystem: xfs
+
+mounts:
+  - ["/dev/disk/azure/scsi1/lun0-part1", "/var/lib/neo4j", "xfs", "defaults", "0", "0"]
+
+# Install Neo4j
+yum_repos:
+  neo4j:
+    name: Neo4j Yum Repo
+    baseurl: https://yum.neo4j.com/stable/5
+    enabled: true
+    gpgcheck: true
+    gpgkey: https://debian.neo4j.com/neotechnology.gpg.key
+
+# Run configuration commands
+runcmd:
+  # Import Neo4j GPG key and install
+  - rpm --import https://debian.neo4j.com/neotechnology.gpg.key
+  - export NEO4J_ACCEPT_LICENSE_AGREEMENT=${license_agreement}
+  - dnf install -y neo4j-enterprise
+
+  # Set license agreement for Neo4j service
+  - mkdir -p /etc/systemd/system/neo4j.service.d
+  - |
+    cat > /etc/systemd/system/neo4j.service.d/license.conf <<EOF
+    [Service]
+    Environment="NEO4J_ACCEPT_LICENSE_AGREEMENT=${license_agreement}"
+    EOF
+  - systemctl daemon-reload
+
+  # Get instance metadata
+  - INSTANCE_METADATA=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01")
+  - NODE_INDEX=$(echo $INSTANCE_METADATA | jq -r ".name" | sed 's/.*_//')
+  - PRIVATE_IP=$(hostname -i | awk '{print $NF}')
+  - UNIQUE_STRING="${unique_string}"
+  - LOCATION="${location}"
+  - PUBLIC_HOSTNAME="vm${NODE_INDEX}.neo4j-${UNIQUE_STRING}.${LOCATION}.cloudapp.azure.com"
+
+  # Install APOC plugin
+  - mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins/
+
+  # Configure Neo4j network settings
+  - sed -i 's/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf
+  - sed -i "s/#server.default_advertised_address=localhost/server.default_advertised_address=${PUBLIC_HOSTNAME}/g" /etc/neo4j/neo4j.conf
+  - sed -i "s/#server.bolt.advertised_address=:7687/server.bolt.advertised_address=${PUBLIC_HOSTNAME}:7687/g" /etc/neo4j/neo4j.conf
+  - sed -i 's/#server.bolt.listen_address=:7687/server.bolt.listen_address=0.0.0.0:7687/g' /etc/neo4j/neo4j.conf
+
+  # Configure extensions and security
+  - sed -i 's~#server.unmanaged_extension_classes=org.neo4j.examples.server.unmanaged=/examples/unmanaged~server.unmanaged_extension_classes=com.neo4j.bloom.server=/bloom,semantics.extension=/rdf~g' /etc/neo4j/neo4j.conf
+  - sed -i 's/#dbms.security.procedures.unrestricted=my.extensions.example,my.procedures.*/dbms.security.procedures.unrestricted=gds.*,apoc.*/g' /etc/neo4j/neo4j.conf
+  - echo "dbms.security.http_auth_allowlist=/,/browser.*,/bloom.*" >> /etc/neo4j/neo4j.conf
+  - echo "dbms.security.procedures.allowlist=apoc.*,gds.*,bloom.*" >> /etc/neo4j/neo4j.conf
+
+  # Add memory recommendations
+  - neo4j-admin server memory-recommendation >> /etc/neo4j/neo4j.conf
+
+  # Configure routing for driver compatibility
+  - echo "dbms.routing.default_router=SERVER" >> /etc/neo4j/neo4j.conf
+
+  # SSRF protection
+  - echo "internal.dbms.cypher_ip_blocklist=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.169.0/24,fc00::/7,fe80::/10,ff00::/8" >> /etc/neo4j/neo4j.conf
+
+  # Decode and set admin password, then start Neo4j
+  # IMPORTANT: All password handling must be in ONE script block because
+  # shell variables don't persist across separate runcmd entries in cloud-init
+  - |
+    echo "=== Password Configuration Started ==="
+
+    # Decode base64-encoded password (safe from quote/escape issues)
+    PASSWORD_BASE64='${admin_password}'
+    ADMIN_PASSWORD=$(echo "$PASSWORD_BASE64" | base64 -d)
+
+    echo "Password received and decoded successfully"
+    echo "=== Password Configuration Complete ==="
+
+    # Set initial password BEFORE first start
+    echo "Setting Neo4j initial password..."
+    neo4j-admin dbms set-initial-password "$ADMIN_PASSWORD"
+    echo "Neo4j initial password set successfully"
+
+    # Enable and start Neo4j
+    systemctl enable neo4j
+    systemctl start neo4j
+
+  # Wait for Neo4j to be fully ready
+  - |
+    until curl -s -o /dev/null -w '%{http_code}' http://localhost:7474 | grep -q "200"; do
+      echo "Waiting for Neo4j to be ready..."
+      sleep 5
+    done
+  - echo "Neo4j is ready!"
+
+write_files:
+  - path: /var/log/neo4j-cloud-init.log
+    content: |
+      Neo4j cloud-init started at $(date)
+    append: true

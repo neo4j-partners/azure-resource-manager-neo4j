@@ -5,40 +5,16 @@
   "vmSize": {
     "value": "Standard_E8s_v5"
   },
-  "readReplicaVmSize": {
-    "value": "Standard_E8s_v5"
-  },
   "nodeCount": {
     "value": 1
   },
-  "readReplicaCount": {
-    "value": 0
-  },
   "diskSize": {
-    "value": 32
-  },
-  "readReplicaDiskSize": {
     "value": 32
   },
   "graphDatabaseVersion": {
     "value": "5"
   },
-  "installGraphDataScience": {
-    "value": "No"
-  },
-  "graphDataScienceLicenseKey": {
-    "value": "None"
-  },
-  "installBloom": {
-    "value": "No"
-  },
-  "bloomLicenseKey": {
-    "value": "None"
-  },
   "licenseType": {
     "value": "Evaluation"
-  },
-  "_artifactsLocation": {
-    "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/main/"
   }
 }
