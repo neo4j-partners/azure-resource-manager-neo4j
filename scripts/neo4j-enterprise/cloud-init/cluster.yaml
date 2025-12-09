@@ -113,7 +113,9 @@ runcmd:
   # SSRF protection
   - echo "internal.dbms.cypher_ip_blocklist=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.169.0/24,fc00::/7,fe80::/10,ff00::/8" >> /etc/neo4j/neo4j.conf
 
-  # Decode and set admin password
+  # Decode and set admin password, then start Neo4j
+  # IMPORTANT: All password handling must be in ONE script block because
+  # shell variables don't persist across separate runcmd entries in cloud-init
   - |
     echo "=== Password Configuration Started ==="
 
@@ -124,14 +126,14 @@ runcmd:
     echo "Password received and decoded successfully"
     echo "=== Password Configuration Complete ==="
 
-  # Set initial password BEFORE first start
-  - echo "Setting Neo4j initial password..."
-  - neo4j-admin dbms set-initial-password "$ADMIN_PASSWORD"
-  - echo "Neo4j initial password set successfully"
+    # Set initial password BEFORE first start
+    echo "Setting Neo4j initial password..."
+    neo4j-admin dbms set-initial-password "$ADMIN_PASSWORD"
+    echo "Neo4j initial password set successfully"
 
-  # Enable and start Neo4j
-  - systemctl enable neo4j
-  - systemctl start neo4j
+    # Enable and start Neo4j
+    systemctl enable neo4j
+    systemctl start neo4j
 
   # Wait for Neo4j to be fully ready
   - |
