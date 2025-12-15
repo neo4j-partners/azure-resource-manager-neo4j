@@ -81,47 +81,6 @@ class DeploymentMonitor:
         except Exception:
             return None
 
-    def get_aks_server_statuses(
-        self,
-        resource_group: str,
-    ) -> list[dict]:
-        """
-        Get status of individual Neo4j server deployments for AKS clusters.
-
-        Args:
-            resource_group: Resource group name
-
-        Returns:
-            List of server status dictionaries with name, state, and duration
-        """
-        try:
-            command = (
-                f"az deployment operation group list "
-                f"--resource-group {resource_group} "
-                f"--name helm-deployment "
-                f"--query \"[?properties.targetResource.resourceType=='Microsoft.Resources/deploymentScripts'].{{name:properties.targetResource.resourceName, state:properties.provisioningState, duration:properties.duration}}\" "
-                f"--output json"
-            )
-
-            result = run_command(command, check=False)
-
-            if result.returncode == 0 and result.stdout:
-                operations = json.loads(result.stdout)
-                # Extract server number from name (e.g., helm-install-server-1-xyz -> server-1)
-                for op in operations:
-                    if 'name' in op and 'server-' in op['name']:
-                        parts = op['name'].split('-')
-                        for i, part in enumerate(parts):
-                            if part == 'server' and i + 1 < len(parts):
-                                op['server'] = f"server-{parts[i+1]}"
-                                break
-                return operations
-            else:
-                return []
-
-        except Exception:
-            return []
-
     def get_deployment_errors(
         self,
         resource_group: str,
@@ -344,41 +303,6 @@ class DeploymentMonitor:
                             f"  [cyan]{state.scenario_name}[/cyan]: Checking... (elapsed: {elapsed_min}m {elapsed_sec}s)"
                         )
                     sys.stdout.flush()
-
-                    # For AKS cluster deployments, show per-server status
-                    if 'aks' in state.scenario_name.lower() and 'cluster' in state.scenario_name.lower():
-                        server_statuses = self.get_aks_server_statuses(state.resource_group_name)
-                        if server_statuses:
-                            console.print("    [dim]Server deployments:[/dim]")
-                            for server_status in sorted(server_statuses, key=lambda x: x.get('server', '')):
-                                server_name = server_status.get('server', 'Unknown')
-                                server_state = server_status.get('state', 'Unknown')
-                                server_duration = server_status.get('duration', 'N/A')
-
-                                # Parse duration (e.g., PT12M41.8731959S -> 12m 41s)
-                                if server_duration and server_duration.startswith('PT'):
-                                    try:
-                                        import re
-                                        match = re.match(r'PT(?:(\d+)M)?(?:([\d.]+)S)?', server_duration)
-                                        if match:
-                                            mins = int(match.group(1) or 0)
-                                            secs = int(float(match.group(2) or 0))
-                                            server_duration = f"{mins}m {secs}s" if mins > 0 else f"{secs}s"
-                                    except:
-                                        pass
-
-                                # Color code status
-                                if server_state == 'Running':
-                                    status_color = 'yellow'
-                                elif server_state == 'Succeeded':
-                                    status_color = 'green'
-                                elif server_state == 'Failed':
-                                    status_color = 'red'
-                                else:
-                                    status_color = 'white'
-
-                                console.print(f"      [{status_color}]{server_name}: {server_state}[/{status_color}] ({server_duration})")
-                            sys.stdout.flush()
 
                     if status in ["Succeeded", "Failed", "Canceled"]:
                         self.rg_manager.update_deployment_status(

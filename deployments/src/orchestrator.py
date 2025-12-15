@@ -426,19 +426,18 @@ class DeploymentOrchestrator:
             ConnectionInfo object or None if parsing failed
         """
         try:
-            # Determine which browser URL key to use based on node count and deployment type
+            # Determine which browser URL key to use based on node count
             # VM templates use: Neo4jBrowserURL (standalone), Neo4jClusterBrowserURL (cluster)
-            # AKS templates use: neo4jBrowserUrl (both standalone and cluster)
             if scenario.node_count == 1:
-                # Standalone: Try AKS format first, then VM formats
+                # Standalone
                 browser_url_keys = ["neo4jBrowserUrl", "neo4jBrowserURL", "Neo4jBrowserURL"]
             else:
-                # Cluster: Try VM cluster formats first, then AKS format (which uses same name for both)
+                # Cluster
                 browser_url_keys = [
                     "neo4jClusterBrowserUrl",
                     "neo4jClusterBrowserURL",
                     "Neo4jClusterBrowserURL",
-                    "neo4jBrowserUrl",  # AKS uses same name for cluster
+                    "neo4jBrowserUrl",
                     "neo4jBrowserURL",
                     "Neo4jBrowserURL"
                 ]
@@ -549,7 +548,7 @@ class DeploymentOrchestrator:
         Args:
             browser_url: HTTP browser URL (e.g., http://hostname:7474)
             node_count: Number of Neo4j nodes in deployment
-            deployment_type: Deployment type (VM, AKS, COMMUNITY)
+            deployment_type: Deployment type (VM)
 
         Returns:
             Neo4j protocol URI (bolt:// or neo4j://hostname:7687)
@@ -567,10 +566,9 @@ class DeploymentOrchestrator:
         hostname = parsed.hostname or parsed.netloc.split(":")[0]
 
         # Select protocol based on deployment architecture:
-        # - Community edition: always standalone, always use bolt
-        # - Enterprise standalone (nodeCount=1): use bolt (direct connection)
-        # - Enterprise cluster (nodeCount>=3): use neo4j (routing connection)
-        if deployment_type == "COMMUNITY" or node_count == 1:
+        # - Standalone (nodeCount=1): use bolt (direct connection)
+        # - Cluster (nodeCount>=3): use neo4j (routing connection)
+        if node_count == 1:
             protocol = "bolt"
         else:
             protocol = "neo4j"

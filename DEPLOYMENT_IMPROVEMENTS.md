@@ -145,69 +145,15 @@ Successfully deployed and validated:
 
 ---
 
-## Future Considerations
+## Architecture Decision
 
-While the current VMSS-based approach is now significantly simplified and works well for our use case, there are modern Azure compute options worth considering for future iterations:
-
-### Azure Container Instances (ACI)
-**Azure's equivalent to AWS Fargate** - serverless container execution without managing VMs
-
-**Potential Benefits:**
-- Faster startup times (seconds vs. minutes for VM provisioning)
-- Pay only for actual container runtime (no idle VM costs)
-- No OS patching or infrastructure management
-- Native Docker container support
-- Simpler scaling (just container count, no scale sets)
-
-**Considerations:**
-- Requires containerizing Neo4j (currently VM image-based)
-- Different networking model (may need architecture changes)
-- Persistent storage handled differently (Azure Files vs. managed disks)
-- May not support all Neo4j Enterprise features without modification
-
-### Azure Kubernetes Service (AKS)
-**Managed Kubernetes for more complex orchestration needs**
-
-**Potential Benefits:**
-- Industry-standard orchestration platform
-- Rich ecosystem of tools and operators
-- Native support for stateful workloads (StatefulSets)
-- Advanced scheduling and placement controls
-- Multi-region/multi-cloud portability
-
-**Considerations:**
-- Higher operational complexity (requires Kubernetes expertise)
-- Additional cost for control plane management
-- Steeper learning curve for developers
-- May be overkill for simpler deployment scenarios
-
-### Azure Container Apps
-**Serverless container platform built on Kubernetes (simpler than AKS)**
-
-**Potential Benefits:**
-- Kubernetes benefits without the complexity
-- Built-in scaling and load balancing
-- Integrated monitoring and logging
-- Lower operational overhead than AKS
-
-**Considerations:**
-- Newer service (less mature than ACI or AKS)
-- Some limitations compared to full Kubernetes
-- Requires containerization effort
-
-### Recommendation
-For now, the improved VMSS approach provides the best balance of:
+The VMSS-based approach provides the best balance of:
 - **Maturity**: Well-tested, production-ready platform
 - **Simplicity**: No containerization required, works with existing Neo4j VM images
 - **Control**: Full access to VM and OS for Neo4j Enterprise requirements
 - **Compatibility**: Works with Azure Marketplace distribution model
 
-**Future Migration Path:**
-1. Continue using VMSS for current marketplace offering
-2. Develop containerized Neo4j deployment as separate option
-3. Pilot Azure Container Instances for smaller/dev environments
-4. Evaluate AKS for customers with existing Kubernetes infrastructure
-5. Consider Container Apps when service matures and customer demand exists
+This repository focuses exclusively on VM-based Enterprise deployments using Azure Virtual Machine Scale Sets (VMSS).
 
 ---
 
@@ -222,8 +168,8 @@ The changes are **forward-compatible** with existing deployments:
 
 ### Rollout
 Changes are already implemented and tested:
-- All templates updated (Enterprise and Community editions)
-- Installation scripts simplified for all Neo4j versions (5.x and 4.4)
+- Enterprise templates updated
+- Installation scripts simplified for Neo4j 5.x
 - Test framework enhanced with auto-detection of deployments
 - Documentation updated
 

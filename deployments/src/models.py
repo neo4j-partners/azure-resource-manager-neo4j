@@ -31,8 +31,6 @@ class DeploymentType(str, Enum):
     """Deployment platform type."""
 
     VM = "vm"
-    AKS = "aks"
-    COMMUNITY = "community"
 
 
 class TestScenario(BaseModel):
@@ -42,7 +40,7 @@ class TestScenario(BaseModel):
 
     # Deployment platform
     deployment_type: DeploymentType = Field(
-        DeploymentType.VM, description="Deployment platform (vm, aks, or community)"
+        DeploymentType.VM, description="Deployment platform"
     )
 
     # Common Neo4j settings
@@ -58,18 +56,12 @@ class TestScenario(BaseModel):
     )
 
     # VM-specific settings
-    vm_size: Optional[str] = Field(None, description="Azure VM size (VM deployments)")
+    vm_size: Optional[str] = Field(None, description="Azure VM size")
     read_replica_count: Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] = Field(
-        0, description="Number of read replicas (4.4 VM only)"
+        0, description="Number of read replicas (4.4 only)"
     )
     read_replica_vm_size: Optional[str] = Field(None, description="VM size for read replicas")
     read_replica_disk_size: int = Field(32, ge=32, description="Disk size for read replicas")
-
-    # AKS-specific settings
-    kubernetes_version: Optional[str] = Field(None, description="Kubernetes version (AKS deployments)")
-    user_node_size: Optional[str] = Field(None, description="VM size for AKS user node pool")
-    user_node_count_min: int = Field(1, ge=1, le=10, description="Min user nodes (AKS)")
-    user_node_count_max: int = Field(10, ge=1, le=10, description="Max user nodes (AKS)")
 
     # Plugin settings
     install_graph_data_science: bool = Field(False, description="Install GDS plugin")
@@ -80,13 +72,9 @@ class TestScenario(BaseModel):
     @field_validator("read_replica_count")
     @classmethod
     def validate_read_replicas(cls, v: int, info) -> int:
-        """Validate that read replicas are only used with Neo4j 4.4 on Enterprise VMs."""
+        """Validate that read replicas are only used with Neo4j 4.4."""
         data = info.data
         if v > 0:
-            if data.get("deployment_type") == DeploymentType.AKS:
-                raise ValueError("Read replicas are not supported on AKS deployments")
-            if data.get("deployment_type") == DeploymentType.COMMUNITY:
-                raise ValueError("Read replicas are not supported on Community edition")
             if data.get("graph_database_version") != "4.4":
                 raise ValueError("Read replicas are only supported with Neo4j 4.4")
         return v
@@ -94,39 +82,9 @@ class TestScenario(BaseModel):
     @field_validator("vm_size")
     @classmethod
     def validate_vm_size(cls, v: Optional[str], info) -> Optional[str]:
-        """Ensure VM size is set for VM and Community deployments."""
-        data = info.data
-        deployment_type = data.get("deployment_type")
-        if deployment_type in (DeploymentType.VM, DeploymentType.COMMUNITY) and not v:
-            # Community gets smaller default since it's standalone only
-            return "Standard_B2s" if deployment_type == DeploymentType.COMMUNITY else "Standard_E4s_v5"
-        return v
-
-    @field_validator("user_node_size")
-    @classmethod
-    def validate_user_node_size(cls, v: Optional[str], info) -> Optional[str]:
-        """Ensure user node size is set for AKS deployments."""
-        data = info.data
-        if data.get("deployment_type") == DeploymentType.AKS and not v:
-            return "Standard_E4s_v5"  # Default
-        return v
-
-    @field_validator("kubernetes_version")
-    @classmethod
-    def validate_kubernetes_version(cls, v: Optional[str], info) -> Optional[str]:
-        """Ensure Kubernetes version is set for AKS deployments."""
-        data = info.data
-        if data.get("deployment_type") == DeploymentType.AKS and not v:
-            return "1.30"  # Default
-        return v
-
-    @field_validator("node_count")
-    @classmethod
-    def validate_community_node_count(cls, v: int, info) -> int:
-        """Ensure Community edition is standalone only (node_count = 1)."""
-        data = info.data
-        if data.get("deployment_type") == DeploymentType.COMMUNITY and v != 1:
-            raise ValueError("Community edition only supports standalone deployment (node_count must be 1)")
+        """Ensure VM size is set for deployments."""
+        if not v:
+            return "Standard_E4s_v5"
         return v
 
 

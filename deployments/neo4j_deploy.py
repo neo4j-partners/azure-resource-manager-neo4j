@@ -176,15 +176,8 @@ def validate(
         from src.models import DeploymentType
 
         if s.deployment_type not in engines:
-            if s.deployment_type == DeploymentType.AKS:
-                base_template_dir = PathLib("../marketplace/neo4j-enterprise-aks").resolve()
-                deployment_type = "aks"
-            elif s.deployment_type == DeploymentType.COMMUNITY:
-                base_template_dir = PathLib("../marketplace/neo4j-community").resolve()
-                deployment_type = "community"
-            else:
-                base_template_dir = PathLib("../marketplace/neo4j-enterprise").resolve()
-                deployment_type = "vm"
+            base_template_dir = PathLib("../marketplace/neo4j-enterprise").resolve()
+            deployment_type = "vm"
 
             try:
                 engines[s.deployment_type] = DeploymentEngine(settings, base_template_dir, deployment_type=deployment_type)
@@ -293,7 +286,6 @@ def deploy(
         uv run neo4j-deploy deploy --scenario standalone-v5
         uv run neo4j-deploy deploy --scenario cluster-v5 --region eastus2
         uv run neo4j-deploy deploy --all --dry-run
-        uv run neo4j-deploy deploy --scenario cluster-3node-aks-v5 --debug
     """
     from pathlib import Path as PathLib
     from rich.table import Table
@@ -341,19 +333,8 @@ def deploy(
 
     # Initialize deployment engine
     # Assume we're running from deployments/, so marketplace is ../marketplace
-    # Detect deployment type from first scenario (all scenarios should have same type in one deployment)
-    first_scenario = scenarios_to_deploy[0]
-    from src.models import DeploymentType
-
-    if first_scenario.deployment_type == DeploymentType.AKS:
-        base_template_dir = PathLib("../marketplace/neo4j-enterprise-aks").resolve()
-        deployment_type = "aks"
-    elif first_scenario.deployment_type == DeploymentType.COMMUNITY:
-        base_template_dir = PathLib("../marketplace/neo4j-community").resolve()
-        deployment_type = "community"
-    else:
-        base_template_dir = PathLib("../marketplace/neo4j-enterprise").resolve()
-        deployment_type = "vm"
+    base_template_dir = PathLib("../marketplace/neo4j-enterprise").resolve()
+    deployment_type = "vm"
 
     try:
         engine = DeploymentEngine(settings, base_template_dir, deployment_type=deployment_type)
@@ -375,13 +356,7 @@ def deploy(
 
     for s in scenarios_to_deploy:
         target_region = region or settings.default_region
-        # Display appropriate size based on deployment type
-        if s.deployment_type == DeploymentType.AKS:
-            size_display = s.user_node_size or "Standard_E4s_v5"
-        elif s.deployment_type == DeploymentType.COMMUNITY:
-            size_display = s.vm_size or "Standard_B2s"
-        else:
-            size_display = s.vm_size or "Standard_E4s_v5"
+        size_display = s.vm_size or "Standard_E4s_v5"
 
         table.add_row(
             s.name,
@@ -1012,10 +987,6 @@ def report(
 
 @app.command()
 def package(
-    template: Annotated[
-        str,
-        typer.Option("--template", "-t", help="Template to package (enterprise, community, aks)")
-    ] = "enterprise",
     env_file: Annotated[
         Optional[Path],
         typer.Option("--env", "-e", help="Path to .env file (default: ../.env from deployments/)")
@@ -1035,7 +1006,6 @@ def package(
 
     Examples:
         uv run neo4j-deploy package                    # Package enterprise template
-        uv run neo4j-deploy package --template community
         uv run neo4j-deploy package --env /path/to/.env
     """
     from pathlib import Path as PathLib
@@ -1046,19 +1016,7 @@ def package(
     deployments_dir = PathLib(__file__).parent.resolve()
     root_dir = deployments_dir.parent
 
-    # Map template names to directories
-    template_map = {
-        "enterprise": "neo4j-enterprise",
-        "community": "neo4j-community",
-        "aks": "neo4j-enterprise-aks",
-    }
-
-    if template not in template_map:
-        console.print(f"[red]Error: Unknown template '{template}'[/red]")
-        console.print(f"[cyan]Valid templates: {', '.join(template_map.keys())}[/cyan]")
-        raise typer.Exit(1)
-
-    template_dir = root_dir / "marketplace" / template_map[template]
+    template_dir = root_dir / "marketplace" / "neo4j-enterprise"
 
     if not template_dir.exists():
         console.print(f"[red]Error: Template directory not found: {template_dir}[/red]")
@@ -1077,7 +1035,7 @@ def package(
         output_dir=root_dir,
     )
 
-    success = builder.build(template_name=template_map[template])
+    success = builder.build(template_name="neo4j-enterprise")
 
     if not success:
         raise typer.Exit(1)

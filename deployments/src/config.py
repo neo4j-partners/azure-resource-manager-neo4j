@@ -184,17 +184,6 @@ class ConfigManager:
                     "install_graph_data_science": False,
                     "install_bloom": False,
                 },
-                {
-                    "name": "community-standalone-v5",
-                    "deployment_type": "community",
-                    "node_count": 1,
-                    "graph_database_version": "5",
-                    "vm_size": "Standard_B2s",
-                    "disk_size": 32,
-                    "license_type": "Evaluation",
-                    "install_graph_data_science": False,
-                    "install_bloom": False,
-                },
             ]
         }
 

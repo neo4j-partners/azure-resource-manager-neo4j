@@ -44,8 +44,8 @@ class DeploymentEngine:
         Args:
             settings: Application settings
             base_template_dir: Path to marketplace template directory
-                (e.g., marketplace/neo4j-enterprise/ or marketplace/neo4j-enterprise-aks/)
-            deployment_type: Type of deployment ("vm", "aks", or "community")
+                (e.g., marketplace/neo4j-enterprise/)
+            deployment_type: Type of deployment ("vm")
         """
         self.settings = settings
         self.base_template_dir = base_template_dir
@@ -107,11 +107,6 @@ class DeploymentEngine:
             base_params, scenario, region or self.settings.default_region
         )
 
-        # Add debug mode if enabled (AKS deployments only)
-        if debug_mode and self.deployment_type == "aks":
-            console.print("[yellow]  → Debug mode enabled[/yellow]")
-            params["parameters"]["enableDebugMode"] = {"value": "Yes"}
-
         # Inject dynamic values
         params = self._inject_dynamic_values(params, password)
 
@@ -171,41 +166,23 @@ class DeploymentEngine:
                 p[key] = {}
             p[key]["value"] = value
 
-        # Common parameters for Enterprise deployments (VM and AKS)
-        if self.deployment_type in ("vm", "aks"):
-            set_param("nodeCount", scenario.node_count)
-            set_param("graphDatabaseVersion", scenario.graph_database_version)
-            set_param("licenseType", scenario.license_type)
+        # Common parameters for Enterprise VM deployments
+        set_param("nodeCount", scenario.node_count)
+        set_param("graphDatabaseVersion", scenario.graph_database_version)
+        set_param("licenseType", scenario.license_type)
 
-        # Common parameters for all deployment types
+        # Common parameters
         set_param("location", region)
         set_param("diskSize", scenario.disk_size)
 
-        # Deployment-type specific parameters
-        if self.deployment_type == "vm":
-            # VM-specific parameters
-            set_param("vmSize", scenario.vm_size)
+        # VM-specific parameters
+        set_param("vmSize", scenario.vm_size)
 
-            # Read replicas (4.4 VM only)
-            if scenario.read_replica_count > 0:
-                set_param("readReplicaCount", scenario.read_replica_count)
-                set_param("readReplicaVmSize", scenario.read_replica_vm_size)
-                set_param("readReplicaDiskSize", scenario.read_replica_disk_size)
-
-        elif self.deployment_type == "aks":
-            # AKS-specific parameters
-            if scenario.kubernetes_version:
-                set_param("kubernetesVersion", scenario.kubernetes_version)
-            if scenario.user_node_size:
-                set_param("userNodeSize", scenario.user_node_size)
-            set_param("userNodeCountMin", scenario.user_node_count_min)
-            set_param("userNodeCountMax", scenario.user_node_count_max)
-
-        elif self.deployment_type == "community":
-            # Community-specific parameters (simpler than Enterprise)
-            set_param("vmSize", scenario.vm_size)
-            # Community doesn't have nodeCount, plugins, or version params in template
-            # Those are fixed: always standalone (1 node), Neo4j 5, no plugins
+        # Read replicas (4.4 only)
+        if scenario.read_replica_count > 0:
+            set_param("readReplicaCount", scenario.read_replica_count)
+            set_param("readReplicaVmSize", scenario.read_replica_vm_size)
+            set_param("readReplicaDiskSize", scenario.read_replica_disk_size)
 
         # Note: Plugin parameters (installGraphDataScience, installBloom) removed
         # VM templates now use cloud-init with plugins configured directly in scripts

@@ -15,13 +15,25 @@
         "bladeTitle": "Neo4j Settings",
         "elements": [
           {
+            "name": "adminUsername",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Admin Username",
+            "defaultValue": "neo4j",
+            "toolTip": "Admin username for SSH access to VMs. We recommend leaving this as 'neo4j'.",
+            "constraints": {
+              "required": true,
+              "regex": "^[a-z_][a-z0-9_-]{0,31}$",
+              "validationMessage": "Username must be 1-32 characters, start with a letter or underscore, and contain only lowercase letters, numbers, underscores, or hyphens."
+            }
+          },
+          {
             "name": "adminPassword",
             "type": "Microsoft.Common.PasswordBox",
             "label": {
               "password": "Admin Password",
               "confirmPassword": "Confirm password"
             },
-            "toolTip": "Admin password for Neo4j and all VMs",
+            "toolTip": "Admin password for Neo4j and SSH access to VMs",
             "constraints": {
               "required": true,
               "regex": "^(?:(?=.*[a-z])(?:(?=.*[A-Z])(?=.*[\\d\\W])|(?=.*\\W)(?=.*\\d))|(?=.*\\W)(?=.*[A-Z])(?=.*\\d)).{12,72}$",
@@ -174,6 +186,7 @@
       }
     ],
     "outputs": {
+      "adminUsername": "[steps('neo4jConfig').adminUsername]",
       "adminPassword": "[steps('neo4jConfig').adminPassword]",
       "vmSize": "[steps('neo4jConfig').vmSize]",
       "nodeCount": "[steps('neo4jConfig').nodeCount]",

@@ -1,3 +1,6 @@
+@description('Admin username for SSH access to VMs.')
+param adminUsername string = 'neo4j'
+
 @secure()
 @description('Admin password for Neo4j VMs.')
 param adminPassword string
@@ -89,8 +92,6 @@ var cloudInitStep4 = replace(cloudInitStep3, '\${license_agreement}', licenseAgr
 var cloudInitStep5 = replace(cloudInitStep4, '\${node_count}', string(nodeCount))
 var cloudInitData = cloudInitStep5
 var cloudInitBase64 = base64(cloudInitData)
-
-var adminUsername = 'neo4j'
 
 module vmss 'modules/vmss.bicep' = {
   name: 'vmss-deployment'

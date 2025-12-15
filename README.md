@@ -1,8 +1,8 @@
 # Azure Neo4j Deployment - Bicep Modernization
 
-This repository contains modernized infrastructure-as-code for deploying Neo4j on Azure, migrating from ARM JSON templates to Azure Bicep.
+This repository contains modernized infrastructure-as-code for deploying Neo4j Enterprise on Azure, migrating from ARM JSON templates to Azure Bicep.
 
-**📚 [Deployment & Testing Guide](deployments/README.md)** - Automated deployment framework for testing and validating templates
+**[Deployment & Testing Guide](deployments/README.md)** - Automated deployment framework for testing and validating templates
 
 ## Overview
 
@@ -18,15 +18,12 @@ This project modernizes the Neo4j Azure deployment infrastructure with:
 ```
 ├── bicepconfig.json                 # Bicep linter configuration
 ├── marketplace/
-│   ├── neo4j-enterprise/           # Enterprise edition templates
-│   ├── neo4j-community/            # Community edition templates
-│   └── neo4j-enterprise-aks/       # AKS-based Enterprise templates
+│   └── neo4j-enterprise/           # Enterprise edition templates
 ├── deployments/                     # Automated testing framework (see deployments/README.md)
 │   ├── neo4j_deploy.py             # CLI for deployment testing
 │   └── src/                        # Testing modules
 ├── scripts/
 │   ├── neo4j-enterprise/           # Enterprise installation scripts (being modernized)
-│   ├── neo4j-community/            # Community installation scripts (being modernized)
 │   ├── pre-commit-bicep            # Git pre-commit hook for Bicep validation
 │   ├── install-git-hooks.sh        # Hook installation script
 │   └── validate-environment.sh     # Development environment validation
@@ -86,9 +83,6 @@ cp ../.env.sample ../.env
 
 # Build enterprise package (creates mainTemplate.json and neo4j-enterprise.zip)
 uv run neo4j-deploy package
-
-# Build community package
-uv run neo4j-deploy package --template community
 ```
 
 ### 5. Setup GitHub Actions Credentials
@@ -114,18 +108,10 @@ cd marketplace/neo4j-enterprise
 ./deploy.sh <resource-group-name>
 ```
 
-### Community Edition
-
-```bash
-cd marketplace/neo4j-community
-./deploy.sh <resource-group-name>
-```
-
 ## Azure Marketplace
 
 The templates in this repository are used for:
 - [Neo4j Enterprise on Azure Marketplace](https://azuremarketplace.microsoft.com/en-us/marketplace/apps/neo4j.neo4j-ee)
-- [Neo4j Community on Azure Marketplace](https://azuremarketplace.microsoft.com/en-us/marketplace/apps/neo4j.neo4j-community)
 
 ## Key Features
 
@@ -134,8 +120,3 @@ The templates in this repository are used for:
 - Standalone (1 node) or cluster (3-10 nodes) deployments
 - Neo4j version 5.x support
 - Enterprise and Evaluation license types
-
-### Neo4j Community
-
-- Standalone deployment
-- Neo4j version 5.x support
