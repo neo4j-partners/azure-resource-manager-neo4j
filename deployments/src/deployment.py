@@ -166,23 +166,22 @@ class DeploymentEngine:
                 p[key] = {}
             p[key]["value"] = value
 
-        # Common parameters for Enterprise VM deployments
-        set_param("nodeCount", scenario.node_count)
-        set_param("graphDatabaseVersion", scenario.graph_database_version)
-        set_param("licenseType", scenario.license_type)
-
         # Common parameters
+        set_param("graphDatabaseVersion", scenario.graph_database_version)
         set_param("location", region)
         set_param("diskSize", scenario.disk_size)
-
-        # VM-specific parameters
         set_param("vmSize", scenario.vm_size)
 
-        # Read replicas (4.4 only)
-        if scenario.read_replica_count > 0:
-            set_param("readReplicaCount", scenario.read_replica_count)
-            set_param("readReplicaVmSize", scenario.read_replica_vm_size)
-            set_param("readReplicaDiskSize", scenario.read_replica_disk_size)
+        # Enterprise/Evaluation-only parameters (not used by CE template)
+        if scenario.license_type != "Community":
+            set_param("nodeCount", scenario.node_count)
+            set_param("licenseType", scenario.license_type)
+
+            # Read replicas (4.4 only)
+            if scenario.read_replica_count > 0:
+                set_param("readReplicaCount", scenario.read_replica_count)
+                set_param("readReplicaVmSize", scenario.read_replica_vm_size)
+                set_param("readReplicaDiskSize", scenario.read_replica_disk_size)
 
         # Note: Plugin parameters (installGraphDataScience, installBloom) removed
         # VM templates now use cloud-init with plugins configured directly in scripts
@@ -249,7 +248,9 @@ class DeploymentEngine:
             )
 
         # Node count validation (already handled by Pydantic, but double-check)
-        if scenario.node_count == 1:
+        if scenario.license_type == "Community":
+            console.print("[dim]Deploying Community Edition standalone instance[/dim]")
+        elif scenario.node_count == 1:
             console.print("[dim]Deploying standalone instance (1 node)[/dim]")
         elif scenario.node_count >= 3:
             console.print(

@@ -1,0 +1,135 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/0.1.2-preview/CreateUIDefinition.MultiVm.json#",
+  "handler": "Microsoft.Azure.CreateUIDef",
+  "version": "0.1.2-preview",
+  "parameters": {
+    "basics": [],
+    "steps": [
+      {
+        "name": "neo4jConfig",
+        "label": "Neo4j Config",
+        "subLabel": {
+          "preValidation": "Configure Neo4j Community Edition",
+          "postValidation": "Done"
+        },
+        "bladeTitle": "Neo4j Community Edition Settings",
+        "elements": [
+          {
+            "name": "adminUsername",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Admin Username",
+            "defaultValue": "neo4j",
+            "toolTip": "Admin username for SSH access to VMs. We recommend leaving this as 'neo4j'.",
+            "constraints": {
+              "required": true,
+              "regex": "^[a-z_][a-z0-9_-]{0,31}$",
+              "validationMessage": "Username must be 1-32 characters, start with a letter or underscore, and contain only lowercase letters, numbers, underscores, or hyphens."
+            }
+          },
+          {
+            "name": "adminPassword",
+            "type": "Microsoft.Common.PasswordBox",
+            "label": {
+              "password": "Admin Password",
+              "confirmPassword": "Confirm password"
+            },
+            "toolTip": "Admin password for Neo4j and SSH access to VMs",
+            "constraints": {
+              "required": true,
+              "regex": "^(?:(?=.*[a-z])(?:(?=.*[A-Z])(?=.*[\\d\\W])|(?=.*\\W)(?=.*\\d))|(?=.*\\W)(?=.*[A-Z])(?=.*\\d)).{12,72}$",
+              "validationMessage": "The password must be between 12 and 72 characters long, and contain characters from at least 3 of the following groups: uppercase characters, lowercase characters, numbers, and special characters."
+            },
+            "options": {
+              "hideConfirmation": false
+            }
+          },
+          {
+            "name": "vmSize",
+            "type": "Microsoft.Compute.SizeSelector",
+            "label": "Virtual Machine Size",
+            "toolTip": "Size of the VM for Neo4j Community Edition",
+            "recommendedSizes": [
+              "Standard_E4s_v5",
+              "Standard_E8s_v5",
+              "Standard_E16s_v5",
+              "Standard_E32s_v5"
+            ],
+            "constraints": {
+              "excludedSizes": [
+                "Standard_B1s",
+                "Standard_B1ls"
+              ]
+            },
+            "osPlatform": "Linux"
+          },
+          {
+            "name": "diskSize",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Disk Size",
+            "defaultValue": "32 GB",
+            "toolTip": "Size of the data disk for Neo4j storage",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "32 GB",
+                  "value": 32
+                },
+                {
+                  "label": "64 GB",
+                  "value": 64
+                },
+                {
+                  "label": "128 GB",
+                  "value": 128
+                },
+                {
+                  "label": "512 GB",
+                  "value": 512
+                },
+                {
+                  "label": "1 TB",
+                  "value": 1024
+                },
+                {
+                  "label": "2 TB",
+                  "value": 2048
+                },
+                {
+                  "label": "4 TB",
+                  "value": 4095
+                }
+              ]
+            }
+          },
+          {
+            "name": "graphDatabaseVersion",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Graph Database Version",
+            "defaultValue": "Latest (2025.x / 2026.x)",
+            "toolTip": "Neo4j version branch. 'Latest' installs the newest CalVer release (2025.x/2026.x). '5 LTS' installs the long-term support release (supported until 2028).",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "Latest (2025.x / 2026.x)",
+                  "value": "latest"
+                },
+                {
+                  "label": "5 LTS",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "outputs": {
+      "adminUsername": "[steps('neo4jConfig').adminUsername]",
+      "adminPassword": "[steps('neo4jConfig').adminPassword]",
+      "vmSize": "[steps('neo4jConfig').vmSize]",
+      "diskSize": "[steps('neo4jConfig').diskSize]",
+      "graphDatabaseVersion": "[steps('neo4jConfig').graphDatabaseVersion]",
+      "location": "[location()]"
+    }
+  }
+}

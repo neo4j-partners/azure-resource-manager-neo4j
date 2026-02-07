@@ -1,4 +1,7 @@
+@description('Azure region for all resources.')
 param location string
+
+@description('Unique suffix for resource naming.')
 param resourceSuffix string
 
 var networkSGName = 'nsg-neo4j-${location}-${resourceSuffix}'
@@ -62,48 +65,6 @@ resource networkSG 'Microsoft.Network/networkSecurityGroups@2025-05-01' = {
           destinationAddressPrefix: '*'
           access: 'Allow'
           priority: 103
-          direction: 'Inbound'
-        }
-      }
-      {
-        name: 'ClusterCommunication'
-        properties: {
-          description: 'Cluster communication and transaction shipping (Neo4j 5.x)'
-          protocol: 'Tcp'
-          sourcePortRange: '*'
-          destinationPortRange: '6000'
-          sourceAddressPrefix: 'VirtualNetwork'
-          destinationAddressPrefix: 'VirtualNetwork'
-          access: 'Allow'
-          priority: 104
-          direction: 'Inbound'
-        }
-      }
-      {
-        name: 'ClusterRaft'
-        properties: {
-          description: 'Raft consensus protocol (Neo4j 5.x)'
-          protocol: 'Tcp'
-          sourcePortRange: '*'
-          destinationPortRange: '7000'
-          sourceAddressPrefix: 'VirtualNetwork'
-          destinationAddressPrefix: 'VirtualNetwork'
-          access: 'Allow'
-          priority: 105
-          direction: 'Inbound'
-        }
-      }
-      {
-        name: 'BoltRouting'
-        properties: {
-          description: 'Bolt routing connector for cluster-aware drivers'
-          protocol: 'Tcp'
-          sourcePortRange: '*'
-          destinationPortRange: '7688'
-          sourceAddressPrefix: 'Internet'
-          destinationAddressPrefix: '*'
-          access: 'Allow'
-          priority: 106
           direction: 'Inbound'
         }
       }

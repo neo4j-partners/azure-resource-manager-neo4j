@@ -7,7 +7,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class CleanupMode(str, Enum):
@@ -47,11 +47,11 @@ class TestScenario(BaseModel):
     node_count: Literal[1, 3, 4, 5, 6, 7, 8, 9, 10] = Field(
         ..., description="Number of cluster nodes"
     )
-    graph_database_version: Literal["5", "4.4"] = Field(
-        ..., description="Neo4j version"
+    graph_database_version: Literal["latest", "5", "4.4"] = Field(
+        ..., description="Neo4j version ('latest' for CalVer 2025.x/2026.x, '5' for LTS, '4.4' for legacy)"
     )
     disk_size: int = Field(32, ge=32, description="Disk size in GB")
-    license_type: Literal["Enterprise", "Evaluation"] = Field(
+    license_type: Literal["Enterprise", "Evaluation", "Community"] = Field(
         "Evaluation", description="License type"
     )
 
@@ -78,6 +78,20 @@ class TestScenario(BaseModel):
             if data.get("graph_database_version") != "4.4":
                 raise ValueError("Read replicas are only supported with Neo4j 4.4")
         return v
+
+    @model_validator(mode="after")
+    def validate_community_constraints(self) -> "TestScenario":
+        """Validate Community Edition constraints after all fields are set."""
+        if self.license_type == "Community":
+            if self.node_count != 1:
+                raise ValueError("Community Edition only supports standalone deployment (node_count=1)")
+            if self.graph_database_version not in ("latest", "5"):
+                raise ValueError("Community Edition only supports 'latest' (CalVer) or '5' (LTS)")
+            if self.install_graph_data_science:
+                raise ValueError("Graph Data Science is not available in Community Edition")
+            if self.install_bloom:
+                raise ValueError("Bloom is not available in Community Edition")
+        return self
 
     @field_validator("vm_size")
     @classmethod
@@ -182,7 +196,7 @@ class ConnectionInfo(BaseModel):
     password: str = Field(..., description="Neo4j admin password")
 
     # License information
-    license_type: str = Field(default="Evaluation", description="License type (Evaluation or Enterprise)")
+    license_type: str = Field(default="Evaluation", description="License type (Evaluation, Enterprise, or Community)")
 
     # Cluster information
     node_count: Optional[int] = Field(None, description="Number of cluster nodes (None for standalone)")

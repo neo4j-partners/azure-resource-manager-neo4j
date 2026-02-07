@@ -1,0 +1,14 @@
+{
+  "adminPassword": {
+    "value": "Neo4jNeo4j123'"
+  },
+  "vmSize": {
+    "value": "Standard_E4s_v5"
+  },
+  "graphDatabaseVersion": {
+    "value": "latest"
+  },
+  "diskSize": {
+    "value": 32
+  }
+}

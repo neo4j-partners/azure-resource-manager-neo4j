@@ -38,10 +38,10 @@ DEFAULT_VM_SIZES: Final[dict[str, str]] = {
 }
 
 # Neo4j versions
-NEO4J_VERSIONS: Final[list[str]] = ["5"]
+NEO4J_VERSIONS: Final[list[str]] = ["latest", "5"]
 
 # License types
-LICENSE_TYPES: Final[list[str]] = ["Enterprise", "Evaluation"]
+LICENSE_TYPES: Final[list[str]] = ["Enterprise", "Evaluation", "Community"]
 
 # Cleanup modes
 CLEANUP_MODES: Final[list[str]] = ["immediate", "on-success", "manual", "scheduled"]
