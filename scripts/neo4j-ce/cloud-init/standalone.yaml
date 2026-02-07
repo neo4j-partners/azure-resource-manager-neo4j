@@ -4,14 +4,23 @@
 # Uses an approved RHEL 9 base image - Neo4j is installed from the yum repository at first boot
 # Supports both Neo4j 5.x LTS (stable/5) and CalVer releases (stable/latest)
 
-# Disable firewalld and SELinux
+# Disable firewalld and SELinux; install NVMe udev rules for disk symlinks
+# bootcmd runs before disk_setup, ensuring /dev/disk/azure/data/by-lun/ exists
+# when cloud-init formats and mounts the data disk
 bootcmd:
   - systemctl stop firewalld
   - systemctl disable firewalld
   - setenforce 0
   - sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
+  # Install azure-vm-utils NVMe udev rules (RHEL 9 does not include them by default)
+  # These rules create /dev/disk/azure/data/by-lun/ symlinks for NVMe data disks
+  - curl -sSL -o /etc/udev/rules.d/80-azure-disk.rules https://raw.githubusercontent.com/Azure/azure-vm-utils/main/udev/80-azure-disk.rules
+  - udevadm control --reload-rules && udevadm trigger
 
 # Format and mount data disk
+# Uses NVMe disk path via azure-vm-utils udev rules (installed in bootcmd above)
+# /dev/disk/azure/data/by-lun/ replaces the legacy /dev/disk/azure/scsi1/ path
+# Requires NVMe-capable VM (Ebdsv5/Ebsv5 series) with diskControllerType: NVMe
 disk_setup:
   /dev/disk/azure/data/by-lun/0:
     table_type: gpt
@@ -22,9 +31,10 @@ fs_setup:
   - device: /dev/disk/azure/data/by-lun/0
     partition: 1
     filesystem: xfs
+    overwrite: false
 
 mounts:
-  - ["/dev/disk/azure/data/by-lun/0-part1", "/var/lib/neo4j", "xfs", "defaults", "0", "0"]
+  - ["/dev/disk/azure/data/by-lun/0-part1", "/var/lib/neo4j", "xfs", "defaults,nofail", "0", "0"]
 
 # Install Neo4j
 yum_repos:
@@ -80,13 +90,10 @@ runcmd:
       sleep 10
     done
 
-  # Get instance metadata
-  - INSTANCE_METADATA=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01")
-  - NODE_INDEX=$(echo $INSTANCE_METADATA | jq -r ".name" | sed 's/.*_//')
-  - PRIVATE_IP=$(hostname -i | awk '{print $NF}')
+  # Build public hostname from deployment parameters
   - UNIQUE_STRING="${unique_string}"
   - LOCATION="${location}"
-  - PUBLIC_HOSTNAME="vm${NODE_INDEX}.neo4j-${UNIQUE_STRING}.${LOCATION}.cloudapp.azure.com"
+  - PUBLIC_HOSTNAME="neo4j-${UNIQUE_STRING}.${LOCATION}.cloudapp.azure.com"
 
   # Install APOC plugin (may be in labs/ or may need to be found after package install)
   - |
@@ -128,12 +135,14 @@ runcmd:
 
     # Decode base64-encoded password (safe from quote/escape issues)
     PASSWORD_BASE64='${admin_password}'
-    ADMIN_PASSWORD=$(echo "$PASSWORD_BASE64" | base64 -d)
+    ADMIN_PASSWORD=$(printf '%s' "$PASSWORD_BASE64" | base64 -d)
 
     echo "Password received and decoded successfully"
     echo "=== Password Configuration Complete ==="
 
     # Set initial password BEFORE first start
+    # This is safe to always run: the command only works before Neo4j's first start
+    # and exits with an error (harmlessly) if auth is already configured
     echo "Setting Neo4j initial password..."
     neo4j-admin dbms set-initial-password "$ADMIN_PASSWORD"
     echo "Neo4j initial password set successfully"

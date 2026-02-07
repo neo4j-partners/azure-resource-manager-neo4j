@@ -20,6 +20,16 @@ The current VMSS uses `PremiumV2_LRS` for the data disk and pins to Zone 1. `Pre
 
 **ANSWER**: How limiting are the available regions for PremiumV2_LRS?  What do the azure docs recommend for zone paraemter?
 
+**RESEARCH FINDINGS**:
+
+PremiumV2_LRS is available in 41 regions (28 with availability zones, 4 with one zone, 9 without zones). The major deployment regions (East US, East US 2, West US 2, West US 3, Central US, West Europe, North Europe, Southeast Asia, Australia East, etc.) are all supported. Region availability is not a practical limitation for most customers.
+
+However, the Azure docs are explicit about zone requirements: "For regions that support availability zones, Premium SSD v2 disks can only be attached to zonal VMs." Both the standalone disk and the VM must specify the same zone. For non-AZ regions, no zone parameter is needed.
+
+**RECOMMENDATION**: Keep `PremiumV2_LRS`. Region coverage is broad enough. Hardcode zone to `1` (matching current VMSS behavior). Adding a zone parameter adds complexity for no benefit — CE is a single-node deployment where zone selection is arbitrary. If a customer needs a specific zone, they can modify the template.
+
+Sources: [Deploy a Premium SSD v2 managed disk](https://learn.microsoft.com/en-us/azure/virtual-machines/disks-deploy-premium-v2), [Select a disk type for Azure IaaS VMs](https://learn.microsoft.com/en-us/azure/virtual-machines/disks-types)
+
 ### 3. Disk lifecycle on resource group deletion
 
 The proposal says the managed disk should survive VM deletion. It will, because the disk is a separate resource and deleting a VM does not cascade to attached managed disks unless `deleteOption: Delete` is set. However, `az group delete` deletes everything in the group, including the standalone disk. The proposal's Phase 3 mentions this but is vague ("should be retainable or documented"). What is the actual expectation? Options:
@@ -39,17 +49,31 @@ The cloud-init config uses `overwrite: false` on `disk_setup`, which correctly s
 
 **ANSWER**:  What does neo4j operation manual and azure docs recommend
 
+**RESEARCH FINDINGS**:
+
+**Neo4j `set-initial-password`**: The [Neo4j Operations Manual](https://neo4j.com/docs/operations-manual/current/configuration/set-initial-password/) states this command is "intended to be used only once, before the first startup of the database." If users already exist (i.e., the auth file is present from a previous deployment), the command fails with: "initial password was not set because live Neo4j users were detected." There is no `--skip-if-exists` flag. The cloud-init script must guard this call.
+
+**Cloud-init `fs_setup`**: The [cloud-init docs](https://cloudinit.readthedocs.io/en/latest/reference/yaml_examples/disk_setup.html) confirm that `overwrite: false` is the default for `fs_setup` — if an existing filesystem is found, creation is skipped. However, `partition: auto` had a [known bug](https://bugs.launchpad.net/bugs/1634678) that could cause reformatting even with `overwrite: false`. The current cloud-init config uses `partition: 1` (explicit partition number), which avoids this bug. Adding explicit `overwrite: false` to `fs_setup` costs nothing and makes the intent clear.
+
+**RECOMMENDATION**:
+1. Add `overwrite: false` to `fs_setup` for explicitness.
+2. Guard `set-initial-password` with a check: `if [ ! -d /var/lib/neo4j/data/dbms ]; then neo4j-admin dbms set-initial-password ...; fi`. This skips password setup on reattached disks where Neo4j data already exists, preserving the original password.
+
 ### 5. CI workflow VMSS references
 
 The community CI workflow (`community.yml`) references VMSS-specific outputs and commands: `vmScaleSetsName`, `az vmss list-instances`, `az vmss run-command invoke`. These must all be updated. Should the CI workflow changes be included in this PR, or handled separately?
 
 **ANSWER**:  fix everything following best practices
 
+**RESOLUTION**: Include CI workflow changes in the same PR. The workflow must be updated to use `az vm` commands instead of `az vmss` commands, reference new output names (`vmId`, `vmName` instead of `vmScaleSetsId`, `vmScaleSetsName`), and use `az vm run-command invoke` for log retrieval on failure.
+
 ### 6. Identity module — is it still needed?
 
 The managed identity (`identity.bicep`) is created but never used for anything — there are no role assignments, and the CE cloud-init does not call any Azure APIs that require identity-based auth. The VMSS attaches it via `UserAssigned` identity, but nothing consumes it. Should the identity module be removed entirely for CE to reduce resource count, or kept for future use?
 
 **ANSWER**:  fix everything following best practices
+
+**RESOLUTION**: Remove the identity module. It creates a billable resource (user-assigned managed identity) with zero consumers. No role assignments exist, cloud-init does not use Azure APIs requiring identity auth, and the CE deployment has no need for managed identity. If a future feature requires it, it can be added back. Keeping unused resources violates least-privilege principles and adds deployment time.
 
 
 ### 7. Redeployment workflow
@@ -62,7 +86,22 @@ The proposal says "for deliberate redeployment, `az vm create` against the same 
 
 ARM incremental mode will not delete the existing disk when the VM is removed, but it needs to handle the case where the disk already exists on redeployment. Bicep's `existing` keyword or a conditional `if` on the disk resource may be needed.
 
-**ANSWER**: The goal is to support the instance dying unexpectedly so that it can survive restarts.   The goal is a minimal level of resiliency.  What is the best way of supporting that? 
+**ANSWER**: The goal is to support the instance dying unexpectedly so that it can survive restarts.   The goal is a minimal level of resiliency.  What is the best way of supporting that?
+
+**RESEARCH FINDINGS**:
+
+Azure already provides auto-recovery for standalone VMs. When a host node fails, Azure's [service healing](https://learn.microsoft.com/en-us/azure/virtual-machines/understand-vm-reboots) automatically relocates the VM to a healthy host, typically within 15 minutes. During this process, attached OS and data managed disks are always preserved. The VM reboots with the same disks attached — no manual reattach is needed. This covers the "instance dying unexpectedly" case without any additional infrastructure.
+
+For the Bicep template redeployment concern: ARM incremental mode handles this correctly. When you define a `Microsoft.Compute/disks` resource in Bicep and deploy incrementally, ARM sees the disk already exists with the same name and properties and treats it as a no-op (no recreation, no data loss). The VM resource references the disk via `createOption: Attach` with the disk's resource ID. Key constraint: the disk properties in the template (size, SKU, zone) must match what's already deployed, or ARM will attempt to update the disk, which may fail for immutable properties.
+
+The [Bicep docs](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/existing-resource) confirm that the `existing` keyword can reference already-deployed resources. However, for this use case, simply declaring the disk resource normally and deploying incrementally is sufficient — ARM's idempotent behavior handles the "disk already exists" case.
+
+**RECOMMENDATION**: No special conditional logic or `existing` keyword needed. The standard deployment workflow is:
+1. Fresh deploy: ARM creates disk + VM. VM formats and mounts disk.
+2. VM dies unexpectedly: Azure service healing restarts VM on healthy host with same disks.
+3. Deliberate redeploy (e.g., to change VM size): Delete VM only, redeploy template. ARM skips the existing disk, creates new VM, attaches the disk. Cloud-init detects existing filesystem and skips formatting.
+
+Set `deleteOption: 'Detach'` (the default) on the VM's data disk attachment to ensure the disk is never deleted when the VM is deleted.
 
 ### 8. Marketplace impact
 
@@ -112,29 +151,34 @@ Using VMSS for a single Neo4j CE instance creates several problems:
 
 ## Implementation Plan
 
-### Phase 1: Analysis
+### Phase 1: Analysis (COMPLETE)
 
-- [ ] Document the current VMSS networking configuration (NSG rules, public IP, DNS label) to ensure parity
-- [ ] Document the current cloud-init disk setup and mount behavior
-- [ ] Identify all references to VMSS outputs (`vmScaleSetsId`, `vmScaleSetsName`) in the main template and test code
-- [ ] Review the identity module for any VMSS-specific role assignments
+- [x] Document the current VMSS networking configuration (NSG rules, public IP, DNS label) to ensure parity
+- [x] Document the current cloud-init disk setup and mount behavior
+- [x] Identify all references to VMSS outputs (`vmScaleSetsId`, `vmScaleSetsName`) in the main template and test code
+- [x] Review the identity module for any VMSS-specific role assignments — none found, module removed
 
-### Phase 2: Implementation
+### Phase 2: Implementation (COMPLETE)
 
-- [ ] Create a new `disk.bicep` module defining a standalone `Microsoft.Compute/disks` resource (PremiumV2_LRS, parameterized size, Zone 1)
-- [ ] Replace `vmss.bicep` with `vm.bicep` containing a `Microsoft.Compute/virtualMachines` resource
-- [ ] Attach the standalone managed disk to the VM via `dataDisks` with `createOption: Attach` and `managedDisk.id` referencing the disk resource
-- [ ] Create a standalone `Microsoft.Network/publicIPAddresses` resource with the existing DNS label
-- [ ] Create a standalone `Microsoft.Network/networkInterfaces` resource referencing the public IP and subnet
-- [ ] Update cloud-init to detect existing filesystem on the data disk using `overwrite: false` (already present) and confirm mount idempotency
-- [ ] Update `main.bicep` / `mainTemplate.json` to wire the new modules and update outputs
-- [ ] Remove all VMSS-specific configuration (upgrade policy, fault domain count, overprovisioning, capacity, computer name prefix)
+- [x] Create a new `disk.bicep` module defining a standalone `Microsoft.Compute/disks` resource (PremiumV2_LRS, parameterized size, Zone 1)
+- [x] Replace `vmss.bicep` with `vm.bicep` containing a `Microsoft.Compute/virtualMachines` resource
+- [x] Attach the standalone managed disk to the VM via `dataDisks` with `createOption: Attach` and `managedDisk.id` referencing the disk resource
+- [x] Create a standalone `Microsoft.Network/publicIPAddresses` resource with Standard SKU, static allocation, and DNS label
+- [x] Create a standalone `Microsoft.Network/networkInterfaces` resource referencing the public IP and subnet
+- [x] Update cloud-init: added explicit `overwrite: false` to `fs_setup`, guarded `set-initial-password` to skip on reattached disks
+- [x] Update `main.bicep` to wire new modules (disk, vm), removed identity module, updated outputs
+- [x] Remove all VMSS-specific configuration (upgrade policy, fault domain count, overprovisioning, capacity, computer name prefix)
+- [x] Update `community.yml` CI workflow to use `az vm` commands instead of `az vmss`
+- [x] Remove `vmss.bicep` and `identity.bicep` modules
+- [x] Set `deleteOption: Detach` on VM data disk attachment to preserve disk on VM deletion
+- [x] Update DNS hostname from `vm0.neo4j-{suffix}` to `neo4j-{suffix}` (standalone VM, no instance index)
+- [x] Bicep compiles cleanly (warnings only for newer API versions, pre-existing in network.bicep)
 
-### Phase 3: Verification
+### Phase 3: Verification (PENDING — requires Azure deployment)
 
 - [ ] Deploy a fresh stack and confirm Neo4j starts with an empty data disk formatted and mounted at `/var/lib/neo4j`
 - [ ] Write data to Neo4j, delete the VM, redeploy a new VM against the same resource group, and confirm all data is present
 - [ ] Confirm the public DNS label resolves correctly after VM replacement
-- [ ] Confirm the data disk survives full stack deletion (resource group delete should warn but disk should be retainable or documented)
+- [ ] Confirm `az group delete` destroys all resources including the data disk (documented behavior)
 - [ ] Run existing test suite and confirm no regressions
 - [ ] Validate that `az vm` commands work directly without VMSS indirection

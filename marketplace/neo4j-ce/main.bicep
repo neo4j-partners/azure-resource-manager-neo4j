@@ -49,11 +49,12 @@ module network 'modules/network.bicep' = {
   }
 }
 
-module identity 'modules/identity.bicep' = {
-  name: 'identity-deployment'
+module disk 'modules/disk.bicep' = {
+  name: 'disk-deployment'
   params: {
     location: location
     resourceSuffix: resourceSuffix
+    diskSize: diskSize
   }
 }
 
@@ -73,8 +74,8 @@ var cloudInitStep4 = replace(cloudInitStep3, '\${graph_database_version}', graph
 var cloudInitData = cloudInitStep4
 var cloudInitBase64 = base64(cloudInitData)
 
-module vmss 'modules/vmss.bicep' = {
-  name: 'vmss-deployment'
+module vm 'modules/vm.bicep' = {
+  name: 'vm-deployment'
   params: {
     location: location
     resourceSuffix: resourceSuffix
@@ -82,19 +83,20 @@ module vmss 'modules/vmss.bicep' = {
     adminPassword: adminPassword
     graphDatabaseVersion: graphDatabaseVersion
     vmSize: vmSize
-    diskSize: diskSize
     cloudInitBase64: cloudInitBase64
-    identityId: identity.outputs.identityId
     subnetId: network.outputs.subnetId
+    dataDiskId: disk.outputs.diskId
+    dataDiskName: disk.outputs.diskName
   }
 }
 
 output vnetId string = network.outputs.vnetId
 output subnetId string = network.outputs.subnetId
 output nsgId string = network.outputs.nsgId
-output identityId string = identity.outputs.identityId
-output vmScaleSetsId string = vmss.outputs.vmScaleSetsId
-output vmScaleSetsName string = vmss.outputs.vmScaleSetsName
+output vmId string = vm.outputs.vmId
+output vmName string = vm.outputs.vmName
+output dataDiskId string = disk.outputs.diskId
 
-output Neo4jBrowserURL string = uri('http://vm0.neo4j-${deploymentUniqueId}.${location}.cloudapp.azure.com:7474', '')
-output Username string = 'neo4j'
+output neo4jBrowserURL string = uri('http://${vm.outputs.publicIpFqdn}:7474', '')
+output neo4jBoltURL string = uri('bolt://${vm.outputs.publicIpFqdn}:7687', '')
+output username string = 'neo4j'
