@@ -17,12 +17,14 @@ from typing_extensions import Annotated
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from src.config import ConfigManager
+from src.deployment import DeploymentEngine, get_template_dir
+from src.models import PreparedScenario, ScenarioDeployment
 from src.setup import SetupWizard
 
 # Create Typer app
 app = typer.Typer(
     name="neo4j-deploy",
-    help="Neo4j Azure Deployment Tools - Automated deployment and testing framework for Neo4j Enterprise on Azure",
+    help="Neo4j Azure Deployment Tools - Automated deployment and testing framework for Neo4j on Azure (Enterprise and Community Edition)",
     add_completion=False,
     rich_markup_mode="rich",
 )
@@ -115,9 +117,6 @@ def validate(
     Requires a placeholder resource group for validation.
     Creates 'arm-validation-temp' if it doesn't exist.
     """
-    from pathlib import Path as PathLib
-
-    from src.deployment import DeploymentEngine
     from src.resource_groups import ResourceGroupManager
     from src.validation import CostEstimator, TemplateValidator
 
@@ -165,28 +164,27 @@ def validate(
 
     all_valid = True
 
-    # Track deployment engines per deployment type to avoid recreating
-    engines = {}
+    # Cache engines by (deployment_type, license_type) to avoid recreating
+    engines: dict[tuple, DeploymentEngine] = {}
 
     for s in scenarios_to_validate:
         console.print(f"\n[bold cyan]Scenario: {s.name}[/bold cyan]")
         console.print("=" * 60)
 
-        # Get or create deployment engine for this deployment type
-        from src.models import DeploymentType
+        # Get or create deployment engine for this scenario's edition
+        engine_key = (s.deployment_type, s.license_type)
 
-        if s.deployment_type not in engines:
-            base_template_dir = PathLib("../marketplace/neo4j-enterprise").resolve()
-            deployment_type = "vm"
+        if engine_key not in engines:
+            base_template_dir = get_template_dir(s.license_type)
 
             try:
-                engines[s.deployment_type] = DeploymentEngine(settings, base_template_dir, deployment_type=deployment_type)
+                engines[engine_key] = DeploymentEngine(settings, base_template_dir)
             except FileNotFoundError as e:
                 console.print(f"[red]✗ Template not found: {e}[/red]")
                 all_valid = False
                 continue
 
-        engine = engines[s.deployment_type]
+        engine = engines[engine_key]
 
         # Generate parameter file
         try:
@@ -287,10 +285,8 @@ def deploy(
         uv run neo4j-deploy deploy --scenario cluster-v5 --region eastus2
         uv run neo4j-deploy deploy --all --dry-run
     """
-    from pathlib import Path as PathLib
     from rich.table import Table
 
-    from src.deployment import DeploymentEngine
     from src.orchestrator import DeploymentPlanner
 
     config_manager = check_initialized()
@@ -331,23 +327,15 @@ def deploy(
     else:
         scenarios_to_deploy = scenarios.scenarios
 
-    # Initialize deployment engine
-    # Assume we're running from deployments/, so marketplace is ../marketplace
-    base_template_dir = PathLib("../marketplace/neo4j-enterprise").resolve()
-    deployment_type = "vm"
-
-    try:
-        engine = DeploymentEngine(settings, base_template_dir, deployment_type=deployment_type)
-        planner = DeploymentPlanner(settings.resource_group_prefix)
-    except FileNotFoundError as e:
-        console.print(f"[red]Error: {e}[/red]")
-        raise typer.Exit(1)
+    # Initialize planner (shared across scenarios)
+    planner = DeploymentPlanner(settings.resource_group_prefix)
 
     # Display deployment plan
     console.print(f"\n[bold]Deployment Plan[/bold]\n")
 
     table = Table(title="Scenarios to Deploy")
     table.add_column("Scenario", style="cyan")
+    table.add_column("Edition", style="white")
     table.add_column("Type", style="white")
     table.add_column("Nodes", style="white")
     table.add_column("Version", style="white")
@@ -360,6 +348,7 @@ def deploy(
 
         table.add_row(
             s.name,
+            s.license_type,
             s.deployment_type.value,
             str(s.node_count),
             s.graph_database_version,
@@ -373,18 +362,29 @@ def deploy(
     if debug:
         console.print(f"[yellow]Debug mode:[/yellow] ENABLED - Verbose Neo4j logging will be configured")
 
-    # Generate parameter files
+    # Generate parameter files (engine created per-scenario based on edition)
     console.print(f"\n[bold]Generating Parameter Files[/bold]\n")
 
-    param_files = []
+    engines: dict[str, DeploymentEngine] = {}  # Cache by license_type
+    prepared: list[PreparedScenario] = []
     for s in scenarios_to_deploy:
         try:
+            # Get or create engine for this scenario's edition
+            if s.license_type not in engines:
+                base_template_dir = get_template_dir(s.license_type)
+                engines[s.license_type] = DeploymentEngine(settings, base_template_dir)
+            engine = engines[s.license_type]
+
             param_file = engine.generate_parameter_file(
                 scenario=s,
                 region=region,
                 debug_mode=debug,
             )
-            param_files.append((s, param_file))
+            prepared.append(PreparedScenario(
+                scenario=s,
+                parameter_file=param_file,
+                engine=engine,
+            ))
 
             # Generate resource group and deployment names
             timestamp = param_file.stem.split("-")[-2:]  # Extract timestamp
@@ -401,7 +401,7 @@ def deploy(
             console.print(f"  [red]✗[/red] {s.name}: {e}")
             raise typer.Exit(1)
 
-    console.print(f"\n[green]✓ Generated {len(param_files)} parameter file(s)[/green]")
+    console.print(f"\n[green]✓ Generated {len(prepared)} parameter file(s)[/green]")
 
     if dry_run:
         console.print("\n[yellow]Dry run complete. No resources deployed.[/yellow]")
@@ -416,17 +416,11 @@ def deploy(
     from src.models import CleanupMode, DeploymentState
     from src.monitor import DeploymentMonitor
     from src.orchestrator import DeploymentOrchestrator
-    from src.password import PasswordManager
     from src.resource_groups import ResourceGroupManager
     from src.utils import get_git_branch
 
-    # Initialize components
+    # Initialize shared components
     rg_manager = ResourceGroupManager()
-    password_manager = PasswordManager(settings)
-    orchestrator = DeploymentOrchestrator(
-        template_file=engine.template_file,
-        resource_group_manager=rg_manager,
-    )
     monitor = DeploymentMonitor(
         resource_group_manager=rg_manager,
         poll_interval=30,
@@ -451,22 +445,22 @@ def deploy(
     # Create deployments
     console.print(f"\n[bold]Creating Resource Groups and Submitting Deployments[/bold]\n")
 
-    deployment_states = []
+    deployments: list[ScenarioDeployment] = []
 
-    for s, param_file in param_files:
+    for prep in prepared:
         # Extract timestamp from parameter file name
-        timestamp_parts = param_file.stem.split("-")[-2:]
+        timestamp_parts = prep.parameter_file.stem.split("-")[-2:]
         timestamp_str = "-".join(timestamp_parts)
 
         # Generate names
-        rg_name = planner.generate_resource_group_name(s.name, timestamp_str)
-        deploy_name = planner.generate_deployment_name(s.name, timestamp_str)
+        rg_name = planner.generate_resource_group_name(prep.scenario.name, timestamp_str)
+        deploy_name = planner.generate_deployment_name(prep.scenario.name, timestamp_str)
         deployment_id = str(uuid.uuid4())
 
         # Create resource group
         target_region = region or settings.default_region
         tags = rg_manager.generate_tags(
-            scenario_name=s.name,
+            scenario_name=prep.scenario.name,
             deployment_id=deployment_id,
             branch=git_branch,
             owner_email=settings.owner_email,
@@ -474,9 +468,9 @@ def deploy(
             expires_hours=24,
         )
 
-        console.print(f"[cyan]Creating resource group for {s.name}...[/cyan]")
+        console.print(f"[cyan]Creating resource group for {prep.scenario.name}...[/cyan]")
         if not rg_manager.create_resource_group(rg_name, target_region, tags):
-            console.print(f"[red]✗ Failed to create resource group for {s.name}[/red]")
+            console.print(f"[red]✗ Failed to create resource group for {prep.scenario.name}[/red]")
             continue
 
         # Create deployment state
@@ -484,9 +478,9 @@ def deploy(
             deployment_id=deployment_id,
             resource_group_name=rg_name,
             deployment_name=deploy_name,
-            scenario_name=s.name,
+            scenario_name=prep.scenario.name,
             git_branch=git_branch,
-            parameter_file_path=str(param_file),
+            parameter_file_path=str(prep.parameter_file),
             cleanup_mode=cleanup,
             status="pending",
         )
@@ -494,20 +488,31 @@ def deploy(
         # Save initial state
         rg_manager.save_deployment_state(state)
 
-        # Submit deployment
-        if orchestrator.submit_deployment(state, param_file, wait=False):
-            deployment_states.append(state)
-        else:
-            console.print(f"[red]✗ Failed to submit deployment for {s.name}[/red]")
+        # Create orchestrator for this scenario's template
+        orchestrator = DeploymentOrchestrator(
+            template_file=prep.engine.template_file,
+            resource_group_manager=rg_manager,
+        )
 
-    if not deployment_states:
+        # Submit deployment
+        if orchestrator.submit_deployment(state, prep.parameter_file, wait=False):
+            deployments.append(ScenarioDeployment(
+                state=state,
+                engine=prep.engine,
+                orchestrator=orchestrator,
+            ))
+        else:
+            console.print(f"[red]✗ Failed to submit deployment for {prep.scenario.name}[/red]")
+
+    if not deployments:
         console.print("\n[red]No deployments were submitted successfully[/red]")
         raise typer.Exit(1)
 
-    console.print(f"\n[green]✓ Submitted {len(deployment_states)} deployment(s)[/green]")
+    console.print(f"\n[green]✓ Submitted {len(deployments)} deployment(s)[/green]")
 
     # Monitor deployments
     console.print(f"\n[bold]Monitoring Deployments[/bold]\n")
+    deployment_states = [d.state for d in deployments]
     final_statuses = monitor.monitor_deployments(
         deployment_states,
         show_live_dashboard=True,
@@ -519,72 +524,73 @@ def deploy(
     succeeded_count = 0
     failed_count = 0
 
-    for state in deployment_states:
-        final_status = final_statuses.get(state.deployment_id)
+    for d in deployments:
+        final_status = final_statuses.get(d.state.deployment_id)
 
         if final_status == "Succeeded":
             succeeded_count += 1
 
             # Extract outputs
-            outputs = orchestrator.extract_outputs(
-                state.resource_group_name,
-                state.deployment_name,
+            outputs = d.orchestrator.extract_outputs(
+                d.state.resource_group_name,
+                d.state.deployment_name,
             )
 
             if outputs:
                 # Find scenario for this deployment
-                scenario = next((s for s, _ in param_files if s.name == state.scenario_name), None)
-                if scenario:
+                scenario_match = next(
+                    (p.scenario for p in prepared if p.scenario.name == d.state.scenario_name),
+                    None,
+                )
+                if scenario_match:
                     # Get password for this scenario
-                    password = engine.password_manager.get_password(state.scenario_name)
+                    password = d.engine.password_manager.get_password(d.state.scenario_name)
 
                     # Parse connection info with credentials
-                    conn_info = orchestrator.parse_connection_info(
+                    conn_info = d.orchestrator.parse_connection_info(
                         outputs,
-                        state,
-                        scenario,
+                        d.state,
+                        scenario_match,
                         password,
                     )
 
                     if conn_info:
                         # Save connection info (includes credentials)
-                        orchestrator.save_connection_info(
+                        d.orchestrator.save_connection_info(
                             conn_info,
-                            state.scenario_name,
+                            d.state.scenario_name,
                         )
-                        console.print(f"[green]✓ Connection info saved for {state.scenario_name}[/green]\n")
+                        console.print(f"[green]✓ Connection info saved for {d.state.scenario_name}[/green]\n")
 
                         # Auto-cleanup after successful deployment (if configured)
-                        cleanup_manager.auto_cleanup_deployment(state, no_wait=True)
+                        cleanup_manager.auto_cleanup_deployment(d.state, no_wait=True)
         else:
             failed_count += 1
 
             # Auto-cleanup for failed deployments (will respect cleanup mode)
-            cleanup_manager.auto_cleanup_deployment(state, no_wait=True)
+            cleanup_manager.auto_cleanup_deployment(d.state, no_wait=True)
 
     # Summary
     console.print("\n" + "=" * 60)
     console.print(f"\n[bold]Deployment Summary[/bold]")
     console.print(f"[green]✓ Succeeded:[/green] {succeeded_count}")
     console.print(f"[red]✗ Failed:[/red] {failed_count}")
-    console.print(f"[cyan]Total:[/cyan] {len(deployment_states)}")
+    console.print(f"[cyan]Total:[/cyan] {len(deployments)}")
 
     if succeeded_count > 0:
         console.print("\n[cyan]Next steps:[/cyan]")
 
         # Show validation command for each successful deployment
-        for state in deployment_states:
-            final_status = final_statuses.get(state.deployment_id)
-            if final_status == "Succeeded":
-                console.print(f"  - Validate {state.scenario_name}: [bold]uv run validate_deploy {state.scenario_name}[/bold]")
+        for d in deployments:
+            if final_statuses.get(d.state.deployment_id) == "Succeeded":
+                console.print(f"  - Validate {d.state.scenario_name}: [bold]uv run validate_deploy {d.state.scenario_name}[/bold]")
 
         console.print("  - Check status: [bold]uv run neo4j-deploy status[/bold]")
 
         if cleanup == CleanupMode.MANUAL:
             console.print("\n[cyan]Clean up resources:[/cyan]")
-            # Show example with first deployment ID
-            if deployment_states:
-                example_id = deployment_states[0].deployment_id[:8]
+            if deployments:
+                example_id = deployments[0].state.deployment_id[:8]
                 console.print(f"  - Individual: [bold]uv run neo4j-deploy cleanup --deployment {example_id} --force[/bold]")
             console.print(f"  - All: [bold]uv run neo4j-deploy cleanup --all --force[/bold]")
         else:
@@ -987,6 +993,10 @@ def report(
 
 @app.command()
 def package(
+    edition: Annotated[
+        str,
+        typer.Option("--edition", help="Template edition to package (enterprise or community)")
+    ] = "enterprise",
     env_file: Annotated[
         Optional[Path],
         typer.Option("--env", "-e", help="Path to .env file (default: ../.env from deployments/)")
@@ -1005,18 +1015,26 @@ def package(
         NEO4J_PARTNER_PID=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
 
     Examples:
-        uv run neo4j-deploy package                    # Package enterprise template
+        uv run neo4j-deploy package                              # Package enterprise template
+        uv run neo4j-deploy package --edition community          # Package community edition
         uv run neo4j-deploy package --env /path/to/.env
     """
-    from pathlib import Path as PathLib
-
+    from src.models import Edition
     from src.package import PackageBuilder
 
+    # Validate edition flag
+    try:
+        ed = Edition(edition)
+    except ValueError:
+        valid = ", ".join(e.value for e in Edition)
+        console.print(f"[red]Error: Unknown edition '{edition}'. Use one of: {valid}[/red]")
+        raise typer.Exit(1)
+
     # Determine paths (run from deployments/ directory)
-    deployments_dir = PathLib(__file__).parent.resolve()
+    deployments_dir = Path(__file__).parent.resolve()
     root_dir = deployments_dir.parent
 
-    template_dir = root_dir / "marketplace" / "neo4j-enterprise"
+    template_dir = root_dir / "marketplace" / ed.template_dirname
 
     if not template_dir.exists():
         console.print(f"[red]Error: Template directory not found: {template_dir}[/red]")
@@ -1029,13 +1047,14 @@ def package(
         env_path = root_dir / ".env"
 
     # Build the package
+    template_name = ed.template_dirname
     builder = PackageBuilder(
         template_dir=template_dir,
         env_file=env_path,
         output_dir=root_dir,
     )
 
-    success = builder.build(template_name="neo4j-enterprise")
+    success = builder.build(template_name=template_name)
 
     if not success:
         raise typer.Exit(1)

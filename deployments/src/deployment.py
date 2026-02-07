@@ -16,7 +16,7 @@ from typing import Any, Optional
 from rich.console import Console
 
 from .constants import PARAMS_DIR
-from .models import Settings, TestScenario
+from .models import Edition, Settings, TestScenario
 from .password import PasswordManager
 from .utils import (
     construct_artifact_url,
@@ -27,6 +27,23 @@ from .utils import (
 )
 
 console = Console()
+
+# Root of the repository, resolved once at import time.
+_REPO_ROOT = Path(__file__).parent.parent.parent.resolve()
+
+
+def get_template_dir(license_type: str) -> Path:
+    """
+    Resolve the marketplace template directory based on license type.
+
+    Args:
+        license_type: "Community", "Enterprise", or "Evaluation"
+
+    Returns:
+        Absolute path to the template directory
+    """
+    edition = Edition.from_license_type(license_type)
+    return _REPO_ROOT / "marketplace" / edition.template_dirname
 
 
 class DeploymentEngine:

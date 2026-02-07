@@ -295,7 +295,7 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
 
 
     def _create_default_scenarios(self) -> ScenarioCollection:
-        """Create default test scenarios."""
+        """Create default test scenarios for Enterprise and Community editions."""
         from .models import DeploymentType
 
         scenarios = [
@@ -316,6 +316,24 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
                 vm_size="Standard_E4s_v5",
                 disk_size=32,
                 license_type="Evaluation",
+            ),
+            TestScenario(
+                name="ce-standalone-v5",
+                deployment_type=DeploymentType.VM,
+                node_count=1,
+                graph_database_version="5",
+                vm_size="Standard_E4s_v5",
+                disk_size=32,
+                license_type="Community",
+            ),
+            TestScenario(
+                name="ce-standalone-latest",
+                deployment_type=DeploymentType.VM,
+                node_count=1,
+                graph_database_version="latest",
+                vm_size="Standard_E4s_v5",
+                disk_size=32,
+                license_type="Community",
             ),
         ]
 
@@ -344,7 +362,7 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
         """Create or update README.md in deployments directory."""
         readme_content = """# Neo4j Azure Deployment Tools
 
-Automated deployment and testing framework for Neo4j Enterprise on Azure.
+Automated deployment and testing framework for Neo4j on Azure (Enterprise and Community Edition).
 
 ## Quick Start
 
@@ -355,17 +373,18 @@ uv run neo4j-deploy setup
 # Validate templates
 uv run neo4j-deploy validate
 
-# Deploy all scenarios
+# Deploy all scenarios (Enterprise and Community)
 uv run neo4j-deploy deploy --all
 
 # Deploy specific scenario
-uv run neo4j-deploy deploy --scenario standalone-v5
+uv run neo4j-deploy deploy --scenario standalone-v5       # Enterprise
+uv run neo4j-deploy deploy --scenario ce-standalone-v5    # Community Edition
 
 # Check deployment status
 uv run neo4j-deploy status
 
-# Generate test report
-uv run neo4j-deploy report
+# Test a deployment
+uv run neo4j-deploy test
 
 # Clean up resources
 uv run neo4j-deploy cleanup --all
@@ -398,10 +417,6 @@ Example templates are in `.arm-testing/templates/`
 - Azure CLI (`az`) installed and configured
 - Git (for automatic branch detection)
 - Active Azure subscription
-
-## Documentation
-
-See SCRIPT_PROPOSAL.md in marketplace/neo4j-enterprise/ for detailed implementation specifications.
 """
 
         readme_path = Path("README.md")

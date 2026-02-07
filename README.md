@@ -120,3 +120,14 @@ The templates in this repository are used for:
 - Standalone (1 node) or cluster (3-10 nodes) deployments
 - Neo4j version 5.x support
 - Enterprise and Evaluation license types
+
+## Tips
+
+### Claude Code Azure Docs
+
+To add Microsoft Azure documentation to Claude Code via MCP:
+
+```bash
+/plugin marketplace add microsoftdocs/mcp
+/plugin install microsoft-doc
+```

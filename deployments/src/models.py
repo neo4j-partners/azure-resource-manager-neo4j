@@ -2,12 +2,19 @@
 Pydantic models for configuration and state management.
 """
 
+from __future__ import annotations
+
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+if TYPE_CHECKING:
+    from .deployment import DeploymentEngine
+    from .orchestrator import DeploymentOrchestrator
 
 
 class CleanupMode(str, Enum):
@@ -31,6 +38,54 @@ class DeploymentType(str, Enum):
     """Deployment platform type."""
 
     VM = "vm"
+
+
+class Edition(str, Enum):
+    """Neo4j edition, determines which marketplace template to use."""
+
+    ENTERPRISE = "enterprise"
+    COMMUNITY = "community"
+
+    @property
+    def template_dirname(self) -> str:
+        """Marketplace template directory name for this edition."""
+        return {
+            Edition.ENTERPRISE: "neo4j-enterprise",
+            Edition.COMMUNITY: "neo4j-ce",
+        }[self]
+
+    @classmethod
+    def from_license_type(cls, license_type: str) -> Edition:
+        """
+        Map a scenario license_type to the corresponding edition.
+
+        Args:
+            license_type: "Community", "Enterprise", or "Evaluation"
+
+        Returns:
+            Edition enum value
+        """
+        if license_type == "Community":
+            return cls.COMMUNITY
+        return cls.ENTERPRISE
+
+
+@dataclass
+class PreparedScenario:
+    """A scenario with its generated parameter file and deployment engine."""
+
+    scenario: TestScenario
+    parameter_file: Path
+    engine: DeploymentEngine
+
+
+@dataclass
+class ScenarioDeployment:
+    """Tracks a submitted deployment with its associated engine and orchestrator."""
+
+    state: DeploymentState
+    engine: DeploymentEngine
+    orchestrator: DeploymentOrchestrator
 
 
 class TestScenario(BaseModel):

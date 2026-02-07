@@ -13,18 +13,18 @@ bootcmd:
 
 # Format and mount data disk
 disk_setup:
-  /dev/disk/azure/scsi1/lun0:
+  /dev/disk/azure/data/by-lun/0:
     table_type: gpt
     layout: true
     overwrite: false
 
 fs_setup:
-  - device: /dev/disk/azure/scsi1/lun0
+  - device: /dev/disk/azure/data/by-lun/0
     partition: 1
     filesystem: xfs
 
 mounts:
-  - ["/dev/disk/azure/scsi1/lun0-part1", "/var/lib/neo4j", "xfs", "defaults", "0", "0"]
+  - ["/dev/disk/azure/data/by-lun/0-part1", "/var/lib/neo4j", "xfs", "defaults", "0", "0"]
 
 # Install Neo4j
 yum_repos:
@@ -37,9 +37,48 @@ yum_repos:
 
 # Run configuration commands
 runcmd:
-  # Import Neo4j GPG key and install Community Edition
-  - rpm --import https://debian.neo4j.com/neotechnology.gpg.key
-  - dnf install -y neo4j
+  # Validate system has sufficient memory for Neo4j
+  - |
+    TOTAL_MEM_MB=$(free -m | awk '/^Mem:/{print $2}')
+    MIN_MEM_MB=3500
+    if [ "$TOTAL_MEM_MB" -lt "$MIN_MEM_MB" ]; then
+      echo "ERROR: Insufficient memory for Neo4j installation"
+      echo "Required: ${MIN_MEM_MB}MB, Available: ${TOTAL_MEM_MB}MB"
+      echo "Please use a VM with at least 4GB of RAM"
+      exit 1
+    fi
+    echo "Memory check passed: ${TOTAL_MEM_MB}MB available"
+
+  # Wait for any existing package manager locks
+  - |
+    max_attempts=30
+    attempt=1
+    while fuser /var/lib/rpm/.rpm.lock >/dev/null 2>&1 || \
+          fuser /var/lib/dnf/lock/download_lock.pid >/dev/null 2>&1; do
+      if [ $attempt -ge $max_attempts ]; then
+        echo "ERROR: Package manager lock not released after $max_attempts attempts"
+        exit 1
+      fi
+      echo "Waiting for package manager lock (attempt $attempt/$max_attempts)..."
+      sleep 10
+      attempt=$((attempt + 1))
+    done
+
+  # Import Neo4j GPG key with retry
+  - |
+    for i in 1 2 3 4 5; do
+      rpm --import https://debian.neo4j.com/neotechnology.gpg.key && break
+      echo "RPM key import failed (attempt $i/5), retrying in 10s..."
+      sleep 10
+    done
+
+  # Install Neo4j with retry
+  - |
+    for i in 1 2 3 4 5; do
+      dnf install -y neo4j && break
+      echo "DNF install failed (attempt $i/5), retrying in 10s..."
+      sleep 10
+    done
 
   # Get instance metadata
   - INSTANCE_METADATA=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute?api-version=2017-03-01")
@@ -103,13 +142,20 @@ runcmd:
     systemctl enable neo4j
     systemctl start neo4j
 
-  # Wait for Neo4j to be fully ready
+  # Wait for Neo4j to be fully ready (with timeout)
   - |
+    TIMEOUT=300
+    ELAPSED=0
     until curl -s -o /dev/null -w '%{http_code}' http://localhost:7474 | grep -q "200"; do
-      echo "Waiting for Neo4j to be ready..."
+      if [ $ELAPSED -ge $TIMEOUT ]; then
+        echo "ERROR: Neo4j failed to start within ${TIMEOUT} seconds"
+        exit 1
+      fi
+      echo "Waiting for Neo4j to be ready... (${ELAPSED}s elapsed)"
       sleep 5
+      ELAPSED=$((ELAPSED + 5))
     done
-  - echo "Neo4j is ready!"
+    echo "Neo4j is ready!"
 
 write_files:
   - path: /var/log/neo4j-cloud-init.log

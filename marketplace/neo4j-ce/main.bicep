@@ -2,7 +2,9 @@
 param adminUsername string = 'neo4j'
 
 @secure()
-@description('Admin password for Neo4j VMs.')
+@minLength(8)
+@maxLength(72)
+@description('Admin password for Neo4j and SSH access. Must be 8-72 characters.')
 param adminPassword string
 
 @description('Azure VM size for the Neo4j instance.')

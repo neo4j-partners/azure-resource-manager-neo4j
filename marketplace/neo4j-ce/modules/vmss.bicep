@@ -34,6 +34,7 @@ var vmScaleSetsName = 'vmss-neo4j-${location}-${resourceSuffix}'
 resource vmScaleSets 'Microsoft.Compute/virtualMachineScaleSets@2025-04-01' = {
   name: vmScaleSetsName
   location: location
+  zones: ['1']
   tags: {
     Neo4jVersion: graphDatabaseVersion
     Neo4jEdition: 'Community'
@@ -52,6 +53,7 @@ resource vmScaleSets 'Microsoft.Compute/virtualMachineScaleSets@2025-04-01' = {
     capacity: 1
   }
   properties: {
+    platformFaultDomainCount: 1
     overprovision: false
     upgradePolicy: {
       mode: 'Manual'
@@ -72,7 +74,7 @@ resource vmScaleSets 'Microsoft.Compute/virtualMachineScaleSets@2025-04-01' = {
             lun: 0
             createOption: 'Empty'
             managedDisk: {
-              storageAccountType: 'Premium_LRS'
+              storageAccountType: 'PremiumV2_LRS'
             }
             caching: 'None'
             diskSizeGB: diskSize
