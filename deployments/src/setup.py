@@ -318,7 +318,7 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
                 license_type="Evaluation",
             ),
             TestScenario(
-                name="ce-standalone-v5",
+                name="ce-standalone-lts",
                 deployment_type=DeploymentType.VM,
                 node_count=1,
                 graph_database_version="5",
@@ -378,7 +378,7 @@ uv run neo4j-deploy deploy --all
 
 # Deploy specific scenario
 uv run neo4j-deploy deploy --scenario standalone-v5       # Enterprise
-uv run neo4j-deploy deploy --scenario ce-standalone-v5    # Community Edition
+uv run neo4j-deploy deploy --scenario ce-standalone-lts    # Community Edition
 
 # Check deployment status
 uv run neo4j-deploy status

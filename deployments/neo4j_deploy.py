@@ -586,6 +586,7 @@ def deploy(
                 console.print(f"  - Validate {d.state.scenario_name}: [bold]uv run validate_deploy {d.state.scenario_name}[/bold]")
 
         console.print("  - Check status: [bold]uv run neo4j-deploy status[/bold]")
+        console.print("  - Run tests: [bold]uv run neo4j-deploy test[/bold]")
 
         if cleanup == CleanupMode.MANUAL:
             console.print("\n[cyan]Clean up resources:[/cyan]")

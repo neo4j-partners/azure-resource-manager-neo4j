@@ -27,7 +27,7 @@ env:
   DEPLOYMENTS_PATH: deployments
 
 jobs:
-  test-template-standalone-ce-v5:
+  test-template-standalone-ce-lts:
     name: Test ARM (Neo4j CE Standalone)
     runs-on: ubuntu-22.04
     timeout-minutes: 60
