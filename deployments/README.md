@@ -16,7 +16,7 @@ uv run neo4j-deploy deploy --all
 
 # Deploy specific scenario
 uv run neo4j-deploy deploy --scenario standalone-lts       # Enterprise
-uv run neo4j-deploy deploy --scenario ce-standalone-lts    # Community Edition
+uv run neo4j-deploy deploy --scenario ce-standalone-latest  # Community Edition
 
 # Check deployment status
 uv run neo4j-deploy status

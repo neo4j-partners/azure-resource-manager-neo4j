@@ -1,56 +1,32 @@
-# Azure Neo4j Deployment - Bicep Modernization
+# Azure Neo4j Deployment
 
-This repository contains modernized infrastructure-as-code for deploying Neo4j Enterprise on Azure, migrating from ARM JSON templates to Azure Bicep.
+Infrastructure-as-code for deploying Neo4j on Azure using Bicep templates, published to the Azure Marketplace.
 
-**[Deployment & Testing Guide](deployments/README.md)** - Automated deployment framework for testing and validating templates
+## Editions
 
-## Overview
+| Edition | Template | VM | Disk | Nodes |
+|---------|----------|-----|------|-------|
+| **Enterprise** | `marketplace/neo4j-enterprise/` | VMSS (Standard_E4s_v5) | Premium_LRS | 1-10 |
+| **Community** | `marketplace/neo4j-ce/` | Standalone VM (Standard_E4bds_v5, NVMe) | PremiumV2_LRS / Premium_LRS (auto) | 1 |
 
-This project modernizes the Neo4j Azure deployment infrastructure with:
-
-- **Azure Bicep** - Modern, declarative infrastructure-as-code replacing ARM JSON
-- **Cloud-Init** - Declarative VM provisioning replacing complex bash scripts
-- **Automated Linting** - Quality and security validation via Bicep linter
-- **Simplified Architecture** - Clean, maintainable templates without over-engineering
+The CE template uses `pickZones()` to auto-detect availability zone support at deploy time. In zonal regions it deploys with PremiumV2_LRS + zone 1; in non-zonal regions it falls back to Premium_LRS with no zone pinning. See [CE Architecture](marketplace/neo4j-ce/ARCHITECTURE.md) for details.
 
 ## Repository Structure
 
 ```
-├── bicepconfig.json                 # Bicep linter configuration
-├── marketplace/
-│   └── neo4j-enterprise/           # Enterprise edition templates
-├── deployments/                     # Automated testing framework (see deployments/README.md)
-│   ├── neo4j_deploy.py             # CLI for deployment testing
-│   └── src/                        # Testing modules
-├── scripts/
-│   ├── neo4j-enterprise/           # Enterprise installation scripts (being modernized)
-│   ├── pre-commit-bicep            # Git pre-commit hook for Bicep validation
-│   ├── install-git-hooks.sh        # Hook installation script
-│   └── validate-environment.sh     # Development environment validation
+marketplace/
+  neo4j-enterprise/         # Enterprise edition (VMSS, load balancer)
+  neo4j-ce/                 # Community Edition (standalone VM, NVMe, pickZones)
+scripts/
+  neo4j-enterprise/         # Enterprise cloud-init and provisioning
+  neo4j-ce/cloud-init/      # CE cloud-init (standalone.yaml)
+deployments/                # Deployment and testing CLI (see deployments/README.md)
+.github/workflows/          # CI: enterprise.yml, community.yml
 ```
 
-## Quick Start for Developers
+## Quick Start
 
-### 1. Install Required Tools
-
-**Required:**
-- Azure CLI 2.50.0+
-- Bicep CLI 0.20.0+ (bundled with Azure CLI)
-- Python 3.12+ with [uv](https://docs.astral.sh/uv/)
-- Git 2.30.0+
-
-**Recommended:**
-- Visual Studio Code with Bicep extension
-
-### 2. Verify Your Environment
-
-```bash
-./scripts/validate-environment.sh
-```
-
-### 3. Deploy and Test Templates
-
-The `deployments/` directory contains a comprehensive CLI for deployment testing:
+### Deploy and Test
 
 ```bash
 cd deployments
@@ -58,76 +34,62 @@ cd deployments
 # First-time setup
 uv run neo4j-deploy setup
 
-# Deploy a scenario
+# Deploy Enterprise standalone
 uv run neo4j-deploy deploy --scenario standalone-lts
 
-# Check deployment status
+# Deploy Community Edition
+uv run neo4j-deploy deploy --scenario ce-standalone-latest
+
+# Deploy CE to a non-zonal region (tests pickZones fallback)
+uv run neo4j-deploy deploy --scenario ce-standalone-nonzonal --region northcentralus
+
+# Check status, test, clean up
 uv run neo4j-deploy status
-
-# Test the deployment
 uv run neo4j-deploy test
-
-# Clean up resources
 uv run neo4j-deploy cleanup --all --force
 ```
 
 See **[deployments/README.md](deployments/README.md)** for full command reference.
 
-### 4. Build Marketplace Package
+### Build Marketplace Package
 
 ```bash
 cd deployments
-
-# Setup: copy .env.sample to .env and add your Partner Center PID
-cp ../.env.sample ../.env
-
-# Build enterprise package (creates mainTemplate.json and neo4j-enterprise.zip)
 uv run neo4j-deploy package
 ```
 
-### 5. Setup GitHub Actions Credentials
-
-Generate Azure Service Principal credentials for GitHub Actions CI/CD:
+### Manual Deployment
 
 ```bash
-cd deployments
-uv run setup-azure-credentials
+# Enterprise
+cd marketplace/neo4j-enterprise && ./deploy.sh <resource-group-name>
+
+# Community Edition
+cd marketplace/neo4j-ce && ./deploy.sh <resource-group-name>
 ```
 
-This will:
-1. Create a Service Principal with Contributor role
-2. Save credentials to `azure-credentials.json`
-3. Provide instructions for adding to GitHub Secrets
+## Requirements
 
-## Manual Deployment
+- Azure CLI 2.50.0+ (includes Bicep CLI)
+- Python 3.12+ with [uv](https://docs.astral.sh/uv/)
+- Active Azure subscription
 
-### Enterprise Edition
+## Test Scenarios
 
-```bash
-cd marketplace/neo4j-enterprise
-./deploy.sh <resource-group-name>
-```
+| Scenario | Edition | Version | Purpose |
+|----------|---------|---------|---------|
+| `standalone-lts` | Enterprise Evaluation | LTS (5) | Single-node enterprise |
+| `cluster-lts` | Enterprise Evaluation | LTS (5) | 3-node cluster |
+| `ce-standalone-latest` | Community | CalVer (latest) | CE in zonal region (default eastus2) |
+| `ce-standalone-nonzonal` | Community | CalVer (latest) | CE in non-zonal region (northcentralus) |
+| `ce-standalone-restricted` | Community | CalVer (latest) | CE in quota-restricted region (westeurope) |
+
+## CI/CD
+
+GitHub Actions workflows validate deployments on pull requests:
+- `enterprise.yml` - Enterprise standalone + cluster (LTS, Enterprise and Evaluation licenses)
+- `community.yml` - Community Edition standalone
 
 ## Azure Marketplace
 
-The templates in this repository are used for:
 - [Neo4j Enterprise on Azure Marketplace](https://azuremarketplace.microsoft.com/en-us/marketplace/apps/neo4j.neo4j-ee)
-
-## Key Features
-
-### Neo4j Enterprise
-
-- Standalone (1 node) or cluster (3-10 nodes) deployments
-- Neo4j version 5.x support
-- Enterprise and Evaluation license types
-
-## Tips
-
-### Claude Code Azure Docs
-
-To add Microsoft Azure documentation to Claude Code via MCP:
-
-```bash
-/plugin marketplace add microsoftdocs/mcp
-/plugin install microsoft-doc
-```

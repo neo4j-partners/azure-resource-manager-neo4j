@@ -318,15 +318,6 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
                 license_type="Evaluation",
             ),
             TestScenario(
-                name="ce-standalone-lts",
-                deployment_type=DeploymentType.VM,
-                node_count=1,
-                graph_database_version="5",
-                vm_size="Standard_E4s_v5",
-                disk_size=32,
-                license_type="Community",
-            ),
-            TestScenario(
                 name="ce-standalone-latest",
                 deployment_type=DeploymentType.VM,
                 node_count=1,
@@ -378,7 +369,7 @@ uv run neo4j-deploy deploy --all
 
 # Deploy specific scenario
 uv run neo4j-deploy deploy --scenario standalone-lts       # Enterprise
-uv run neo4j-deploy deploy --scenario ce-standalone-lts    # Community Edition
+uv run neo4j-deploy deploy --scenario ce-standalone-latest  # Community Edition
 
 # Check deployment status
 uv run neo4j-deploy status
