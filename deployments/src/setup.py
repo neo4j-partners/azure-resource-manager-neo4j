@@ -127,7 +127,12 @@ class SetupWizard:
         self.config_manager.create_example_templates()
 
         console.print("\n[bold green]✓ Setup complete![/bold green]")
-        console.print("You can now run:")
+
+        # Show configured scenarios grouped by edition
+        if create_scenarios:
+            self._show_scenario_commands(scenarios)
+
+        console.print("\n[cyan]Other commands:[/cyan]")
         console.print("  [cyan]uv run neo4j-deploy validate[/cyan]     - Validate templates")
         console.print("  [cyan]uv run neo4j-deploy deploy --all[/cyan] - Deploy all scenarios")
         console.print("  [cyan]uv run neo4j-deploy status[/cyan]       - Check deployment status")
@@ -319,6 +324,32 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
         ]
 
         return ScenarioCollection(scenarios=scenarios)
+
+    def _show_scenario_commands(self, scenarios: ScenarioCollection) -> None:
+        """Show deploy commands for configured scenarios grouped by edition."""
+        ee_scenarios = [
+            s for s in scenarios.scenarios if s.license_type != "Community"
+        ]
+        ce_scenarios = [
+            s for s in scenarios.scenarios if s.license_type == "Community"
+        ]
+
+        if ee_scenarios:
+            console.print("\n[cyan]Enterprise Edition scenarios:[/cyan]")
+            for s in ee_scenarios:
+                nodes = f"{s.node_count} node" if s.node_count == 1 else f"{s.node_count} nodes"
+                console.print(
+                    f"  uv run neo4j-deploy deploy -s {s.name}"
+                    f"  [dim]({s.vm_size}, {nodes}, {s.license_type})[/dim]"
+                )
+
+        if ce_scenarios:
+            console.print("\n[cyan]Community Edition scenarios:[/cyan]")
+            for s in ce_scenarios:
+                console.print(
+                    f"  uv run neo4j-deploy deploy -s {s.name}"
+                    f"  [dim]({s.vm_size}, standalone)[/dim]"
+                )
 
     def _show_summary(self, settings: Settings) -> None:
         """Show configuration summary."""
