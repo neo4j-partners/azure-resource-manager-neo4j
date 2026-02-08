@@ -13,9 +13,11 @@ from rich.table import Table
 
 from .config import ConfigManager
 from .constants import (
+    CE_NONZONAL_REGIONS,
+    CE_RESTRICTED_REGIONS,
+    CE_ZONAL_REGIONS,
     CLEANUP_MODES,
     DEFAULT_CLEANUP_MODE,
-    DEFAULT_REGIONS,
     NEO4J_VERSIONS,
 )
 from .models import (
@@ -28,7 +30,6 @@ from .models import (
 from .utils import (
     console,
     get_az_account_info,
-    get_az_default_location,
     get_git_remote_url,
     get_git_user_email,
     parse_github_url,
@@ -125,9 +126,6 @@ class SetupWizard:
         # Create example templates
         self.config_manager.create_example_templates()
 
-        # Update README
-        self._update_readme()
-
         console.print("\n[bold green]✓ Setup complete![/bold green]")
         console.print("You can now run:")
         console.print("  [cyan]uv run neo4j-deploy validate[/cyan]     - Validate templates")
@@ -187,41 +185,33 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
         return az_info
 
     def _select_region(self) -> str:
-        """Select default Azure region."""
+        """Select default Azure region via region-category picker."""
         console.print("\n[bold]Step 3: Default Azure Region[/bold]")
+        console.print("What type of region do you want to deploy to?")
+        console.print("  1. [cyan]Zonal[/cyan] (default)         — Zones + PremiumV2_LRS")
+        console.print("  2. [cyan]Non-zonal[/cyan]               — No zones, Premium_LRS fallback")
+        console.print("  3. [cyan]Quota-restricted zonal[/cyan]  — Zones but needs quota request")
 
-        # Try to detect default region from Azure CLI
-        detected_region = get_az_default_location()
+        category = IntPrompt.ask("Enter choice", default=1, choices=["1", "2", "3"])
 
-        if detected_region:
-            console.print(f"[cyan]Detected Azure default location: {detected_region}[/cyan]")
-            if Confirm.ask(f"Use {detected_region} as default region?", default=True):
-                return detected_region
+        region_lists = {
+            1: CE_ZONAL_REGIONS,
+            2: CE_NONZONAL_REGIONS,
+            3: CE_RESTRICTED_REGIONS,
+        }
+        regions = region_lists[category]
 
-        console.print("Select default region for test deployments:")
-
-        for i, region in enumerate(DEFAULT_REGIONS, 1):
+        console.print("\nSelect a region:")
+        for i, region in enumerate(regions, 1):
             console.print(f"  {i}. {region}")
-        console.print(f"  {len(DEFAULT_REGIONS) + 1}. Custom (enter manually)")
 
-        # Default to first region in list
-        default_choice = 1
-
-        # If detected region is in the list, use it as default
-        if detected_region and detected_region in DEFAULT_REGIONS:
-            default_choice = DEFAULT_REGIONS.index(detected_region) + 1
-
-        choice = IntPrompt.ask(
+        region_choice = IntPrompt.ask(
             "Enter choice",
-            default=default_choice,
-            choices=[str(i) for i in range(1, len(DEFAULT_REGIONS) + 2)],
+            default=1,
+            choices=[str(i) for i in range(1, len(regions) + 1)],
         )
 
-        if choice == len(DEFAULT_REGIONS) + 1:
-            default_region_value = detected_region or "westeurope"
-            return Prompt.ask("Enter Azure region", default=default_region_value)
-        else:
-            return DEFAULT_REGIONS[choice - 1]
+        return regions[region_choice - 1]
 
     def _configure_resource_naming(self) -> str:
         """Configure resource naming convention."""
@@ -349,69 +339,3 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
 
         console.print(table)
 
-    def _update_readme(self) -> None:
-        """Create or update README.md in deployments directory."""
-        readme_content = """# Neo4j Azure Deployment Tools
-
-Automated deployment and testing framework for Neo4j on Azure (Enterprise and Community Edition).
-
-## Quick Start
-
-```bash
-# First-time setup (already completed)
-uv run neo4j-deploy setup
-
-# Validate templates
-uv run neo4j-deploy validate
-
-# Deploy all scenarios (Enterprise and Community)
-uv run neo4j-deploy deploy --all
-
-# Deploy specific scenario
-uv run neo4j-deploy deploy --scenario standalone-lts       # Enterprise
-uv run neo4j-deploy deploy --scenario ce-standalone-latest  # Community Edition
-
-# Check deployment status
-uv run neo4j-deploy status
-
-# Test a deployment
-uv run neo4j-deploy test
-
-# Clean up resources
-uv run neo4j-deploy cleanup --all
-```
-
-## Configuration
-
-Configuration files are located in `.arm-testing/config/`:
-- `settings.yaml` - Main settings (Azure subscription, regions, cleanup modes)
-- `scenarios.yaml` - Test scenario definitions
-
-Example templates are in `.arm-testing/templates/`
-
-## Directory Structure
-
-```
-.arm-testing/
-├── config/       # Configuration files
-├── state/        # Deployment tracking
-├── params/       # Generated parameter files
-├── results/      # Test outputs and reports
-├── logs/         # Execution logs
-├── cache/        # Downloaded binaries
-└── templates/    # Example configurations
-```
-
-## Requirements
-
-- Python 3.12+ with uv
-- Azure CLI (`az`) installed and configured
-- Git (for automatic branch detection)
-- Active Azure subscription
-"""
-
-        readme_path = Path("README.md")
-        with open(readme_path, "w") as f:
-            f.write(readme_content)
-
-        console.print(f"[green]Updated {readme_path}[/green]")

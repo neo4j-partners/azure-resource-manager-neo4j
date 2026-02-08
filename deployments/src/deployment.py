@@ -92,7 +92,6 @@ class DeploymentEngine:
     def generate_parameter_file(
         self,
         scenario: TestScenario,
-        region: Optional[str] = None,
         debug_mode: bool = False,
     ) -> Path:
         """
@@ -100,7 +99,6 @@ class DeploymentEngine:
 
         Args:
             scenario: Test scenario configuration
-            region: Override region (uses default from settings if None)
             debug_mode: Enable debug mode with verbose logging
 
         Returns:
@@ -121,7 +119,7 @@ class DeploymentEngine:
 
         # Apply scenario overrides
         params = self._apply_scenario_overrides(
-            base_params, scenario, region or self.settings.default_region
+            base_params, scenario, self.settings.default_region
         )
 
         # Inject dynamic values

@@ -195,38 +195,6 @@ def get_az_account_info() -> Optional[dict[str, Any]]:
     return None
 
 
-def get_az_default_location() -> Optional[str]:
-    """
-    Get the default Azure location from az CLI configuration.
-
-    Returns:
-        Default location or None if not configured
-    """
-    try:
-        result = run_command("az configure --list-defaults", check=False)
-        if result.returncode == 0:
-            # Parse the output which is in format: name=value
-            for line in result.stdout.strip().split('\n'):
-                if line.strip().startswith('location'):
-                    # Format is: location    value    global
-                    parts = line.split()
-                    if len(parts) >= 2:
-                        return parts[1]
-    except Exception:
-        pass
-
-    # Fallback: try to get from account info (some accounts have a home region)
-    try:
-        account_info = get_az_account_info()
-        if account_info and 'tenantDefaultDomain' in account_info:
-            # Try to infer region from tenant (not reliable but worth a try)
-            pass
-    except Exception:
-        pass
-
-    return None
-
-
 def get_git_user_email() -> Optional[str]:
     """
     Get Git user email configuration.

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "12311598039744720943"
+      "templateHash": "16062884163198106143"
     }
   },
   "parameters": {
@@ -57,7 +57,9 @@
   "variables": {
     "deploymentUniqueId": "[uniqueString(resourceGroup().id, deployment().name)]",
     "resourceSuffix": "[variables('deploymentUniqueId')]",
-    "cloudInitTemplate": "#cloud-config\n# Neo4j Community Edition Standalone Deployment\n# This cloud-init configuration installs and configures Neo4j CE on a single Azure VM\n# Uses an approved RHEL 9 base image - Neo4j is installed from the yum repository at first boot\n# Supports both Neo4j 5.x LTS (stable/5) and CalVer releases (stable/latest)\n\n# Disable firewalld and SELinux\nbootcmd:\n  - systemctl stop firewalld\n  - systemctl disable firewalld\n  - setenforce 0\n  - sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config\n\n# Format and mount data disk\ndisk_setup:\n  /dev/disk/azure/data/by-lun/0:\n    table_type: gpt\n    layout: true\n    overwrite: false\n\nfs_setup:\n  - device: /dev/disk/azure/data/by-lun/0\n    partition: 1\n    filesystem: xfs\n    overwrite: false\n\nmounts:\n  - [\"/dev/disk/azure/data/by-lun/0-part1\", \"/var/lib/neo4j\", \"xfs\", \"defaults\", \"0\", \"0\"]\n\n# Install Neo4j\nyum_repos:\n  neo4j:\n    name: Neo4j Yum Repo\n    baseurl: https://yum.neo4j.com/stable/${graph_database_version}\n    enabled: true\n    gpgcheck: true\n    gpgkey: https://debian.neo4j.com/neotechnology.gpg.key\n\n# Run configuration commands\nruncmd:\n  # Validate system has sufficient memory for Neo4j\n  - |\n    TOTAL_MEM_MB=$(free -m | awk '/^Mem:/{print $2}')\n    MIN_MEM_MB=3500\n    if [ \"$TOTAL_MEM_MB\" -lt \"$MIN_MEM_MB\" ]; then\n      echo \"ERROR: Insufficient memory for Neo4j installation\"\n      echo \"Required: ${MIN_MEM_MB}MB, Available: ${TOTAL_MEM_MB}MB\"\n      echo \"Please use a VM with at least 4GB of RAM\"\n      exit 1\n    fi\n    echo \"Memory check passed: ${TOTAL_MEM_MB}MB available\"\n\n  # Wait for any existing package manager locks\n  - |\n    max_attempts=30\n    attempt=1\n    while fuser /var/lib/rpm/.rpm.lock >/dev/null 2>&1 || \\\n          fuser /var/lib/dnf/lock/download_lock.pid >/dev/null 2>&1; do\n      if [ $attempt -ge $max_attempts ]; then\n        echo \"ERROR: Package manager lock not released after $max_attempts attempts\"\n        exit 1\n      fi\n      echo \"Waiting for package manager lock (attempt $attempt/$max_attempts)...\"\n      sleep 10\n      attempt=$((attempt + 1))\n    done\n\n  # Import Neo4j GPG key with retry\n  - |\n    for i in 1 2 3 4 5; do\n      rpm --import https://debian.neo4j.com/neotechnology.gpg.key && break\n      echo \"RPM key import failed (attempt $i/5), retrying in 10s...\"\n      sleep 10\n    done\n\n  # Install Neo4j with retry\n  - |\n    for i in 1 2 3 4 5; do\n      dnf install -y neo4j && break\n      echo \"DNF install failed (attempt $i/5), retrying in 10s...\"\n      sleep 10\n    done\n\n  # Build public hostname from deployment parameters\n  - UNIQUE_STRING=\"${unique_string}\"\n  - LOCATION=\"${location}\"\n  - PUBLIC_HOSTNAME=\"neo4j-${UNIQUE_STRING}.${LOCATION}.cloudapp.azure.com\"\n\n  # Install APOC plugin (may be in labs/ or may need to be found after package install)\n  - |\n    if ls /var/lib/neo4j/labs/apoc-*-core.jar 1>/dev/null 2>&1; then\n      mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins/\n      echo \"APOC plugin moved from labs to plugins\"\n    elif ls /usr/share/neo4j/labs/apoc-*-core.jar 1>/dev/null 2>&1; then\n      cp /usr/share/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins/\n      echo \"APOC plugin copied from /usr/share/neo4j/labs to plugins\"\n    else\n      echo \"WARNING: APOC plugin not found in labs directory, skipping\"\n    fi\n\n  # Configure Neo4j network settings\n  - sed -i 's/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf\n  - sed -i \"s/#server.default_advertised_address=localhost/server.default_advertised_address=${PUBLIC_HOSTNAME}/g\" /etc/neo4j/neo4j.conf\n  - sed -i \"s/#server.bolt.advertised_address=:7687/server.bolt.advertised_address=${PUBLIC_HOSTNAME}:7687/g\" /etc/neo4j/neo4j.conf\n  - sed -i 's/#server.bolt.listen_address=:7687/server.bolt.listen_address=0.0.0.0:7687/g' /etc/neo4j/neo4j.conf\n\n  # Configure extensions and security (APOC only, no GDS/Bloom)\n  - sed -i 's/#dbms.security.procedures.unrestricted=my.extensions.example,my.procedures.*/dbms.security.procedures.unrestricted=apoc.*/g' /etc/neo4j/neo4j.conf\n  - echo \"dbms.security.http_auth_allowlist=/,/browser.*\" >> /etc/neo4j/neo4j.conf\n  - echo \"dbms.security.procedures.allowlist=apoc.*\" >> /etc/neo4j/neo4j.conf\n\n  # Add memory recommendations\n  - neo4j-admin server memory-recommendation >> /etc/neo4j/neo4j.conf\n\n  # Configure routing for driver compatibility\n  - echo \"dbms.routing.default_router=SERVER\" >> /etc/neo4j/neo4j.conf\n\n  # SSRF protection\n  - echo \"internal.dbms.cypher_ip_blocklist=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.169.0/24,fc00::/7,fe80::/10,ff00::/8\" >> /etc/neo4j/neo4j.conf\n\n  # Decode and set admin password, then start Neo4j\n  # IMPORTANT: All password handling must be in ONE script block because\n  # shell variables don't persist across separate runcmd entries in cloud-init\n  - |\n    echo \"=== Password Configuration Started ===\"\n\n    # Decode base64-encoded password (safe from quote/escape issues)\n    PASSWORD_BASE64='${admin_password}'\n    ADMIN_PASSWORD=$(echo \"$PASSWORD_BASE64\" | base64 -d)\n\n    echo \"Password received and decoded successfully\"\n    echo \"=== Password Configuration Complete ===\"\n\n    # Set initial password BEFORE first start — skip if data disk already has Neo4j data\n    # (reattached disk from a previous deployment preserves the original password)\n    if [ ! -d /var/lib/neo4j/data/dbms ]; then\n      echo \"Fresh disk detected — setting Neo4j initial password...\"\n      neo4j-admin dbms set-initial-password \"$ADMIN_PASSWORD\"\n      echo \"Neo4j initial password set successfully\"\n    else\n      echo \"Existing Neo4j data found — skipping initial password setup (preserving original credentials)\"\n    fi\n\n    # Enable and start Neo4j\n    systemctl enable neo4j\n    systemctl start neo4j\n\n  # Wait for Neo4j to be fully ready (with timeout)\n  - |\n    TIMEOUT=300\n    ELAPSED=0\n    until curl -s -o /dev/null -w '%{http_code}' http://localhost:7474 | grep -q \"200\"; do\n      if [ $ELAPSED -ge $TIMEOUT ]; then\n        echo \"ERROR: Neo4j failed to start within ${TIMEOUT} seconds\"\n        exit 1\n      fi\n      echo \"Waiting for Neo4j to be ready... (${ELAPSED}s elapsed)\"\n      sleep 5\n      ELAPSED=$((ELAPSED + 5))\n    done\n    echo \"Neo4j is ready!\"\n\nwrite_files:\n  - path: /var/log/neo4j-cloud-init.log\n    content: |\n      Neo4j CE cloud-init started at $(date)\n    append: true\n",
+    "zones": "[pickZones('Microsoft.Compute', 'virtualMachines', parameters('location'))]",
+    "useZones": "[not(empty(variables('zones')))]",
+    "cloudInitTemplate": "#cloud-config\n# Neo4j Community Edition Standalone Deployment\n# This cloud-init configuration installs and configures Neo4j CE on a single Azure VM\n# Uses an approved RHEL 9 base image - Neo4j is installed from the yum repository at first boot\n# Supports both Neo4j 5.x LTS (stable/5) and CalVer releases (stable/latest)\n\n# Disable firewalld and SELinux; install NVMe udev rules for disk symlinks\n# bootcmd runs before disk_setup, ensuring /dev/disk/azure/data/by-lun/ exists\n# when cloud-init formats and mounts the data disk\nbootcmd:\n  - systemctl stop firewalld\n  - systemctl disable firewalld\n  - setenforce 0\n  - sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config\n  # Install azure-vm-utils NVMe udev rules (RHEL 9 does not include them by default)\n  # These rules create /dev/disk/azure/data/by-lun/ symlinks for NVMe data disks\n  - curl -sSL -o /etc/udev/rules.d/80-azure-disk.rules https://raw.githubusercontent.com/Azure/azure-vm-utils/main/udev/80-azure-disk.rules\n  - udevadm control --reload-rules && udevadm trigger\n\n# Format and mount data disk\n# Uses azure-vm-utils udev rules (installed in bootcmd above) which create\n# /dev/disk/azure/data/by-lun/ symlinks for both NVMe and SCSI disk controllers\ndisk_setup:\n  /dev/disk/azure/data/by-lun/0:\n    table_type: gpt\n    layout: true\n    overwrite: false\n\nfs_setup:\n  - device: /dev/disk/azure/data/by-lun/0\n    partition: 1\n    filesystem: xfs\n    overwrite: false\n\nmounts:\n  - [\"/dev/disk/azure/data/by-lun/0-part1\", \"/var/lib/neo4j\", \"xfs\", \"defaults,nofail\", \"0\", \"0\"]\n\n# Install Neo4j\nyum_repos:\n  neo4j:\n    name: Neo4j Yum Repo\n    baseurl: https://yum.neo4j.com/stable/${graph_database_version}\n    enabled: true\n    gpgcheck: true\n    gpgkey: https://debian.neo4j.com/neotechnology.gpg.key\n\n# Run configuration commands\nruncmd:\n  # Validate system has sufficient memory for Neo4j\n  - |\n    TOTAL_MEM_MB=$(free -m | awk '/^Mem:/{print $2}')\n    MIN_MEM_MB=3500\n    if [ \"$TOTAL_MEM_MB\" -lt \"$MIN_MEM_MB\" ]; then\n      echo \"ERROR: Insufficient memory for Neo4j installation\"\n      echo \"Required: ${MIN_MEM_MB}MB, Available: ${TOTAL_MEM_MB}MB\"\n      echo \"Please use a VM with at least 4GB of RAM\"\n      exit 1\n    fi\n    echo \"Memory check passed: ${TOTAL_MEM_MB}MB available\"\n\n  # Wait for any existing package manager locks\n  - |\n    max_attempts=30\n    attempt=1\n    while fuser /var/lib/rpm/.rpm.lock >/dev/null 2>&1 || \\\n          fuser /var/lib/dnf/lock/download_lock.pid >/dev/null 2>&1; do\n      if [ $attempt -ge $max_attempts ]; then\n        echo \"ERROR: Package manager lock not released after $max_attempts attempts\"\n        exit 1\n      fi\n      echo \"Waiting for package manager lock (attempt $attempt/$max_attempts)...\"\n      sleep 10\n      attempt=$((attempt + 1))\n    done\n\n  # Import Neo4j GPG key with retry\n  - |\n    for i in 1 2 3 4 5; do\n      rpm --import https://debian.neo4j.com/neotechnology.gpg.key && break\n      echo \"RPM key import failed (attempt $i/5), retrying in 10s...\"\n      sleep 10\n    done\n\n  # Install Neo4j with retry\n  - |\n    for i in 1 2 3 4 5; do\n      dnf install -y neo4j && break\n      echo \"DNF install failed (attempt $i/5), retrying in 10s...\"\n      sleep 10\n    done\n\n  # Build public hostname from deployment parameters\n  - UNIQUE_STRING=\"${unique_string}\"\n  - LOCATION=\"${location}\"\n  - PUBLIC_HOSTNAME=\"neo4j-${UNIQUE_STRING}.${LOCATION}.cloudapp.azure.com\"\n\n  # Install APOC plugin (may be in labs/ or may need to be found after package install)\n  - |\n    if ls /var/lib/neo4j/labs/apoc-*-core.jar 1>/dev/null 2>&1; then\n      mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins/\n      echo \"APOC plugin moved from labs to plugins\"\n    elif ls /usr/share/neo4j/labs/apoc-*-core.jar 1>/dev/null 2>&1; then\n      cp /usr/share/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins/\n      echo \"APOC plugin copied from /usr/share/neo4j/labs to plugins\"\n    else\n      echo \"WARNING: APOC plugin not found in labs directory, skipping\"\n    fi\n\n  # Configure Neo4j network settings\n  - sed -i 's/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf\n  - sed -i \"s/#server.default_advertised_address=localhost/server.default_advertised_address=${PUBLIC_HOSTNAME}/g\" /etc/neo4j/neo4j.conf\n  - sed -i \"s/#server.bolt.advertised_address=:7687/server.bolt.advertised_address=${PUBLIC_HOSTNAME}:7687/g\" /etc/neo4j/neo4j.conf\n  - sed -i 's/#server.bolt.listen_address=:7687/server.bolt.listen_address=0.0.0.0:7687/g' /etc/neo4j/neo4j.conf\n\n  # Configure extensions and security (APOC only, no GDS/Bloom)\n  - sed -i 's/#dbms.security.procedures.unrestricted=my.extensions.example,my.procedures.*/dbms.security.procedures.unrestricted=apoc.*/g' /etc/neo4j/neo4j.conf\n  - echo \"dbms.security.http_auth_allowlist=/,/browser.*\" >> /etc/neo4j/neo4j.conf\n  - echo \"dbms.security.procedures.allowlist=apoc.*\" >> /etc/neo4j/neo4j.conf\n\n  # Add memory recommendations\n  - neo4j-admin server memory-recommendation >> /etc/neo4j/neo4j.conf\n\n  # Configure routing for driver compatibility\n  - echo \"dbms.routing.default_router=SERVER\" >> /etc/neo4j/neo4j.conf\n\n  # SSRF protection\n  - echo \"internal.dbms.cypher_ip_blocklist=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.169.0/24,fc00::/7,fe80::/10,ff00::/8\" >> /etc/neo4j/neo4j.conf\n\n  # Decode and set admin password, then start Neo4j\n  # IMPORTANT: All password handling must be in ONE script block because\n  # shell variables don't persist across separate runcmd entries in cloud-init\n  - |\n    echo \"=== Password Configuration Started ===\"\n\n    # Decode base64-encoded password (safe from quote/escape issues)\n    PASSWORD_BASE64='${admin_password}'\n    ADMIN_PASSWORD=$(printf '%s' \"$PASSWORD_BASE64\" | base64 -d)\n\n    echo \"Password received and decoded successfully\"\n    echo \"=== Password Configuration Complete ===\"\n\n    # Set initial password BEFORE first start\n    # This is safe to always run: the command only works before Neo4j's first start\n    # and exits with an error (harmlessly) if auth is already configured\n    echo \"Setting Neo4j initial password...\"\n    neo4j-admin dbms set-initial-password \"$ADMIN_PASSWORD\"\n    echo \"Neo4j initial password set successfully\"\n\n    # Enable and start Neo4j\n    systemctl enable neo4j\n    systemctl start neo4j\n\n  # Wait for Neo4j to be fully ready (with timeout)\n  - |\n    TIMEOUT=300\n    ELAPSED=0\n    until curl -s -o /dev/null -w '%{http_code}' http://localhost:7474 | grep -q \"200\"; do\n      if [ $ELAPSED -ge $TIMEOUT ]; then\n        echo \"ERROR: Neo4j failed to start within ${TIMEOUT} seconds\"\n        exit 1\n      fi\n      echo \"Waiting for Neo4j to be ready... (${ELAPSED}s elapsed)\"\n      sleep 5\n      ELAPSED=$((ELAPSED + 5))\n    done\n    echo \"Neo4j is ready!\"\n\nwrite_files:\n  - path: /var/log/neo4j-cloud-init.log\n    content: |\n      Neo4j CE cloud-init started at $(date)\n    append: true\n",
     "passwordBase64": "[base64(parameters('adminPassword'))]",
     "cloudInitStep1": "[replace(variables('cloudInitTemplate'), '${unique_string}', variables('deploymentUniqueId'))]",
     "cloudInitStep2": "[replace(variables('cloudInitStep1'), '${location}', parameters('location'))]",
@@ -255,6 +257,9 @@
           },
           "diskSize": {
             "value": "[parameters('diskSize')]"
+          },
+          "useZones": {
+            "value": "[variables('useZones')]"
           }
         },
         "template": {
@@ -264,7 +269,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "18030733494324382594"
+              "templateHash": "10216380498067689581"
             }
           },
           "parameters": {
@@ -285,6 +290,12 @@
               "metadata": {
                 "description": "Size of the data disk in GB."
               }
+            },
+            "useZones": {
+              "type": "bool",
+              "metadata": {
+                "description": "Whether the target region supports availability zones."
+              }
             }
           },
           "variables": {
@@ -296,11 +307,9 @@
               "apiVersion": "2025-01-02",
               "name": "[variables('diskName')]",
               "location": "[parameters('location')]",
-              "zones": [
-                "1"
-              ],
+              "zones": "[if(parameters('useZones'), createArray('1'), null())]",
               "sku": {
-                "name": "PremiumV2_LRS"
+                "name": "[if(parameters('useZones'), 'PremiumV2_LRS', 'Premium_LRS')]"
               },
               "properties": {
                 "creationData": {
@@ -367,6 +376,9 @@
           },
           "dataDiskName": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'disk-deployment'), '2025-04-01').outputs.diskName.value]"
+          },
+          "useZones": {
+            "value": "[variables('useZones')]"
           }
         },
         "template": {
@@ -376,7 +388,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "13728885378043335632"
+              "templateHash": "10960819263439665645"
             }
           },
           "parameters": {
@@ -439,6 +451,12 @@
               "metadata": {
                 "description": "Name of the standalone managed data disk."
               }
+            },
+            "useZones": {
+              "type": "bool",
+              "metadata": {
+                "description": "Whether the target region supports availability zones."
+              }
             }
           },
           "variables": {
@@ -452,9 +470,7 @@
               "apiVersion": "2025-05-01",
               "name": "[variables('publicIpName')]",
               "location": "[parameters('location')]",
-              "zones": [
-                "1"
-              ],
+              "zones": "[if(parameters('useZones'), createArray('1'), null())]",
               "sku": {
                 "name": "Standard"
               },
@@ -496,9 +512,7 @@
               "apiVersion": "2025-04-01",
               "name": "[variables('vmName')]",
               "location": "[parameters('location')]",
-              "zones": [
-                "1"
-              ],
+              "zones": "[if(parameters('useZones'), createArray('1'), null())]",
               "tags": {
                 "Neo4jVersion": "[parameters('graphDatabaseVersion')]",
                 "Neo4jEdition": "Community",
@@ -512,6 +526,7 @@
                 "storageProfile": {
                   "osDisk": {
                     "createOption": "FromImage",
+                    "caching": "ReadWrite",
                     "managedDisk": {
                       "storageAccountType": "Premium_LRS"
                     }

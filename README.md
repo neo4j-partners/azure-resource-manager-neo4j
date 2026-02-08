@@ -37,11 +37,8 @@ uv run neo4j-deploy setup
 # Deploy Enterprise standalone
 uv run neo4j-deploy deploy --scenario standalone-lts
 
-# Deploy Community Edition
+# Deploy Community Edition (region set during setup)
 uv run neo4j-deploy deploy --scenario ce-standalone-latest
-
-# Deploy CE to a non-zonal region (tests pickZones fallback)
-uv run neo4j-deploy deploy --scenario ce-standalone-nonzonal --region northcentralus
 
 # Check status, test, clean up
 uv run neo4j-deploy status
@@ -80,9 +77,7 @@ cd marketplace/neo4j-ce && ./deploy.sh <resource-group-name>
 |----------|---------|---------|---------|
 | `standalone-lts` | Enterprise Evaluation | LTS (5) | Single-node enterprise |
 | `cluster-lts` | Enterprise Evaluation | LTS (5) | 3-node cluster |
-| `ce-standalone-latest` | Community | CalVer (latest) | CE in zonal region (default eastus2) |
-| `ce-standalone-nonzonal` | Community | CalVer (latest) | CE in non-zonal region (northcentralus) |
-| `ce-standalone-restricted` | Community | CalVer (latest) | CE in quota-restricted region (westeurope) |
+| `ce-standalone-latest` | Community | CalVer (latest) | CE standalone (region set during setup, `pickZones` auto-adapts) |
 
 ## CI/CD
 

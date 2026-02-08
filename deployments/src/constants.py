@@ -18,16 +18,8 @@ TEMPLATES_DIR: Final[Path] = ARM_TESTING_DIR / "templates"
 SETTINGS_FILE: Final[Path] = CONFIG_DIR / "settings.yaml"
 SCENARIOS_FILE: Final[Path] = CONFIG_DIR / "scenarios.yaml"
 
-# Default Azure regions (commonly used for testing)
-DEFAULT_REGIONS: Final[list[str]] = [
-    "westeurope",
-    "eastus2",
-    "northeurope",
-    "uksouth",
-]
-
-# CE template region categories for pickZones() testing
-# See marketplace/neo4j-ce/SWITCH.md for full regional availability research
+# CE region categories for the setup wizard's region picker.
+# See marketplace/neo4j-ce/ARCHITECTURE.md for regional availability research.
 CE_ZONAL_REGIONS: Final[list[str]] = [
     # Regions with availability zones where E4bds_v5 + PremiumV2_LRS + zone 1 all work
     # pickZones() returns ['1'] → PremiumV2_LRS + zone 1 pinning

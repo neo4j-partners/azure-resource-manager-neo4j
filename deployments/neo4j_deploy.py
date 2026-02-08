@@ -257,10 +257,6 @@ def deploy(
         bool,
         typer.Option("--all", "-a", help="Deploy all configured scenarios")
     ] = False,
-    region: Annotated[
-        Optional[str],
-        typer.Option("--region", "-r", help="Override default Azure region")
-    ] = None,
     cleanup_mode: Annotated[
         Optional[str],
         typer.Option("--cleanup-mode", "-c", help="Override cleanup behavior (immediate/on-success/manual/scheduled)")
@@ -282,7 +278,6 @@ def deploy(
     Examples:
         uv run neo4j-deploy deploy --all
         uv run neo4j-deploy deploy --scenario standalone-lts
-        uv run neo4j-deploy deploy --scenario cluster-lts --region eastus2
         uv run neo4j-deploy deploy --all --dry-run
     """
     from rich.table import Table
@@ -343,7 +338,7 @@ def deploy(
     table.add_column("Region", style="green")
 
     for s in scenarios_to_deploy:
-        target_region = region or settings.default_region
+        target_region = settings.default_region
         size_display = s.vm_size or "Standard_E4s_v5"
 
         table.add_row(
@@ -377,7 +372,6 @@ def deploy(
 
             param_file = engine.generate_parameter_file(
                 scenario=s,
-                region=region,
                 debug_mode=debug,
             )
             prepared.append(PreparedScenario(
@@ -458,7 +452,7 @@ def deploy(
         deployment_id = str(uuid.uuid4())
 
         # Create resource group
-        target_region = region or settings.default_region
+        target_region = settings.default_region
         tags = rg_manager.generate_tags(
             scenario_name=prep.scenario.name,
             deployment_id=deployment_id,
@@ -1043,7 +1037,7 @@ def package(
 
     # Resolve .env file path
     if env_file:
-        env_path = PathLib(env_file).resolve()
+        env_path = Path(env_file).resolve()
     else:
         env_path = root_dir / ".env"
 

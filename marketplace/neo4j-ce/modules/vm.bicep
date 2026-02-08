@@ -88,9 +88,9 @@ resource vm 'Microsoft.Compute/virtualMachines@2025-04-01' = {
       vmSize: vmSize
     }
     storageProfile: {
-      diskControllerType: 'NVMe'
       osDisk: {
         createOption: 'FromImage'
+        caching: 'ReadWrite'
         managedDisk: {
           storageAccountType: 'Premium_LRS'
         }

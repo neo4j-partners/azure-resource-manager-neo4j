@@ -52,6 +52,102 @@ PremiumV2_LRS was chosen for zonal regions because:
 
 In non-zonal regions, the fallback to Premium_LRS ensures the template deploys everywhere the VM SKU is available, at the cost of reduced IOPS in those secondary regions.
 
+## Regional availability research
+
+This section documents the regional availability of the three resources the template depends on: the VM SKU, the disk SKU, and availability zones. All data was verified against official Microsoft documentation in February 2026. Azure regions expand continuously — run `az vm list-skus --size Standard_E4bds_v5 --all --output table` for current per-subscription availability.
+
+### Standard_E4bds_v5 (Ebdsv5 series, NVMe VM)
+
+Microsoft does not publish a static region list for individual VM SKUs. The [Ebdsv5 series documentation](https://learn.microsoft.com/en-us/azure/virtual-machines/ebdsv5-ebsv5-series) directs users to the [Products available by region](https://azure.microsoft.com/en-us/explore/global-infrastructure/products-by-region/) tool or the Azure CLI (`az vm list-skus`). The Ebdsv5 series is broadly available across 50+ regions including all major US, Europe, and Asia-Pacific regions.
+
+Key facts:
+- Uses 3rd Gen Intel Xeon Platinum 8370C (Ice Lake) processors
+- NVMe-enabled for higher remote disk throughput (21,400 IOPS / 600 MBps)
+- Available in both zonal and non-zonal regions
+- Some regions may require a quota request (check `az vm list-skus` for `NotAvailableForSubscription` restrictions)
+
+### Availability zone support by region
+
+Source: [Azure regions with availability zone support](https://learn.microsoft.com/en-us/azure/reliability/availability-zones-region-support) and [List of Azure regions](https://learn.microsoft.com/en-us/azure/reliability/regions-list).
+
+Regions with availability zones (38 regions as of February 2026):
+
+| US | Europe | Asia-Pacific | Other |
+|---|---|---|---|
+| East US | North Europe | Japan East | Brazil South |
+| East US 2 | UK South | Southeast Asia | South Africa North |
+| Central US | France Central | Australia East | Israel Central |
+| West US 2 | Germany West Central | Korea Central | Qatar Central |
+| West US 3 | Sweden Central | Central India | UAE North |
+| South Central US | Switzerland North | East Asia | Mexico Central |
+| | Norway East | Indonesia Central | Chile Central |
+| | Italy North | Malaysia West | |
+| | Spain Central | New Zealand North | |
+| | Poland Central | South India | |
+| | Austria East | Japan West | |
+| | West Europe | Korea South | |
+| | Belgium Central | | |
+| | Denmark East | | |
+
+Regions where the template auto-detects and deploys without zone pinning (non-zonal):
+
+- North Central US
+- West US
+- Australia Southeast
+- Australia Central / Central 2
+- Canada East
+- Norway West
+- UK West
+- West Central US
+- West India
+- France South, Germany North, Switzerland West, Sweden South, UAE Central, South Africa West (restricted access)
+
+### PremiumV2_LRS (Premium SSD v2)
+
+Source: [Premium SSD v2 — regional availability](https://learn.microsoft.com/en-us/azure/virtual-machines/disks-types#premium-ssd-v2).
+
+Premium SSD v2 is available in 40+ regions. Key constraints:
+- Must attach to a zonal VM in AZ-enabled regions
+- Cannot be used as an OS disk (the template uses Premium_LRS for the OS disk)
+- Does not support host caching (the template sets caching to None)
+- Tuneable IOPS/throughput independent of disk size
+
+**Regions with 2+ availability zones** (template uses PremiumV2_LRS + zone 1):
+
+East US, East US 2, Central US, South Central US, West US 2, West US 3, Canada Central, Brazil South, North Europe, West Europe, UK South, France Central, Germany West Central, Sweden Central, Switzerland North, Norway East, Italy North, Spain Central, Poland Central, Austria East, Japan East, Southeast Asia, Australia East, Korea Central, Central India, East Asia, South Africa North, Israel Central, UAE North, Mexico Central
+
+**Regions with 1 availability zone** (template uses PremiumV2_LRS + zone 1):
+
+Indonesia Central, Japan West, New Zealand North, Malaysia West
+
+**Regions without availability zones** (template falls back to Premium_LRS, no zone pinning):
+
+North Central US, West US, Australia Southeast, Australia Central 2, Canada East, Norway West, UK West, West Central US, Taiwan North
+
+### Zone 1 availability
+
+Every Azure region that has availability zones includes zone 1. The logical zone numbers always start at 1, though the physical datacenter mapped to "zone 1" is randomized per subscription ([zone mapping](https://learn.microsoft.com/en-us/azure/reliability/availability-zones-overview#physical-and-logical-availability-zones)). Pinning to zone 1 via `pickZones('Microsoft.Compute', 'virtualMachines', location)` is safe in any zonal region.
+
+### Combined compatibility
+
+When all three requirements are combined (E4bds_v5 + PremiumV2_LRS + zone support), the template deploys with full zonal + PremiumV2_LRS configuration in 30+ major regions across all continents. In the remaining non-zonal regions, the template automatically falls back to non-zonal + Premium_LRS. No region where E4bds_v5 is available is excluded from deployment.
+
+### Tradeoffs in non-zonal regions
+
+- No availability zone protection (single-datacenter failure risk)
+- Premium_LRS instead of PremiumV2_LRS (lower baseline IOPS: 7,500 vs tuneable up to 80,000; higher latency; no independent IOPS/throughput scaling)
+- Still uses NVMe disk controller and E4bds_v5 VM (no compute performance regression)
+
+### How to verify for your subscription
+
+```bash
+# List E4bds_v5 availability with zone and restriction info
+az vm list-skus --size Standard_E4bds_v5 --all --output table
+
+# Check zones for a specific region
+az vm list-skus --size Standard_E4bds_v5 --location eastus2 --output table
+```
+
 ## Cloud-init idempotency for disk reattach
 
 The cloud-init configuration (`scripts/neo4j-ce/cloud-init/standalone.yaml`) handles both fresh disks and reattached disks with existing data:
@@ -108,6 +204,18 @@ The hostname changed from `vm0.neo4j-{suffix}.{region}.cloudapp.azure.com` (VMSS
 
 `pickZones()` is a server-side ARM function — no deployment scripts, no managed identities, no external dependencies. Available since API version 2022-08-01.
 
+Additional edge cases considered:
+
+- **Zone-redundant services (ZRS):** `pickZones()` returns an empty array for ZRS resource types. This does not apply — we query `Microsoft.Compute/virtualMachines`, which is a zonal resource type and returns zone numbers correctly.
+- **VS Code tooling:** The VS Code ARM Tools extension may show false syntax errors for `pickZones()`. This is a cosmetic IDE issue, not a runtime problem. Bicep CLI compiles and deploys correctly.
+- **Azure Selected Zone:** [Azure Selected Zone](https://github.com/Azure/AzureSelectedZone) (`zonePlacementPolicy='any'`) is a preview feature that lets Azure auto-select the optimal zone. It is limited to East US 2 EUAP, is not GA, and has unknown interaction with PremiumV2_LRS. Not suitable for a marketplace template that must work broadly today.
+
+### Why no marketplace UI region filtering
+
+The `createUiDefinition.json` location selector supports a `resourceTypes` filter that restricts the region dropdown to regions where specific resource types exist. However, this is a coarse filter — it cannot distinguish between PremiumV2_LRS and Premium_LRS availability within a region. The `ArmApiControl` element can make live ARM API calls (like querying `Microsoft.Compute/resourceSkus`) to populate dropdowns or add validation warnings, but the implementation is complex, fragile, and hard to debug.
+
+Since the template auto-detects via `pickZones()` and falls back gracefully, the marketplace UI does not need to filter regions. The customer picks any region and the template does the right thing.
+
 ### Why NVMe over SCSI
 
 The Ebdsv5 VM series delivers higher remote disk throughput via NVMe (21,400 IOPS / 600 MBps) compared to SCSI (16,200 IOPS / 350 MBps) at the same price. NVMe is Microsoft's forward direction — newer VM generations (v6+) are NVMe-only. RHEL 9 supports NVMe natively but requires the [azure-vm-utils](https://github.com/Azure/azure-vm-utils) udev rules for `/dev/disk/azure/data/by-lun/` symlinks, which the cloud-init installs in `bootcmd`.
@@ -133,6 +241,10 @@ The enterprise template sets `neo4j-admin dbms set-initial-password` uncondition
 - [Neo4j Operations Manual — file locations (RPM)](https://neo4j.com/docs/operations-manual/5/configuration/file-locations/)
 - [pickZones management group scope bug — GitHub #5462](https://github.com/Azure/bicep/issues/5462)
 - [Zone-aware ARM/Bicep patterns — nimccoll/ZoneAware](https://github.com/nimccoll/ZoneAware)
+- [Azure regions with availability zone support](https://learn.microsoft.com/en-us/azure/reliability/availability-zones-region-support)
+- [List of Azure regions](https://learn.microsoft.com/en-us/azure/reliability/regions-list)
+- [Products available by region](https://azure.microsoft.com/en-us/explore/global-infrastructure/products-by-region/)
+- [Availability zones — physical and logical zone mapping](https://learn.microsoft.com/en-us/azure/reliability/availability-zones-overview#physical-and-logical-availability-zones)
 
 ## Module structure
 

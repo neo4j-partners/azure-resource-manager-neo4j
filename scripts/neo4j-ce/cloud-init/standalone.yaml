@@ -18,9 +18,8 @@ bootcmd:
   - udevadm control --reload-rules && udevadm trigger
 
 # Format and mount data disk
-# Uses NVMe disk path via azure-vm-utils udev rules (installed in bootcmd above)
-# /dev/disk/azure/data/by-lun/ replaces the legacy /dev/disk/azure/scsi1/ path
-# Requires NVMe-capable VM (Ebdsv5/Ebsv5 series) with diskControllerType: NVMe
+# Uses azure-vm-utils udev rules (installed in bootcmd above) which create
+# /dev/disk/azure/data/by-lun/ symlinks for both NVMe and SCSI disk controllers
 disk_setup:
   /dev/disk/azure/data/by-lun/0:
     table_type: gpt
