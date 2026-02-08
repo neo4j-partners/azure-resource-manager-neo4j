@@ -1,4 +1,7 @@
 {
+  "adminUsername": {
+    "value": "neo4j"
+  },
   "adminPassword": {
     "value": "Neo4jNeo4j123'"
   },

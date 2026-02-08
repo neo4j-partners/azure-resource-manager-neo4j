@@ -57,7 +57,8 @@ The region is set during `uv run neo4j-deploy setup` (Step 3 lets you pick zonal
 | `test` | Validate deployed Neo4j (connectivity, CRUD, license) |
 | `status` | Show deployment status |
 | `cleanup` | Delete Azure resource groups (`--all` or `--scenario NAME`) |
-| `package` | Build marketplace archive for Partner Center |
+| `ee-package` | Build Enterprise marketplace archive for Partner Center |
+| `ce-package` | Build Community Edition marketplace archive for Partner Center |
 
 ### Deploy options
 

@@ -10,6 +10,10 @@ var vnetName = 'vnet-neo4j-${location}-${resourceSuffix}'
 resource networkSG 'Microsoft.Network/networkSecurityGroups@2025-05-01' = {
   name: networkSGName
   location: location
+  tags: {
+    Neo4jEdition: 'Community'
+    DeployedBy: 'arm-template'
+  }
   properties: {
     securityRules: [
       {
@@ -75,10 +79,14 @@ resource networkSG 'Microsoft.Network/networkSecurityGroups@2025-05-01' = {
 resource vnet 'Microsoft.Network/virtualNetworks@2025-05-01' = {
   name: vnetName
   location: location
+  tags: {
+    Neo4jEdition: 'Community'
+    DeployedBy: 'arm-template'
+  }
   properties: {
     addressSpace: {
       addressPrefixes: [
-        '10.0.0.0/8'
+        '10.0.0.0/16'
       ]
     }
     subnets: [

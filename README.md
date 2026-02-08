@@ -49,11 +49,12 @@ uv run neo4j-deploy cleanup --all --force
 
 See **[deployments/README.md](deployments/README.md)** for full command reference.
 
-### Build Marketplace Package
+### Build Marketplace Packages
 
 ```bash
 cd deployments
-uv run neo4j-deploy package
+uv run neo4j-deploy ee-package   # Enterprise
+uv run neo4j-deploy ce-package   # Community Edition
 ```
 
 ### Manual Deployment

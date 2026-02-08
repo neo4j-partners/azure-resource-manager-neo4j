@@ -278,7 +278,7 @@ class DeploymentEngine:
             )
 
         # Check required parameters are present
-        required = ["location", "adminPassword"]
+        required = ["location", "adminUsername", "adminPassword"]
         for key in required:
             if key not in p or not p[key].get("value"):
                 raise ValueError(f"Required parameter '{key}' is missing or empty")

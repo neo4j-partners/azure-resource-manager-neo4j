@@ -40,6 +40,10 @@ resource publicIp 'Microsoft.Network/publicIPAddresses@2025-05-01' = {
   name: publicIpName
   location: location
   zones: useZones ? ['1'] : null
+  tags: {
+    Neo4jEdition: 'Community'
+    DeployedBy: 'arm-template'
+  }
   sku: {
     name: 'Standard'
   }
@@ -55,6 +59,10 @@ resource publicIp 'Microsoft.Network/publicIPAddresses@2025-05-01' = {
 resource nic 'Microsoft.Network/networkInterfaces@2025-05-01' = {
   name: nicName
   location: location
+  tags: {
+    Neo4jEdition: 'Community'
+    DeployedBy: 'arm-template'
+  }
   properties: {
     ipConfigurations: [
       {

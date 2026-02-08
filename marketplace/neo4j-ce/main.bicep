@@ -1,10 +1,10 @@
 @description('Admin username for SSH access to VMs.')
-param adminUsername string = 'neo4j'
+param adminUsername string
 
 @secure()
-@minLength(8)
+@minLength(12)
 @maxLength(72)
-@description('Admin password for Neo4j and SSH access. Must be 8-72 characters.')
+@description('Admin password for Neo4j and SSH access. Must be 12-72 characters.')
 param adminPassword string
 
 @description('Azure VM size for the Neo4j instance.')
@@ -17,6 +17,8 @@ param vmSize string
 @description('Neo4j version branch. "latest" installs the newest CalVer release (2025.x/2026.x). "5" installs the LTS release.')
 param graphDatabaseVersion string
 
+@minValue(32)
+@maxValue(4095)
 @description('Size of the data disk in GB.')
 param diskSize int
 
@@ -97,13 +99,29 @@ module vm 'modules/vm.bicep' = {
   }
 }
 
+@description('Resource ID of the virtual network.')
 output vnetId string = network.outputs.vnetId
+
+@description('Resource ID of the subnet.')
 output subnetId string = network.outputs.subnetId
+
+@description('Resource ID of the network security group.')
 output nsgId string = network.outputs.nsgId
+
+@description('Resource ID of the Neo4j virtual machine.')
 output vmId string = vm.outputs.vmId
+
+@description('Name of the Neo4j virtual machine.')
 output vmName string = vm.outputs.vmName
+
+@description('Resource ID of the data disk.')
 output dataDiskId string = disk.outputs.diskId
 
+@description('URL for the Neo4j Browser interface.')
 output neo4jBrowserURL string = uri('http://${vm.outputs.publicIpFqdn}:7474', '')
+
+@description('URL for the Neo4j Bolt protocol endpoint.')
 output neo4jBoltURL string = uri('bolt://${vm.outputs.publicIpFqdn}:7687', '')
+
+@description('Default Neo4j username.')
 output username string = 'neo4j'
