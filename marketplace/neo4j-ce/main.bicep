@@ -41,6 +41,11 @@ resource partnerUsageAttribution 'Microsoft.Resources/deployments@2021-04-01' = 
 var deploymentUniqueId = uniqueString(resourceGroup().id, deployment().name)
 var resourceSuffix = deploymentUniqueId
 
+// Detect availability zone support at deploy time
+// Returns ['1'] in zonal regions, [] in non-zonal regions
+var zones = pickZones('Microsoft.Compute', 'virtualMachines', location)
+var useZones = !empty(zones)
+
 module network 'modules/network.bicep' = {
   name: 'network-deployment'
   params: {
@@ -55,6 +60,7 @@ module disk 'modules/disk.bicep' = {
     location: location
     resourceSuffix: resourceSuffix
     diskSize: diskSize
+    useZones: useZones
   }
 }
 
@@ -87,6 +93,7 @@ module vm 'modules/vm.bicep' = {
     subnetId: network.outputs.subnetId
     dataDiskId: disk.outputs.diskId
     dataDiskName: disk.outputs.diskName
+    useZones: useZones
   }
 }
 

@@ -229,7 +229,7 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
         console.print(
             "Resource groups will be named: [cyan]{prefix}-{scenario}-{timestamp}[/cyan]"
         )
-        console.print("Example: [cyan]neo4j-test-standalone-v5-20250116-143052[/cyan]")
+        console.print("Example: [cyan]neo4j-test-standalone-lts-20250116-143052[/cyan]")
 
         use_default = Confirm.ask(
             "Use default prefix 'neo4j-test'?", default=True
@@ -300,7 +300,7 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
 
         scenarios = [
             TestScenario(
-                name="standalone-v5",
+                name="standalone-lts",
                 deployment_type=DeploymentType.VM,
                 node_count=1,
                 graph_database_version="5",
@@ -309,7 +309,7 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
                 license_type="Evaluation",
             ),
             TestScenario(
-                name="cluster-v5",
+                name="cluster-lts",
                 deployment_type=DeploymentType.VM,
                 node_count=3,
                 graph_database_version="5",
@@ -377,7 +377,7 @@ uv run neo4j-deploy validate
 uv run neo4j-deploy deploy --all
 
 # Deploy specific scenario
-uv run neo4j-deploy deploy --scenario standalone-v5       # Enterprise
+uv run neo4j-deploy deploy --scenario standalone-lts       # Enterprise
 uv run neo4j-deploy deploy --scenario ce-standalone-lts    # Community Edition
 
 # Check deployment status

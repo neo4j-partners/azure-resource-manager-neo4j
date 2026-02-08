@@ -281,8 +281,8 @@ def deploy(
 
     Examples:
         uv run neo4j-deploy deploy --all
-        uv run neo4j-deploy deploy --scenario standalone-v5
-        uv run neo4j-deploy deploy --scenario cluster-v5 --region eastus2
+        uv run neo4j-deploy deploy --scenario standalone-lts
+        uv run neo4j-deploy deploy --scenario cluster-lts --region eastus2
         uv run neo4j-deploy deploy --all --dry-run
     """
     from rich.table import Table
@@ -305,7 +305,7 @@ def deploy(
         for s in scenarios.scenarios:
             console.print(f"  - {s.name}")
         console.print("\n[cyan]Examples:[/cyan]")
-        console.print("  uv run neo4j-deploy deploy --scenario standalone-v5")
+        console.print("  uv run neo4j-deploy deploy --scenario standalone-lts")
         console.print("  uv run neo4j-deploy deploy --all")
         raise typer.Exit(1)
 
@@ -746,7 +746,7 @@ def status(
     if not deployments:
         console.print("[yellow]No deployments found[/yellow]")
         console.print("\n[cyan]Deploy a scenario:[/cyan]")
-        console.print("  uv run neo4j-deploy deploy --scenario standalone-v5")
+        console.print("  uv run neo4j-deploy deploy --scenario standalone-lts")
         raise typer.Exit(0)
 
     # Filter out deleted deployments unless verbose

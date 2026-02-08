@@ -59,7 +59,7 @@ cd deployments
 uv run neo4j-deploy setup
 
 # Deploy a scenario
-uv run neo4j-deploy deploy --scenario standalone-v5
+uv run neo4j-deploy deploy --scenario standalone-lts
 
 # Check deployment status
 uv run neo4j-deploy status

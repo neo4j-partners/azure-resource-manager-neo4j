@@ -64,7 +64,7 @@ uv run neo4j-deploy setup
 uv run neo4j-deploy validate
 
 # Deploy and test specific scenario
-uv run neo4j-deploy deploy --scenario standalone-v5
+uv run neo4j-deploy deploy --scenario standalone-lts
 
 # Check deployment status
 uv run neo4j-deploy status

@@ -646,8 +646,8 @@ class DeploymentPlanner:
             Resource group name following pattern: {prefix}-{scenario}-{timestamp}
 
         Example:
-            >>> generate_resource_group_name("standalone-v5")
-            "neo4j-test-standalone-v5-20250116-143052"
+            >>> generate_resource_group_name("standalone-lts")
+            "neo4j-test-standalone-lts-20250116-143052"
         """
         if not timestamp:
             timestamp = get_timestamp()
@@ -683,8 +683,8 @@ class DeploymentPlanner:
             Deployment name following pattern: neo4j-deploy-{scenario}-{timestamp}
 
         Example:
-            >>> generate_deployment_name("standalone-v5")
-            "neo4j-deploy-standalone-v5-20250116-143052"
+            >>> generate_deployment_name("standalone-lts")
+            "neo4j-deploy-standalone-lts-20250116-143052"
         """
         if not timestamp:
             timestamp = get_timestamp()

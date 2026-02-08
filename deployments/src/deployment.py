@@ -346,7 +346,7 @@ class DeploymentPlanner:
             Resource group name following pattern: {prefix}-{scenario}-{timestamp}
 
         Example:
-            neo4j-test-standalone-v5-20250116-143052
+            neo4j-test-standalone-lts-20250116-143052
         """
         if not timestamp:
             timestamp = get_timestamp()
@@ -383,7 +383,7 @@ class DeploymentPlanner:
             Deployment name following pattern: neo4j-deploy-{scenario}-{timestamp}
 
         Example:
-            neo4j-deploy-standalone-v5-20250116-143052
+            neo4j-deploy-standalone-lts-20250116-143052
         """
         if not timestamp:
             timestamp = get_timestamp()

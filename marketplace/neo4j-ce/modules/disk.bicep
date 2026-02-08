@@ -7,14 +7,17 @@ param resourceSuffix string
 @description('Size of the data disk in GB.')
 param diskSize int
 
+@description('Whether the target region supports availability zones.')
+param useZones bool
+
 var diskName = 'disk-neo4j-data-${location}-${resourceSuffix}'
 
 resource dataDisk 'Microsoft.Compute/disks@2025-01-02' = {
   name: diskName
   location: location
-  zones: ['1']
+  zones: useZones ? ['1'] : null
   sku: {
-    name: 'PremiumV2_LRS'
+    name: useZones ? 'PremiumV2_LRS' : 'Premium_LRS'
   }
   properties: {
     creationData: {

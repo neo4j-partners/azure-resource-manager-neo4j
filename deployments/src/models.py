@@ -91,7 +91,7 @@ class ScenarioDeployment:
 class TestScenario(BaseModel):
     """Configuration for a single test scenario."""
 
-    name: str = Field(..., description="Scenario name (e.g., 'standalone-v5')")
+    name: str = Field(..., description="Scenario name (e.g., 'standalone-lts')")
 
     # Deployment platform
     deployment_type: DeploymentType = Field(

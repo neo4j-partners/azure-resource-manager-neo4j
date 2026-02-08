@@ -29,6 +29,9 @@ param dataDiskId string
 @description('Name of the standalone managed data disk.')
 param dataDiskName string
 
+@description('Whether the target region supports availability zones.')
+param useZones bool
+
 var vmName = 'vm-neo4j-${location}-${resourceSuffix}'
 var publicIpName = 'pip-neo4j-${location}-${resourceSuffix}'
 var nicName = 'nic-neo4j-${location}-${resourceSuffix}'
@@ -36,7 +39,7 @@ var nicName = 'nic-neo4j-${location}-${resourceSuffix}'
 resource publicIp 'Microsoft.Network/publicIPAddresses@2025-05-01' = {
   name: publicIpName
   location: location
-  zones: ['1']
+  zones: useZones ? ['1'] : null
   sku: {
     name: 'Standard'
   }
@@ -73,7 +76,7 @@ resource nic 'Microsoft.Network/networkInterfaces@2025-05-01' = {
 resource vm 'Microsoft.Compute/virtualMachines@2025-04-01' = {
   name: vmName
   location: location
-  zones: ['1']
+  zones: useZones ? ['1'] : null
   tags: {
     Neo4jVersion: graphDatabaseVersion
     Neo4jEdition: 'Community'

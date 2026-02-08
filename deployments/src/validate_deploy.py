@@ -586,7 +586,7 @@ def main():
         console.print("\n[cyan]Usage (manual - cluster):[/cyan]")
         console.print("  validate_deploy <uri> <username> <password> <license_type> <node_count>")
         console.print("\n[cyan]Examples:[/cyan]")
-        console.print("  validate_deploy standalone-v5")
+        console.print("  validate_deploy standalone-lts")
         console.print("  validate_deploy bolt://standalone.example.com:7687 neo4j mypassword Evaluation")
         console.print("  validate_deploy neo4j://cluster.example.com:7687 neo4j mypassword Enterprise 3")
         sys.exit(1)

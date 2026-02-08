@@ -26,6 +26,42 @@ DEFAULT_REGIONS: Final[list[str]] = [
     "uksouth",
 ]
 
+# CE template region categories for pickZones() testing
+# See marketplace/neo4j-ce/SWITCH.md for full regional availability research
+CE_ZONAL_REGIONS: Final[list[str]] = [
+    # Regions with availability zones where E4bds_v5 + PremiumV2_LRS + zone 1 all work
+    # pickZones() returns ['1'] → PremiumV2_LRS + zone 1 pinning
+    "eastus2",       # Default test region
+    "eastus",
+    "centralus",
+    "westus3",
+    "northeurope",
+    "uksouth",
+    "swedencentral",
+    "japaneast",
+    "australiaeast",
+]
+
+CE_NONZONAL_REGIONS: Final[list[str]] = [
+    # E4bds_v5 available but no availability zones
+    # pickZones() returns [] → Premium_LRS + no zone pinning
+    "northcentralus",
+    "westus",
+    "australiasoutheast",
+    "canadaeast",
+    "japanwest",
+    "ukwest",
+    "norwaywest",
+    "southindia",
+]
+
+CE_RESTRICTED_REGIONS: Final[list[str]] = [
+    # E4bds_v5 exists with zones but subscription-restricted (needs quota request)
+    "westeurope",
+    "southcentralus",
+    "westus2",
+]
+
 # Resource naming patterns
 RESOURCE_GROUP_PREFIX: Final[str] = "neo4j-test"
 DEPLOYMENT_PREFIX: Final[str] = "neo4j-deploy"
