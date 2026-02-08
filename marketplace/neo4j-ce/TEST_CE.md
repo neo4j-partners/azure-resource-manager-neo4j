@@ -100,6 +100,46 @@ The source code is organized into focused, single-responsibility modules inside 
 - Resilience tests abort early if the sentinel write or dataset creation fails, since subsequent verification would be meaningless.
 - Cleanup operations (sentinel deletion, Movies deletion) are best-effort and never mask test results.
 
+## Implementation Status
+
+All modules are implemented, reviewed against Azure SDK best practices, and the project builds successfully.
+
+| Module | Status | Description |
+|--------|--------|-------------|
+| `pyproject.toml` | Done | uv project config, hatchling build, CLI entry point |
+| `.python-version` | Done | Pinned to 3.12 |
+| `src/test_ce/config.py` | Done | Frozen `StackConfig` dataclass, `load_from_scenario()`, `load_from_args()`, uses `azure.mgmt.core.tools.parse_resource_id` for subscription extraction |
+| `src/test_ce/reporting.py` | Done | `TestResult` dataclass, `TestContext` with safe default message, `TestReporter` with context manager and summary table |
+| `src/test_ce/wait.py` | Done | `wait_for_neo4j()` HTTP polling with timeout, clamped remaining-time display |
+| `src/test_ce/neo4j_checks.py` | Done | 5 connectivity tests with empty-result-set guards: HTTP API, HTTP auth, Bolt, APOC, Community edition |
+| `src/test_ce/movies_dataset.py` | Done | Pure functions (`create_movies`, `verify_movies`, `cleanup_movies`) with no reporter dependency for reuse in resilience |
+| `src/test_ce/azure_helpers.py` | Done | Single `DefaultAzureCredential` reused across calls, `ComputeManagementClient` as context manager, `parse_resource_id` for resource ID parsing, LRO timeout on `poller.result()`, immutable `tuple` for `DiskStatus.zones` |
+| `src/test_ce/resilience.py` | Done | 6-phase cycle: sentinel write, movies create, VM restart, recovery wait, post-restart verification, cleanup |
+| `src/test_ce/cli.py` | Done | argparse with mutually exclusive `--scenario`/`--uri`, shared `_run_crud_tests` helper, `--timeout` applied to both initial wait and post-restart recovery |
+
+### Azure SDK Best Practices Applied
+
+- **Credential reuse**: A single `DefaultAzureCredential()` instance is created at module level and shared across all `ComputeManagementClient` instances, avoiding redundant credential-chain discovery.
+- **Client context managers**: `ComputeManagementClient` is used via `with` statement to properly close HTTP connections and avoid leaks.
+- **Official resource ID parsing**: Uses `azure.mgmt.core.tools.parse_resource_id()` instead of manual string splitting, with validation of parsed components before SDK calls.
+- **LRO timeout**: `poller.result(timeout=300)` on VM restart to prevent indefinite hangs.
+- **Immutable data**: `DiskStatus.zones` uses `tuple[str, ...]` instead of `list[str]` for consistency with `frozen=True` dataclass.
+
+### Usage
+
+```
+cd test_suite/test_ce
+
+# Scenario mode (reads from deployments framework)
+uv run test-ce --scenario standalone-ce-latest --simple
+
+# Manual mode (explicit connection details, connectivity + CRUD only)
+uv run test-ce --uri bolt://host:7687 --password MyPassword --simple
+
+# Full mode with resilience (requires Azure context from scenario)
+uv run test-ce --scenario standalone-ce-latest
+```
+
 ## Verification
 
 - Run the suite in `--simple` mode against a fresh CE deployment and confirm all connectivity and CRUD tests pass.
