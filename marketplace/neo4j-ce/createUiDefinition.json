@@ -49,22 +49,19 @@
             "label": "Virtual Machine Size",
             "toolTip": "Size of the VM for Neo4j Community Edition",
             "recommendedSizes": [
-              "Standard_E4s_v5",
-              "Standard_E8s_v5",
-              "Standard_E16s_v5",
-              "Standard_D4s_v5",
-              "Standard_D8s_v5",
-              "Standard_E4s_v6",
-              "Standard_D4s_v4"
+              "Standard_E4ds_v6",
+              "Standard_E2ds_v6",
+              "Standard_E8ds_v6"
             ],
             "constraints": {
               "allowedSizes": [
-                "Standard_D4s_v4",
-                "Standard_D8s_v4",
-                "Standard_D16s_v4",
-                "Standard_D32s_v4",
-                "Standard_D48s_v4",
-                "Standard_D64s_v4",
+                "Standard_E2ds_v6",
+                "Standard_E4ds_v6",
+                "Standard_E8ds_v6",
+                "Standard_E16ds_v6",
+                "Standard_E32ds_v6",
+                "Standard_E48ds_v6",
+                "Standard_E64ds_v6",
                 "Standard_D4s_v5",
                 "Standard_D8s_v5",
                 "Standard_D16s_v5",
@@ -77,12 +74,6 @@
                 "Standard_D32ds_v5",
                 "Standard_D48ds_v5",
                 "Standard_D64ds_v5",
-                "Standard_D4s_v6",
-                "Standard_D8s_v6",
-                "Standard_D16s_v6",
-                "Standard_D32s_v6",
-                "Standard_D48s_v6",
-                "Standard_D64s_v6",
                 "Standard_E4s_v5",
                 "Standard_E8s_v5",
                 "Standard_E16s_v5",
@@ -96,13 +87,7 @@
                 "Standard_E20ds_v5",
                 "Standard_E32ds_v5",
                 "Standard_E48ds_v5",
-                "Standard_E64ds_v5",
-                "Standard_E4s_v6",
-                "Standard_E8s_v6",
-                "Standard_E16s_v6",
-                "Standard_E32s_v6",
-                "Standard_E48s_v6",
-                "Standard_E64s_v6"
+                "Standard_E64ds_v5"
               ]
             },
             "osPlatform": "Linux"

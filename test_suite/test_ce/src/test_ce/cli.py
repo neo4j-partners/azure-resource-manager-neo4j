@@ -7,7 +7,7 @@ import sys
 from neo4j import Driver
 
 from test_ce.azure_helpers import run_azure_checks
-from test_ce.config import StackConfig, load_from_args, load_from_scenario
+from test_ce.config import StackConfig, load_from_results
 from test_ce.movies_dataset import (
     MIN_EXPECTED_NODES,
     cleanup_movies,
@@ -27,24 +27,9 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Integration tests for Neo4j Community Edition on Azure",
     )
 
-    source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument(
-        "--scenario",
-        help="Deployment scenario name (reads connection file from deployments/.arm-testing/results/)",
-    )
-    source.add_argument(
-        "--uri",
-        help="Neo4j Bolt URI for manual connection (e.g. bolt://host:7687)",
-    )
-
     parser.add_argument(
-        "--username",
-        default="neo4j",
-        help="Neo4j username (default: neo4j)",
-    )
-    parser.add_argument(
-        "--password",
-        help="Neo4j password (overrides value from connection file)",
+        "--results",
+        help="Connection JSON filename in deployments/.arm-testing/results/ (default: latest)",
     )
     parser.add_argument(
         "--simple",
@@ -61,11 +46,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _load_config(args: argparse.Namespace) -> StackConfig:
-    if args.scenario:
-        return load_from_scenario(args.scenario, args.password)
-    if not args.password:
-        sys.exit("error: --password is required when using --uri")
-    return load_from_args(args.uri, args.username, args.password)
+    return load_from_results(args.results)
 
 
 def _run_crud_tests(reporter: TestReporter, driver: Driver) -> None:
@@ -125,6 +106,8 @@ def main() -> None:
         level=logging.INFO,
         format="%(message)s",
     )
+    # Silence noisy Azure SDK HTTP polling logs.
+    logging.getLogger("azure").setLevel(logging.WARNING)
 
     parser = _build_parser()
     args = parser.parse_args()

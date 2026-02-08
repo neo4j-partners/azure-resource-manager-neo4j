@@ -1,8 +1,6 @@
 """Configuration loading for the test suite.
 
-Supports two modes:
-  1. Scenario mode: reads a connection file produced by the deployments/ framework.
-  2. Manual mode: accepts explicit URI, username, and password from CLI arguments.
+Reads a connection file produced by the deployments/ framework.
 """
 
 import json
@@ -31,24 +29,34 @@ def _find_repo_root() -> Path:
     )
 
 
-def _find_connection_file(scenario: str) -> Path:
-    """Locate the most recent connection file for *scenario*."""
+def _results_dir() -> Path:
+    """Return the results directory path."""
     results_dir = _find_repo_root() / "deployments" / ".arm-testing" / "results"
     if not results_dir.exists():
         raise FileNotFoundError(f"Results directory not found: {results_dir}")
+    return results_dir
 
-    pattern = f"connection-{scenario}-*.json"
+
+def _find_connection_file(filename: str | None) -> Path:
+    """Locate a connection file by name, or the most recent one if not specified."""
+    rd = _results_dir()
+
+    if filename:
+        path = rd / filename
+        if not path.exists():
+            raise FileNotFoundError(f"Connection file not found: {path}")
+        logger.info("Using connection file: %s", path)
+        return path
+
     matches = sorted(
-        results_dir.glob(pattern),
+        rd.glob("connection-*.json"),
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
     if not matches:
-        raise FileNotFoundError(
-            f"No connection file for scenario '{scenario}' in {results_dir}"
-        )
+        raise FileNotFoundError(f"No connection files in {rd}")
 
-    logger.info("Using connection file: %s", matches[0])
+    logger.info("Using latest connection file: %s", matches[0].name)
     return matches[0]
 
 
@@ -104,16 +112,18 @@ class StackConfig:
             drv.close()
 
 
-def load_from_scenario(
-    scenario: str, password_override: str | None = None
-) -> StackConfig:
-    """Build a StackConfig from a deployments-framework connection file."""
-    path = _find_connection_file(scenario)
+def load_from_results(filename: str | None = None) -> StackConfig:
+    """Build a StackConfig from a connection file.
+
+    If *filename* is given, load that file from the results directory.
+    Otherwise, use the most recent connection file.
+    """
+    path = _find_connection_file(filename)
     with open(path, encoding="utf-8") as fh:
         data = json.load(fh)
 
     outputs = data.get("outputs", {})
-    password = password_override if password_override is not None else data["password"]
+    password = data["password"]
     browser_url = data["browser_url"]
     host = urlparse(browser_url).hostname or ""
 
@@ -139,23 +149,3 @@ def load_from_scenario(
     )
 
 
-def load_from_args(
-    uri: str,
-    username: str,
-    password: str,
-) -> StackConfig:
-    """Build a StackConfig from explicit CLI arguments.
-
-    Azure resource fields are left empty; resource and resilience tests
-    will be skipped automatically.
-    """
-    host = urlparse(uri).hostname or ""
-    browser_url = f"http://{host}:7474"
-
-    return StackConfig(
-        browser_url=browser_url,
-        neo4j_uri=uri,
-        username=username,
-        password=password,
-        host=host,
-    )

@@ -18,11 +18,19 @@ The Neo4j data disk is defined as a separate `Microsoft.Compute/disks` resource 
 
 **Redeployment:** ARM incremental mode is idempotent. If the disk already exists with matching properties, ARM skips recreation. The VM is created fresh and attaches the existing disk.
 
-## NVMe disk controller
+## NVMe disk controller (Eds_v6 series)
 
-The CE template uses `diskControllerType: 'NVMe'` with the Ebdsv5 VM series (`Standard_E4bds_v5`), departing from the SCSI disk controller pattern used in the enterprise template.
+The CE template defaults to the Eds_v6 VM series (e.g., `Standard_E4ds_v6`), which is **NVMe-only**. No `diskControllerType` property is needed — v6 VMs exclusively use NVMe. This is Microsoft's forward direction; all v6+ VM generations dropped SCSI support entirely.
 
-NVMe delivers higher remote disk throughput (21,400 IOPS / 600 MBps) compared to SCSI (16,200 IOPS / 350 MBps) at the same price. NVMe is Microsoft's forward direction — newer VM generations (v6+) are NVMe-only.
+The template omits `diskControllerType` from the VM's `storageProfile`. For NVMe-only SKUs like Eds_v6, Azure automatically uses NVMe. If a user overrides `vmSize` to a v5 SKU that supports both NVMe and SCSI, Azure auto-selects based on the VM size's default. The [azure-vm-utils](https://github.com/Azure/azure-vm-utils) udev rules installed by cloud-init create `/dev/disk/azure/data/by-lun/` symlinks for both controllers, so the same disk paths work regardless.
+
+### Recommended VM sizes
+
+| Size | vCPUs | RAM | NVMe | Use case |
+|------|-------|-----|------|----------|
+| `Standard_E2ds_v6` | 2 | 16 GB | Yes (only) | Testing / evaluation |
+| `Standard_E4ds_v6` | 4 | 32 GB | Yes (only) | Default |
+| `Standard_E8ds_v6` | 8 | 64 GB | Yes (only) | Production workloads |
 
 RHEL 9 supports NVMe natively but does not include the `/dev/disk/azure/data/by-lun/` symlinks by default. The cloud-init `bootcmd` installs [azure-vm-utils](https://github.com/Azure/azure-vm-utils) udev rules before `disk_setup` runs, creating the symlinks that cloud-init uses to format and mount the data disk at `/dev/disk/azure/data/by-lun/0`.
 
@@ -54,17 +62,19 @@ In non-zonal regions, the fallback to Premium_LRS ensures the template deploys e
 
 ## Regional availability research
 
-This section documents the regional availability of the three resources the template depends on: the VM SKU, the disk SKU, and availability zones. All data was verified against official Microsoft documentation in February 2026. Azure regions expand continuously — run `az vm list-skus --size Standard_E4bds_v5 --all --output table` for current per-subscription availability.
+This section documents the regional availability of the three resources the template depends on: the VM SKU, the disk SKU, and availability zones. All data was verified against official Microsoft documentation and `az vm list-skus` in February 2026. Azure regions expand continuously — run `az vm list-skus --size Standard_E4ds_v6 --all --output table` for current per-subscription availability.
 
-### Standard_E4bds_v5 (Ebdsv5 series, NVMe VM)
+### Eds_v6 series (NVMe-only VM)
 
-Microsoft does not publish a static region list for individual VM SKUs. The [Ebdsv5 series documentation](https://learn.microsoft.com/en-us/azure/virtual-machines/ebdsv5-ebsv5-series) directs users to the [Products available by region](https://azure.microsoft.com/en-us/explore/global-infrastructure/products-by-region/) tool or the Azure CLI (`az vm list-skus`). The Ebdsv5 series is broadly available across 50+ regions including all major US, Europe, and Asia-Pacific regions.
+Microsoft does not publish a static region list for individual VM SKUs. The [Edsv6 series documentation](https://learn.microsoft.com/en-us/azure/virtual-machines/edsv6-series) directs users to the [Products available by region](https://azure.microsoft.com/en-us/explore/global-infrastructure/products-by-region/) tool or the Azure CLI (`az vm list-skus`). The Eds_v6 series is available across 40+ regions including all major US, Europe, and Asia-Pacific regions.
 
 Key facts:
-- Uses 3rd Gen Intel Xeon Platinum 8370C (Ice Lake) processors
-- NVMe-enabled for higher remote disk throughput (21,400 IOPS / 600 MBps)
+- Uses 5th Gen Intel Xeon Platinum (Emerald Rapids) processors
+- NVMe-only — all v6 VMs dropped SCSI support
+- Memory-optimized (8 GiB RAM per vCPU)
 - Available in both zonal and non-zonal regions
 - Some regions may require a quota request (check `az vm list-skus` for `NotAvailableForSubscription` restrictions)
+- Not available in some smaller non-zonal regions (australiasoutheast, norwaywest, southindia)
 
 ### Availability zone support by region
 
@@ -130,22 +140,22 @@ Every Azure region that has availability zones includes zone 1. The logical zone
 
 ### Combined compatibility
 
-When all three requirements are combined (E4bds_v5 + PremiumV2_LRS + zone support), the template deploys with full zonal + PremiumV2_LRS configuration in 30+ major regions across all continents. In the remaining non-zonal regions, the template automatically falls back to non-zonal + Premium_LRS. No region where E4bds_v5 is available is excluded from deployment.
+When all three requirements are combined (Eds_v6 + PremiumV2_LRS + zone support), the template deploys with full zonal + NVMe + PremiumV2_LRS configuration in 30+ major regions across all continents. In the remaining non-zonal regions where Eds_v6 is available (northcentralus, westus, canadaeast, ukwest), the template automatically falls back to non-zonal + Premium_LRS.
 
 ### Tradeoffs in non-zonal regions
 
 - No availability zone protection (single-datacenter failure risk)
 - Premium_LRS instead of PremiumV2_LRS (lower baseline IOPS: 7,500 vs tuneable up to 80,000; higher latency; no independent IOPS/throughput scaling)
-- Still uses NVMe disk controller and E4bds_v5 VM (no compute performance regression)
+- Still uses Eds_v6 VM with NVMe (no compute performance regression)
 
 ### How to verify for your subscription
 
 ```bash
-# List E4bds_v5 availability with zone and restriction info
-az vm list-skus --size Standard_E4bds_v5 --all --output table
+# List Eds_v6 availability with zone and restriction info
+az vm list-skus --size Standard_E4ds_v6 --all --output table
 
 # Check zones for a specific region
-az vm list-skus --size Standard_E4bds_v5 --location eastus2 --output table
+az vm list-skus --size Standard_E4ds_v6 --location eastus2 --output table
 ```
 
 ## Cloud-init idempotency for disk reattach
@@ -216,9 +226,9 @@ The `createUiDefinition.json` location selector supports a `resourceTypes` filte
 
 Since the template auto-detects via `pickZones()` and falls back gracefully, the marketplace UI does not need to filter regions. The customer picks any region and the template does the right thing.
 
-### Why NVMe over SCSI
+### Why Eds_v6 (NVMe-only)
 
-The Ebdsv5 VM series delivers higher remote disk throughput via NVMe (21,400 IOPS / 600 MBps) compared to SCSI (16,200 IOPS / 350 MBps) at the same price. NVMe is Microsoft's forward direction — newer VM generations (v6+) are NVMe-only. RHEL 9 supports NVMe natively but requires the [azure-vm-utils](https://github.com/Azure/azure-vm-utils) udev rules for `/dev/disk/azure/data/by-lun/` symlinks, which the cloud-init installs in `bootcmd`.
+The Eds_v6 series uses 5th Gen Intel Xeon (Emerald Rapids) processors and is NVMe-only — all v6+ VM generations dropped SCSI support. NVMe delivers higher remote disk throughput compared to SCSI at the same price. Using an NVMe-only series eliminates the ambiguity of dual-capable SKUs (where Azure defaults to SCSI when `diskControllerType` is omitted). Neo4j Aura already runs E-Series v6 in production on Azure. The template omits `diskControllerType` — for NVMe-only SKUs, Azure automatically uses NVMe without explicit configuration.
 
 ### Why PremiumV2_LRS with Premium_LRS fallback
 
@@ -233,7 +243,7 @@ The enterprise template sets `neo4j-admin dbms set-initial-password` uncondition
 - [Azure pickZones() function reference](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/bicep-functions-resource#pickzones)
 - [Azure Landing Zones Bicep — zone auto-detection](https://azure.github.io/Azure-Landing-Zones/bicep/gettingstarted/)
 - [Azure Verified Modules (AVM) — zone interface spec](https://azure.github.io/Azure-Verified-Modules/specs/bcp/res/interfaces/)
-- [Ebdsv5 VM series — NVMe and disk performance](https://learn.microsoft.com/en-us/azure/virtual-machines/ebdsv5-ebsv5-series)
+- [Edsv6 VM series — NVMe and disk performance](https://learn.microsoft.com/en-us/azure/virtual-machines/edsv6-series)
 - [Premium SSD v2 — regional availability and constraints](https://learn.microsoft.com/en-us/azure/virtual-machines/disks-types#premium-ssd-v2)
 - [Azure NVMe disk identification — azure-vm-utils](https://learn.microsoft.com/en-us/azure/virtual-machines/linux/azure-virtual-machine-utilities)
 - [Azure disk device naming and symlinks](https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/linux/troubleshoot-device-names-problems)
@@ -254,7 +264,7 @@ marketplace/neo4j-ce/
   modules/
     network.bicep         # VNet, subnet, NSG (unchanged)
     disk.bicep            # Standalone managed data disk (PremiumV2_LRS or Premium_LRS, conditional zone)
-    vm.bicep              # VM (NVMe, conditional zone), NIC, public IP (conditional zone)
+    vm.bicep              # VM (NVMe via Eds_v6, conditional zone), NIC, public IP (conditional zone)
   scripts/neo4j-ce/
     cloud-init/
       standalone.yaml     # Cloud-init: NVMe udev rules, disk mount, Neo4j install, configuration

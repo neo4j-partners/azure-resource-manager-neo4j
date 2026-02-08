@@ -21,7 +21,7 @@ SCENARIOS_FILE: Final[Path] = CONFIG_DIR / "scenarios.yaml"
 # CE region categories for the setup wizard's region picker.
 # See marketplace/neo4j-ce/ARCHITECTURE.md for regional availability research.
 CE_ZONAL_REGIONS: Final[list[str]] = [
-    # Regions with availability zones where E4bds_v5 + PremiumV2_LRS + zone 1 all work
+    # Regions with availability zones where Eds_v6 + PremiumV2_LRS + zone 1 all work
     # pickZones() returns ['1'] → PremiumV2_LRS + zone 1 pinning
     "eastus2",       # Default test region
     "eastus",
@@ -31,24 +31,21 @@ CE_ZONAL_REGIONS: Final[list[str]] = [
     "uksouth",
     "swedencentral",
     "japaneast",
+    "japanwest",
     "australiaeast",
 ]
 
 CE_NONZONAL_REGIONS: Final[list[str]] = [
-    # E4bds_v5 available but no availability zones
+    # Eds_v6 available but no availability zones
     # pickZones() returns [] → Premium_LRS + no zone pinning
     "northcentralus",
     "westus",
-    "australiasoutheast",
     "canadaeast",
-    "japanwest",
     "ukwest",
-    "norwaywest",
-    "southindia",
 ]
 
 CE_RESTRICTED_REGIONS: Final[list[str]] = [
-    # E4bds_v5 exists with zones but subscription-restricted (needs quota request)
+    # Eds_v6 exists with zones but subscription-restricted (needs quota request)
     "westeurope",
     "southcentralus",
     "westus2",

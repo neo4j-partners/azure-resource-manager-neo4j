@@ -21,6 +21,7 @@ scripts/
   neo4j-enterprise/         # Enterprise cloud-init and provisioning
   neo4j-ce/cloud-init/      # CE cloud-init (standalone.yaml)
 deployments/                # Deployment and testing CLI (see deployments/README.md)
+test_suite/test_ce/         # CE integration tests (connectivity, CRUD, resilience)
 .github/workflows/          # CI: enterprise.yml, community.yml
 ```
 
@@ -78,6 +79,36 @@ cd marketplace/neo4j-ce && ./deploy.sh <resource-group-name>
 | `standalone-lts` | Enterprise Evaluation | LTS (5) | Single-node enterprise |
 | `cluster-lts` | Enterprise Evaluation | LTS (5) | 3-node cluster |
 | `ce-standalone-latest` | Community | CalVer (latest) | CE standalone (region set during setup, `pickZones` auto-adapts) |
+
+## CE Integration Tests
+
+The `test_suite/test_ce/` package runs integration tests against a deployed Community Edition instance.
+
+**What it tests:**
+- HTTP API and authenticated HTTP connectivity
+- Bolt protocol connectivity
+- APOC plugin availability
+- Community Edition verification (`dbms.components()`)
+- CRUD validation using a Movies graph dataset (The Matrix trilogy, 11+ nodes)
+- VM provisioning and data disk attachment (full mode, via Azure SDK)
+- Data persistence through a VM restart cycle (full mode)
+
+**Running the tests:**
+
+```bash
+cd test_suite/test_ce
+
+# Use the latest connection file (default)
+uv run test-ce
+
+# Use a specific connection file
+uv run test-ce --results connection-ce-standalone-latest-20260207-212235.json
+
+# Simple mode — connectivity + CRUD only, skips Azure resource checks
+uv run test-ce --simple
+```
+
+Connection details and password are read from `deployments/.arm-testing/results/`. When `--results` is omitted the most recent connection file is used.
 
 ## CI/CD
 

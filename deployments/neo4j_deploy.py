@@ -524,6 +524,20 @@ def deploy(
         if final_status == "Succeeded":
             succeeded_count += 1
 
+            # Query instance type and storage details (VMSS for Enterprise, VM for CE)
+            vmss_info = d.orchestrator.get_instance_info(d.state.resource_group_name)
+            if vmss_info:
+                controller = vmss_info["disk_controller_type"]
+                controller_color = "green" if controller == "NVME" else "yellow"
+                console.print(f"  [cyan]{d.state.scenario_name}[/cyan] instance details:")
+                console.print(f"    VM Size:          [bold]{vmss_info['vm_size']}[/bold]")
+                console.print(f"    Disk Controller:  [{controller_color}]{controller}[/{controller_color}]")
+                if vmss_info.get("disk_size_gb"):
+                    console.print(f"    Disk Size:        {vmss_info['disk_size_gb']} GB")
+                if vmss_info.get("storage_account_type"):
+                    console.print(f"    Storage Type:     {vmss_info['storage_account_type']}")
+                console.print()
+
             # Extract outputs
             outputs = d.orchestrator.extract_outputs(
                 d.state.resource_group_name,

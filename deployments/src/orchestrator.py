@@ -498,6 +498,168 @@ class DeploymentOrchestrator:
             )
             return None
 
+    def get_instance_info(
+        self,
+        resource_group: str,
+    ) -> Optional[dict]:
+        """
+        Query compute resources in the resource group to get VM size and storage details.
+
+        Tries VMSS first (Enterprise), then standalone VM (Community Edition).
+
+        Args:
+            resource_group: Resource group name
+
+        Returns:
+            Dictionary with vm_size, disk_controller_type, disk_size_gb, storage_account_type,
+            or None if query failed
+        """
+        info = self._get_vmss_info(resource_group)
+        if info:
+            return info
+
+        return self._get_vm_info(resource_group)
+
+    def _get_vmss_info(
+        self,
+        resource_group: str,
+    ) -> Optional[dict]:
+        """
+        Query VMSS in the resource group for VM size and storage details.
+
+        Args:
+            resource_group: Resource group name
+
+        Returns:
+            Instance info dict or None if no VMSS found
+        """
+        try:
+            result = run_command(
+                f"az vmss list "
+                f"--resource-group {resource_group} "
+                f"--output json",
+                check=False,
+            )
+
+            if result.returncode != 0 or not result.stdout:
+                return None
+
+            vmss_list = json.loads(result.stdout)
+            if not vmss_list:
+                return None
+
+            vmss = vmss_list[0]
+            vm_size = vmss.get("sku", {}).get("name", "Unknown")
+
+            # Extract disk controller type from storage profile
+            storage_profile = vmss.get("virtualMachineProfile", {}).get("storageProfile", {})
+            disk_controller_type = storage_profile.get("diskControllerType", None)
+
+            # Extract data disk info
+            data_disks = storage_profile.get("dataDisks", [])
+            disk_size_gb = None
+            storage_account_type = None
+            if data_disks:
+                disk_size_gb = data_disks[0].get("diskSizeGB")
+                storage_account_type = (
+                    data_disks[0].get("managedDisk", {}).get("storageAccountType")
+                )
+
+            # If diskControllerType not in VMSS model, query the instance view
+            if not disk_controller_type:
+                instance_result = run_command(
+                    f"az vmss list-instances "
+                    f"--resource-group {resource_group} "
+                    f"--name {vmss.get('name', '')} "
+                    f"--query [0].storageProfile.diskControllerType "
+                    f"--output tsv",
+                    check=False,
+                )
+                if instance_result.returncode == 0 and instance_result.stdout.strip():
+                    disk_controller_type = instance_result.stdout.strip()
+
+            # Normalize the controller type display
+            if disk_controller_type:
+                disk_controller_type = disk_controller_type.upper()
+            else:
+                disk_controller_type = "SCSI"
+
+            return {
+                "vm_size": vm_size,
+                "disk_controller_type": disk_controller_type,
+                "disk_size_gb": disk_size_gb,
+                "storage_account_type": storage_account_type,
+            }
+
+        except Exception:
+            return None
+
+    def _get_vm_info(
+        self,
+        resource_group: str,
+    ) -> Optional[dict]:
+        """
+        Query standalone VM in the resource group for VM size and storage details.
+
+        Used for Community Edition deployments which use a single VM instead of VMSS.
+
+        Args:
+            resource_group: Resource group name
+
+        Returns:
+            Instance info dict or None if no VM found
+        """
+        try:
+            result = run_command(
+                f"az vm list "
+                f"--resource-group {resource_group} "
+                f"--output json",
+                check=False,
+            )
+
+            if result.returncode != 0 or not result.stdout:
+                return None
+
+            vm_list = json.loads(result.stdout)
+            if not vm_list:
+                return None
+
+            vm = vm_list[0]
+            vm_size = vm.get("hardwareProfile", {}).get("vmSize", "Unknown")
+
+            # Extract disk controller type from storage profile
+            storage_profile = vm.get("storageProfile", {})
+            disk_controller_type = storage_profile.get("diskControllerType", None)
+
+            # Extract data disk info
+            data_disks = storage_profile.get("dataDisks", [])
+            disk_size_gb = None
+            storage_account_type = None
+            if data_disks:
+                disk_size_gb = data_disks[0].get("diskSizeGB")
+                storage_account_type = (
+                    data_disks[0].get("managedDisk", {}).get("storageAccountType")
+                )
+
+            # Normalize the controller type display
+            if disk_controller_type:
+                disk_controller_type = disk_controller_type.upper()
+            else:
+                disk_controller_type = "SCSI"
+
+            return {
+                "vm_size": vm_size,
+                "disk_controller_type": disk_controller_type,
+                "disk_size_gb": disk_size_gb,
+                "storage_account_type": storage_account_type,
+            }
+
+        except Exception as e:
+            console.print(
+                f"[yellow]Warning: Could not query VM info: {e}[/yellow]"
+            )
+            return None
+
     def save_connection_info(
         self,
         conn_info: ConnectionInfo,

@@ -312,7 +312,7 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
                 deployment_type=DeploymentType.VM,
                 node_count=1,
                 graph_database_version="latest",
-                vm_size="Standard_E4s_v5",
+                vm_size="Standard_E4ds_v6",
                 disk_size=32,
                 license_type="Community",
             ),
