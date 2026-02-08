@@ -51,20 +51,19 @@ See **[deployments/README.md](deployments/README.md)** for full command referenc
 
 ### Build Marketplace Packages
 
+Before building, copy `.env.sample` to `.env` and set your Partner Center PID (GUID):
+
+```bash
+cp .env.sample .env
+# Edit .env with your NEO4J_PARTNER_PID
+```
+
+Then build:
+
 ```bash
 cd deployments
 uv run neo4j-deploy ee-package   # Enterprise
 uv run neo4j-deploy ce-package   # Community Edition
-```
-
-### Manual Deployment
-
-```bash
-# Enterprise
-cd marketplace/neo4j-enterprise && ./deploy.sh <resource-group-name>
-
-# Community Edition
-cd marketplace/neo4j-ce && ./deploy.sh <resource-group-name>
 ```
 
 ## Requirements

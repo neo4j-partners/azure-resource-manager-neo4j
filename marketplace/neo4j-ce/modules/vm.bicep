@@ -91,6 +91,11 @@ resource vm 'Microsoft.Compute/virtualMachines@2025-04-01' = {
     DeployedBy: 'arm-template'
     TemplateVersion: '2.0.0'
   }
+  plan: {
+    publisher: 'neo4j'
+    product: 'neo4j-ce-vm'
+    name: 'per-core-hour'
+  }
   properties: {
     hardwareProfile: {
       vmSize: vmSize
@@ -104,9 +109,9 @@ resource vm 'Microsoft.Compute/virtualMachines@2025-04-01' = {
         }
       }
       imageReference: {
-        publisher: 'RedHat'
-        offer: 'RHEL'
-        sku: '9-lvm-gen2'
+        publisher: 'neo4j'
+        offer: 'neo4j-ce-vm'
+        sku: 'per-core-hour'
         version: 'latest'
       }
       dataDisks: [
