@@ -200,6 +200,13 @@ class Settings(BaseModel):
     # User info
     owner_email: str = Field(..., description="Owner email for resource tagging")
 
+    # Pre-publish image overrides
+    ce_use_test_image: bool = Field(
+        True,
+        description="Use standard RHEL 9 image instead of neo4j-ce-vm marketplace image. "
+        "Set to false after neo4j-ce-vm offer is published to Azure Marketplace.",
+    )
+
 
 class ScenarioCollection(BaseModel):
     """Collection of test scenarios."""

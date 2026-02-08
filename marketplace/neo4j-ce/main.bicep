@@ -25,6 +25,9 @@ param diskSize int
 @description('Azure region for all resources.')
 param location string = resourceGroup().location
 
+@description('Use a standard RHEL 9 image instead of the neo4j-ce-vm marketplace image. For pre-publish CI testing only.')
+param useTestImage bool = false
+
 // Customer Usage Attribution - Partner tracking GUID
 // API version is prescribed by Microsoft's CUA specification
 #disable-next-line no-deployments-resources use-recent-api-versions
@@ -96,6 +99,7 @@ module vm 'modules/vm.bicep' = {
     dataDiskId: disk.outputs.diskId
     dataDiskName: disk.outputs.diskName
     useZones: useZones
+    useTestImage: useTestImage
   }
 }
 

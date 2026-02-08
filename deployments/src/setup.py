@@ -2,8 +2,6 @@
 Interactive setup wizard for first-time configuration.
 """
 
-from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Optional
 
 from rich.console import Console
@@ -16,9 +14,6 @@ from .constants import (
     CE_NONZONAL_REGIONS,
     CE_RESTRICTED_REGIONS,
     CE_ZONAL_REGIONS,
-    CLEANUP_MODES,
-    DEFAULT_CLEANUP_MODE,
-    NEO4J_VERSIONS,
 )
 from .models import (
     CleanupMode,
@@ -28,7 +23,6 @@ from .models import (
     TestScenario,
 )
 from .utils import (
-    console,
     get_az_account_info,
     get_git_remote_url,
     get_git_user_email,
@@ -85,7 +79,7 @@ class SetupWizard:
             default_region, resource_group_prefix
         )
 
-        # Step 8: Finalize
+        # Finalize
         owner_email = get_git_user_email() or Prompt.ask(
             "Enter your email for resource tagging"
         )
@@ -108,6 +102,7 @@ class SetupWizard:
             repository_name=github_info[1] if github_info else None,
             password_strategy=password_strategy,
             owner_email=owner_email,
+            ce_use_test_image=True,
         )
 
         # Show summary
@@ -270,7 +265,7 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
         Returns:
             Tuple of (password strategy, vault name if applicable)
         """
-        console.print("\n[bold]Step 6: Neo4j Password Configuration[/bold]")
+        console.print("\n[bold]Step 7: Neo4j Password Configuration[/bold]")
         console.print("How should admin passwords be provided?")
         console.print("  1. [cyan]Generate[/cyan] random secure password per deployment (recommended)")
         console.print("  2. [cyan]Environment[/cyan] variable NEO4J_ADMIN_PASSWORD")
@@ -287,7 +282,6 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
         strategy = strategy_map[choice]
 
         return strategy, None
-
 
     def _create_default_scenarios(self) -> ScenarioCollection:
         """Create default test scenarios for Enterprise and Community editions."""

@@ -32,6 +32,9 @@ param dataDiskName string
 @description('Whether the target region supports availability zones.')
 param useZones bool
 
+@description('Use a standard RHEL 9 image instead of the neo4j-ce-vm marketplace image. For pre-publish CI testing only.')
+param useTestImage bool = false
+
 var vmName = 'vm-neo4j-${location}-${resourceSuffix}'
 var publicIpName = 'pip-neo4j-${location}-${resourceSuffix}'
 var nicName = 'nic-neo4j-${location}-${resourceSuffix}'
@@ -91,7 +94,7 @@ resource vm 'Microsoft.Compute/virtualMachines@2025-04-01' = {
     DeployedBy: 'arm-template'
     TemplateVersion: '2.0.0'
   }
-  plan: {
+  plan: useTestImage ? null : {
     publisher: 'neo4j'
     product: 'neo4j-ce-vm'
     name: 'per-core-hour'
@@ -108,7 +111,12 @@ resource vm 'Microsoft.Compute/virtualMachines@2025-04-01' = {
           storageAccountType: 'Premium_LRS'
         }
       }
-      imageReference: {
+      imageReference: useTestImage ? {
+        publisher: 'RedHat'
+        offer: 'RHEL'
+        sku: '9-lvm-gen2'
+        version: 'latest'
+      } : {
         publisher: 'neo4j'
         offer: 'neo4j-ce-vm'
         sku: 'per-core-hour'

@@ -265,7 +265,7 @@ marketplace/neo4j-ce/
     network.bicep         # VNet, subnet, NSG (unchanged)
     disk.bicep            # Standalone managed data disk (PremiumV2_LRS or Premium_LRS, conditional zone)
     vm.bicep              # VM (NVMe via Eds_v6, conditional zone), NIC, public IP (conditional zone)
-  scripts/neo4j-ce/
-    cloud-init/
-      standalone.yaml     # Cloud-init: NVMe udev rules, disk mount, Neo4j install, configuration
+scripts/neo4j-ce/
+  cloud-init/
+    standalone.yaml       # Cloud-init: NVMe udev rules, disk mount, Neo4j install, configuration
 ```

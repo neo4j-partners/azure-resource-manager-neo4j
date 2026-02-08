@@ -63,9 +63,10 @@ This is the Bicep/ARM template that orchestrates the full deployment (VNet, NSG,
 
 ### Template Image Reference (Done)
 
-The CE template (`marketplace/neo4j-ce/modules/vm.bicep`) has been updated to reference the CE VM marketplace image:
+The CE template (`marketplace/neo4j-ce/modules/vm.bicep`) references the CE VM marketplace image by default, with a `useTestImage` parameter that switches to a standard RHEL 9 image for pre-publish testing:
 
 ```bicep
+// Default (production) — marketplace image
 plan: {
   publisher: 'neo4j'
   product: 'neo4j-ce-vm'
@@ -77,9 +78,31 @@ imageReference: {
   sku: 'per-core-hour'
   version: 'latest'
 }
+
+// When useTestImage=true — standard RHEL 9, no plan block
+imageReference: {
+  publisher: 'RedHat'
+  offer: 'RHEL'
+  sku: '9-lvm-gen2'
+  version: 'latest'
+}
 ```
 
-> **Note:** The template will not work for local testing until the `neo4j-ce-vm` offer is published (at least to preview).
+This works because the CE marketplace image is just base RHEL 9 — Neo4j is not baked in. It is installed at deploy time via cloud-init (`dnf install -y neo4j`). So a standard RHEL 9 image is functionally identical for testing.
+
+#### Pre-publish testing
+
+Until `neo4j-ce-vm` is published, deployments use a standard RHEL 9 image:
+
+- **CI (GitHub Actions):** The workflow passes `useTestImage=true` automatically.
+- **Local testing (`deployments/`):** `uv run neo4j-deploy setup` sets `ce_use_test_image: true` automatically. To change it later, edit `.arm-testing/config/settings.yaml`.
+- **Manual `az` CLI:** Pass `useTestImage=true` as a parameter override.
+
+#### After `neo4j-ce-vm` is published
+
+1. Remove `useTestImage=true` from `.github/workflows/community.yml`
+2. Set `ce_use_test_image: false` in `.arm-testing/config/settings.yaml` (or re-run `uv run neo4j-deploy setup`)
+3. The `useTestImage` parameter can remain in the template (defaults to `false` = marketplace path) or be removed if desired
 
 ---
 

@@ -19,11 +19,9 @@ from .constants import PARAMS_DIR
 from .models import Edition, Settings, TestScenario
 from .password import PasswordManager
 from .utils import (
-    construct_artifact_url,
     get_timestamp,
     load_json,
     save_json,
-    validate_artifact_url,
 )
 
 console = Console()
@@ -186,6 +184,10 @@ class DeploymentEngine:
         set_param("location", region)
         set_param("diskSize", scenario.disk_size)
         set_param("vmSize", scenario.vm_size)
+
+        # Community Edition: use standard RHEL 9 image for pre-publish testing
+        if scenario.license_type == "Community" and self.settings.ce_use_test_image:
+            set_param("useTestImage", True)
 
         # Enterprise/Evaluation-only parameters (not used by CE template)
         if scenario.license_type != "Community":
