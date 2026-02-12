@@ -1,0 +1,694 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.39.26.7824",
+      "templateHash": "17354159671562783043"
+    }
+  },
+  "parameters": {
+    "adminUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "Admin username for SSH access to VMs."
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "minLength": 12,
+      "maxLength": 72,
+      "metadata": {
+        "description": "Admin password for Neo4j and SSH access. Must be 12-72 characters."
+      }
+    },
+    "vmSize": {
+      "type": "string",
+      "metadata": {
+        "description": "Azure VM size for the Neo4j instance."
+      }
+    },
+    "graphDatabaseVersion": {
+      "type": "string",
+      "allowedValues": [
+        "latest",
+        "5"
+      ],
+      "metadata": {
+        "description": "Neo4j version branch. \"latest\" installs the newest CalVer release (2025.x/2026.x). \"5\" installs the LTS release."
+      }
+    },
+    "diskSize": {
+      "type": "int",
+      "minValue": 32,
+      "maxValue": 4095,
+      "metadata": {
+        "description": "Size of the data disk in GB."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for all resources."
+      }
+    },
+    "useTestImage": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Use a standard RHEL 9 image instead of the neo4j-ce-vm marketplace image. For pre-publish CI testing only."
+      }
+    },
+    "galleryImageId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Azure Compute Gallery image version resource ID. When set, deploys from this gallery image instead of the marketplace image. For pre-publish testing of new image versions."
+      }
+    }
+  },
+  "variables": {
+    "deploymentUniqueId": "[uniqueString(resourceGroup().id, deployment().name)]",
+    "resourceSuffix": "[variables('deploymentUniqueId')]",
+    "cloudInitTemplate": "#cloud-config\n# Neo4j Community Edition Standalone Deployment\n# This cloud-init configuration installs and configures Neo4j CE on a single Azure VM\n# Uses an approved RHEL 9 base image - Neo4j is installed from the yum repository at first boot\n# Supports both Neo4j 5.x LTS (stable/5) and CalVer releases (stable/latest)\n\n# Disable firewalld and SELinux; install NVMe udev rules for disk symlinks\n# bootcmd runs before disk_setup, ensuring /dev/disk/azure/data/by-lun/ exists\n# when cloud-init formats and mounts the data disk\nbootcmd:\n  - systemctl stop firewalld\n  - systemctl disable firewalld\n  - setenforce 0\n  - sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config\n  # Install azure-vm-utils NVMe udev rules (RHEL 9 does not include them by default)\n  # These rules create /dev/disk/azure/data/by-lun/ symlinks for NVMe data disks\n  - curl -sSL -o /etc/udev/rules.d/80-azure-disk.rules https://raw.githubusercontent.com/Azure/azure-vm-utils/main/udev/80-azure-disk.rules\n  - udevadm control --reload-rules && udevadm trigger\n\n# Format and mount data disk\n# Uses azure-vm-utils udev rules (installed in bootcmd above) which create\n# /dev/disk/azure/data/by-lun/ symlinks for both NVMe and SCSI disk controllers\ndisk_setup:\n  /dev/disk/azure/data/by-lun/0:\n    table_type: gpt\n    layout: true\n    overwrite: false\n\nfs_setup:\n  - device: /dev/disk/azure/data/by-lun/0\n    partition: 1\n    filesystem: xfs\n    overwrite: false\n\nmounts:\n  - [\"/dev/disk/azure/data/by-lun/0-part1\", \"/var/lib/neo4j\", \"xfs\", \"defaults,nofail\", \"0\", \"0\"]\n\n# Install Neo4j\nyum_repos:\n  neo4j:\n    name: Neo4j Yum Repo\n    baseurl: https://yum.neo4j.com/stable/${graph_database_version}\n    enabled: true\n    gpgcheck: true\n    gpgkey: https://debian.neo4j.com/neotechnology.gpg.key\n\n# Run configuration commands\nruncmd:\n  # Validate system has sufficient memory for Neo4j\n  - |\n    TOTAL_MEM_MB=$(free -m | awk '/^Mem:/{print $2}')\n    MIN_MEM_MB=3500\n    if [ \"$TOTAL_MEM_MB\" -lt \"$MIN_MEM_MB\" ]; then\n      echo \"ERROR: Insufficient memory for Neo4j installation\"\n      echo \"Required: ${MIN_MEM_MB}MB, Available: ${TOTAL_MEM_MB}MB\"\n      echo \"Please use a VM with at least 4GB of RAM\"\n      exit 1\n    fi\n    echo \"Memory check passed: ${TOTAL_MEM_MB}MB available\"\n\n  # Wait for any existing package manager locks\n  - |\n    max_attempts=30\n    attempt=1\n    while fuser /var/lib/rpm/.rpm.lock >/dev/null 2>&1 || \\\n          fuser /var/lib/dnf/lock/download_lock.pid >/dev/null 2>&1; do\n      if [ $attempt -ge $max_attempts ]; then\n        echo \"ERROR: Package manager lock not released after $max_attempts attempts\"\n        exit 1\n      fi\n      echo \"Waiting for package manager lock (attempt $attempt/$max_attempts)...\"\n      sleep 10\n      attempt=$((attempt + 1))\n    done\n\n  # Import Neo4j GPG key with retry\n  - |\n    for i in 1 2 3 4 5; do\n      rpm --import https://debian.neo4j.com/neotechnology.gpg.key && break\n      echo \"RPM key import failed (attempt $i/5), retrying in 10s...\"\n      sleep 10\n    done\n\n  # Install Neo4j with retry\n  - |\n    for i in 1 2 3 4 5; do\n      dnf install -y neo4j && break\n      echo \"DNF install failed (attempt $i/5), retrying in 10s...\"\n      sleep 10\n    done\n\n  # Build public hostname from deployment parameters\n  - UNIQUE_STRING=\"${unique_string}\"\n  - LOCATION=\"${location}\"\n  - PUBLIC_HOSTNAME=\"neo4j-${UNIQUE_STRING}.${LOCATION}.cloudapp.azure.com\"\n\n  # Install APOC plugin (may be in labs/ or may need to be found after package install)\n  - |\n    if ls /var/lib/neo4j/labs/apoc-*-core.jar 1>/dev/null 2>&1; then\n      mv /var/lib/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins/\n      echo \"APOC plugin moved from labs to plugins\"\n    elif ls /usr/share/neo4j/labs/apoc-*-core.jar 1>/dev/null 2>&1; then\n      cp /usr/share/neo4j/labs/apoc-*-core.jar /var/lib/neo4j/plugins/\n      echo \"APOC plugin copied from /usr/share/neo4j/labs to plugins\"\n    else\n      echo \"WARNING: APOC plugin not found in labs directory, skipping\"\n    fi\n\n  # Configure Neo4j network settings\n  - sed -i 's/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf\n  - sed -i \"s/#server.default_advertised_address=localhost/server.default_advertised_address=${PUBLIC_HOSTNAME}/g\" /etc/neo4j/neo4j.conf\n  - sed -i \"s/#server.bolt.advertised_address=:7687/server.bolt.advertised_address=${PUBLIC_HOSTNAME}:7687/g\" /etc/neo4j/neo4j.conf\n  - sed -i 's/#server.bolt.listen_address=:7687/server.bolt.listen_address=0.0.0.0:7687/g' /etc/neo4j/neo4j.conf\n\n  # Configure extensions and security (APOC only, no GDS/Bloom)\n  - sed -i 's/#dbms.security.procedures.unrestricted=my.extensions.example,my.procedures.*/dbms.security.procedures.unrestricted=apoc.*/g' /etc/neo4j/neo4j.conf\n  - echo \"dbms.security.http_auth_allowlist=/,/browser.*\" >> /etc/neo4j/neo4j.conf\n  - echo \"dbms.security.procedures.allowlist=apoc.*\" >> /etc/neo4j/neo4j.conf\n\n  # Add memory recommendations\n  - neo4j-admin server memory-recommendation >> /etc/neo4j/neo4j.conf\n\n  # Configure routing for driver compatibility\n  - echo \"dbms.routing.default_router=SERVER\" >> /etc/neo4j/neo4j.conf\n\n  # SSRF protection\n  - echo \"internal.dbms.cypher_ip_blocklist=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.169.0/24,fc00::/7,fe80::/10,ff00::/8\" >> /etc/neo4j/neo4j.conf\n\n  # Decode and set admin password, then start Neo4j\n  # IMPORTANT: All password handling must be in ONE script block because\n  # shell variables don't persist across separate runcmd entries in cloud-init\n  - |\n    echo \"=== Password Configuration Started ===\"\n\n    # Decode base64-encoded password (safe from quote/escape issues)\n    PASSWORD_BASE64='${admin_password}'\n    ADMIN_PASSWORD=$(printf '%s' \"$PASSWORD_BASE64\" | base64 -d)\n\n    echo \"Password received and decoded successfully\"\n    echo \"=== Password Configuration Complete ===\"\n\n    # Set initial password BEFORE first start\n    # This is safe to always run: the command only works before Neo4j's first start\n    # and exits with an error (harmlessly) if auth is already configured\n    echo \"Setting Neo4j initial password...\"\n    neo4j-admin dbms set-initial-password \"$ADMIN_PASSWORD\"\n    echo \"Neo4j initial password set successfully\"\n\n    # Enable and start Neo4j\n    systemctl enable neo4j\n    systemctl start neo4j\n\n  # Wait for Neo4j to be fully ready (with timeout)\n  - |\n    TIMEOUT=300\n    ELAPSED=0\n    until curl -s -o /dev/null -w '%{http_code}' http://localhost:7474 | grep -q \"200\"; do\n      if [ $ELAPSED -ge $TIMEOUT ]; then\n        echo \"ERROR: Neo4j failed to start within ${TIMEOUT} seconds\"\n        exit 1\n      fi\n      echo \"Waiting for Neo4j to be ready... (${ELAPSED}s elapsed)\"\n      sleep 5\n      ELAPSED=$((ELAPSED + 5))\n    done\n    echo \"Neo4j is ready!\"\n\nwrite_files:\n  - path: /var/log/neo4j-cloud-init.log\n    content: |\n      Neo4j CE cloud-init started at $(date)\n    append: true\n",
+    "passwordBase64": "[base64(parameters('adminPassword'))]",
+    "cloudInitStep1": "[replace(variables('cloudInitTemplate'), '${unique_string}', variables('deploymentUniqueId'))]",
+    "cloudInitStep2": "[replace(variables('cloudInitStep1'), '${location}', parameters('location'))]",
+    "cloudInitStep3": "[replace(variables('cloudInitStep2'), '${admin_password}', variables('passwordBase64'))]",
+    "cloudInitStep4": "[replace(variables('cloudInitStep3'), '${graph_database_version}', parameters('graphDatabaseVersion'))]",
+    "cloudInitData": "[variables('cloudInitStep4')]",
+    "cloudInitBase64": "[base64(variables('cloudInitData'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2021-04-01",
+      "name": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": []
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "network-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "resourceSuffix": {
+            "value": "[variables('resourceSuffix')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.39.26.7824",
+              "templateHash": "13450731501308836935"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources."
+              }
+            },
+            "resourceSuffix": {
+              "type": "string",
+              "metadata": {
+                "description": "Unique suffix for resource naming."
+              }
+            }
+          },
+          "variables": {
+            "networkSGName": "[format('nsg-neo4j-{0}-{1}', parameters('location'), parameters('resourceSuffix'))]",
+            "vnetName": "[format('vnet-neo4j-{0}-{1}', parameters('location'), parameters('resourceSuffix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2025-05-01",
+              "name": "[variables('networkSGName')]",
+              "location": "[parameters('location')]",
+              "tags": {
+                "Neo4jEdition": "Community",
+                "DeployedBy": "arm-template"
+              },
+              "properties": {
+                "securityRules": [
+                  {
+                    "name": "SSH",
+                    "properties": {
+                      "description": "SSH",
+                      "protocol": "Tcp",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "22",
+                      "sourceAddressPrefix": "Internet",
+                      "destinationAddressPrefix": "*",
+                      "access": "Allow",
+                      "priority": 100,
+                      "direction": "Inbound"
+                    }
+                  },
+                  {
+                    "name": "HTTPS",
+                    "properties": {
+                      "description": "HTTPS",
+                      "protocol": "Tcp",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "7473",
+                      "sourceAddressPrefix": "Internet",
+                      "destinationAddressPrefix": "*",
+                      "access": "Allow",
+                      "priority": 101,
+                      "direction": "Inbound"
+                    }
+                  },
+                  {
+                    "name": "HTTP",
+                    "properties": {
+                      "description": "HTTP",
+                      "protocol": "Tcp",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "7474",
+                      "sourceAddressPrefix": "Internet",
+                      "destinationAddressPrefix": "*",
+                      "access": "Allow",
+                      "priority": 102,
+                      "direction": "Inbound"
+                    }
+                  },
+                  {
+                    "name": "Bolt",
+                    "properties": {
+                      "description": "Bolt",
+                      "protocol": "Tcp",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "7687",
+                      "sourceAddressPrefix": "Internet",
+                      "destinationAddressPrefix": "*",
+                      "access": "Allow",
+                      "priority": 103,
+                      "direction": "Inbound"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2025-05-01",
+              "name": "[variables('vnetName')]",
+              "location": "[parameters('location')]",
+              "tags": {
+                "Neo4jEdition": "Community",
+                "DeployedBy": "arm-template"
+              },
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "10.0.0.0/16"
+                  ]
+                },
+                "subnets": [
+                  {
+                    "name": "subnet",
+                    "properties": {
+                      "addressPrefix": "10.0.0.0/16",
+                      "networkSecurityGroup": {
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSGName'))]"
+                      }
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSGName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "vnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+            },
+            "subnetId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')), '2025-05-01').subnets[0].id]"
+            },
+            "nsgId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSGName'))]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "disk-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "resourceSuffix": {
+            "value": "[variables('resourceSuffix')]"
+          },
+          "diskSize": {
+            "value": "[parameters('diskSize')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.39.26.7824",
+              "templateHash": "17211969817512426611"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources."
+              }
+            },
+            "resourceSuffix": {
+              "type": "string",
+              "metadata": {
+                "description": "Unique suffix for resource naming."
+              }
+            },
+            "diskSize": {
+              "type": "int",
+              "metadata": {
+                "description": "Size of the data disk in GB."
+              }
+            }
+          },
+          "variables": {
+            "diskName": "[format('disk-neo4j-data-{0}-{1}', parameters('location'), parameters('resourceSuffix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Compute/disks",
+              "apiVersion": "2025-01-02",
+              "name": "[variables('diskName')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "Premium_LRS"
+              },
+              "properties": {
+                "creationData": {
+                  "createOption": "Empty"
+                },
+                "diskSizeGB": "[parameters('diskSize')]"
+              },
+              "tags": {
+                "Purpose": "neo4j-data",
+                "Neo4jEdition": "Community",
+                "DeployedBy": "arm-template"
+              }
+            }
+          ],
+          "outputs": {
+            "diskId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Compute/disks', variables('diskName'))]"
+            },
+            "diskName": {
+              "type": "string",
+              "value": "[variables('diskName')]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "vm-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "resourceSuffix": {
+            "value": "[variables('resourceSuffix')]"
+          },
+          "adminUsername": {
+            "value": "[parameters('adminUsername')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('adminPassword')]"
+          },
+          "graphDatabaseVersion": {
+            "value": "[parameters('graphDatabaseVersion')]"
+          },
+          "vmSize": {
+            "value": "[parameters('vmSize')]"
+          },
+          "cloudInitBase64": {
+            "value": "[variables('cloudInitBase64')]"
+          },
+          "subnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'network-deployment'), '2025-04-01').outputs.subnetId.value]"
+          },
+          "dataDiskId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'disk-deployment'), '2025-04-01').outputs.diskId.value]"
+          },
+          "dataDiskName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'disk-deployment'), '2025-04-01').outputs.diskName.value]"
+          },
+          "useTestImage": {
+            "value": "[parameters('useTestImage')]"
+          },
+          "galleryImageId": {
+            "value": "[parameters('galleryImageId')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.39.26.7824",
+              "templateHash": "14192695348401289334"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources."
+              }
+            },
+            "resourceSuffix": {
+              "type": "string",
+              "metadata": {
+                "description": "Unique suffix for resource naming."
+              }
+            },
+            "adminUsername": {
+              "type": "string",
+              "metadata": {
+                "description": "Admin username for SSH access."
+              }
+            },
+            "adminPassword": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Admin password for Neo4j and SSH access."
+              }
+            },
+            "graphDatabaseVersion": {
+              "type": "string",
+              "metadata": {
+                "description": "Neo4j version branch (latest or 5)."
+              }
+            },
+            "vmSize": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure VM size."
+              }
+            },
+            "cloudInitBase64": {
+              "type": "string",
+              "metadata": {
+                "description": "Base64-encoded cloud-init configuration."
+              }
+            },
+            "subnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the subnet."
+              }
+            },
+            "dataDiskId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the standalone managed data disk."
+              }
+            },
+            "dataDiskName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the standalone managed data disk."
+              }
+            },
+            "useTestImage": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Use a standard RHEL 9 image instead of the neo4j-ce-vm marketplace image. For pre-publish CI testing only."
+              }
+            },
+            "galleryImageId": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Azure Compute Gallery image version resource ID. When set, deploys from this gallery image instead of the marketplace image."
+              }
+            }
+          },
+          "variables": {
+            "vmName": "[format('vm-neo4j-{0}-{1}', parameters('location'), parameters('resourceSuffix'))]",
+            "publicIpName": "[format('pip-neo4j-{0}-{1}', parameters('location'), parameters('resourceSuffix'))]",
+            "nicName": "[format('nic-neo4j-{0}-{1}', parameters('location'), parameters('resourceSuffix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/publicIPAddresses",
+              "apiVersion": "2025-05-01",
+              "name": "[variables('publicIpName')]",
+              "location": "[parameters('location')]",
+              "tags": {
+                "Neo4jEdition": "Community",
+                "DeployedBy": "arm-template"
+              },
+              "sku": {
+                "name": "Standard"
+              },
+              "properties": {
+                "publicIPAllocationMethod": "Static",
+                "idleTimeoutInMinutes": 30,
+                "dnsSettings": {
+                  "domainNameLabel": "[format('neo4j-{0}', parameters('resourceSuffix'))]"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Network/networkInterfaces",
+              "apiVersion": "2025-05-01",
+              "name": "[variables('nicName')]",
+              "location": "[parameters('location')]",
+              "tags": {
+                "Neo4jEdition": "Community",
+                "DeployedBy": "arm-template"
+              },
+              "properties": {
+                "enableAcceleratedNetworking": true,
+                "ipConfigurations": [
+                  {
+                    "name": "ipconfig",
+                    "properties": {
+                      "subnet": {
+                        "id": "[parameters('subnetId')]"
+                      },
+                      "publicIPAddress": {
+                        "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
+                      },
+                      "privateIPAllocationMethod": "Dynamic"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Compute/virtualMachines",
+              "apiVersion": "2025-04-01",
+              "name": "[variables('vmName')]",
+              "location": "[parameters('location')]",
+              "tags": {
+                "Neo4jVersion": "[parameters('graphDatabaseVersion')]",
+                "Neo4jEdition": "Community",
+                "DeployedBy": "arm-template",
+                "TemplateVersion": "2.0.0"
+              },
+              "plan": "[if(or(parameters('useTestImage'), not(empty(parameters('galleryImageId')))), null(), createObject('publisher', 'neo4j', 'product', 'neo4j-ce-vm', 'name', 'per-core-hour'))]",
+              "properties": {
+                "hardwareProfile": {
+                  "vmSize": "[parameters('vmSize')]"
+                },
+                "storageProfile": {
+                  "osDisk": {
+                    "createOption": "FromImage",
+                    "caching": "ReadWrite",
+                    "managedDisk": {
+                      "storageAccountType": "Premium_LRS"
+                    }
+                  },
+                  "imageReference": "[if(not(empty(parameters('galleryImageId'))), createObject('id', parameters('galleryImageId')), if(parameters('useTestImage'), createObject('publisher', 'RedHat', 'offer', 'RHEL', 'sku', '9-lvm-gen2', 'version', 'latest'), createObject('publisher', 'neo4j', 'offer', 'neo4j-ce-vm', 'sku', 'per-core-hour', 'version', 'latest')))]",
+                  "dataDisks": [
+                    {
+                      "lun": 0,
+                      "name": "[parameters('dataDiskName')]",
+                      "createOption": "Attach",
+                      "managedDisk": {
+                        "id": "[parameters('dataDiskId')]"
+                      },
+                      "caching": "None",
+                      "deleteOption": "Detach"
+                    }
+                  ]
+                },
+                "securityProfile": {
+                  "securityType": "TrustedLaunch",
+                  "uefiSettings": {
+                    "secureBootEnabled": true,
+                    "vTpmEnabled": true
+                  }
+                },
+                "osProfile": {
+                  "computerName": "neo4j-ce",
+                  "adminUsername": "[parameters('adminUsername')]",
+                  "adminPassword": "[parameters('adminPassword')]",
+                  "customData": "[parameters('cloudInitBase64')]"
+                },
+                "networkProfile": {
+                  "networkInterfaces": [
+                    {
+                      "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]",
+                      "properties": {
+                        "primary": true
+                      }
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "vmId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName'))]"
+            },
+            "vmName": {
+              "type": "string",
+              "value": "[variables('vmName')]"
+            },
+            "publicIpFqdn": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName')), '2025-05-01').dnsSettings.fqdn]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'disk-deployment')]",
+        "[resourceId('Microsoft.Resources/deployments', 'network-deployment')]"
+      ]
+    }
+  ],
+  "outputs": {
+    "vnetId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the virtual network."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'network-deployment'), '2025-04-01').outputs.vnetId.value]"
+    },
+    "subnetId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the subnet."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'network-deployment'), '2025-04-01').outputs.subnetId.value]"
+    },
+    "nsgId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the network security group."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'network-deployment'), '2025-04-01').outputs.nsgId.value]"
+    },
+    "vmId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the Neo4j virtual machine."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vm-deployment'), '2025-04-01').outputs.vmId.value]"
+    },
+    "vmName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the Neo4j virtual machine."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vm-deployment'), '2025-04-01').outputs.vmName.value]"
+    },
+    "dataDiskId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the data disk."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'disk-deployment'), '2025-04-01').outputs.diskId.value]"
+    },
+    "neo4jBrowserURL": {
+      "type": "string",
+      "metadata": {
+        "description": "URL for the Neo4j Browser interface."
+      },
+      "value": "[uri(format('http://{0}:7474', reference(resourceId('Microsoft.Resources/deployments', 'vm-deployment'), '2025-04-01').outputs.publicIpFqdn.value), '')]"
+    },
+    "neo4jBoltURL": {
+      "type": "string",
+      "metadata": {
+        "description": "URL for the Neo4j Bolt protocol endpoint."
+      },
+      "value": "[uri(format('bolt://{0}:7687', reference(resourceId('Microsoft.Resources/deployments', 'vm-deployment'), '2025-04-01').outputs.publicIpFqdn.value), '')]"
+    },
+    "username": {
+      "type": "string",
+      "metadata": {
+        "description": "Default Neo4j username."
+      },
+      "value": "neo4j"
+    }
+  }
+}

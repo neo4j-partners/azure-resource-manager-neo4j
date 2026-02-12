@@ -24,10 +24,10 @@ RESOURCE_GROUP="${1:-neo4j-ce-image-rg}"
 REGION="${2:-eastus2}"
 
 VM_NAME="neo4j-ce-image-vm"
-VM_SIZE="Standard_D2s_v5"
+VM_SIZE="Standard_D2ds_v6"
 GALLERY_NAME="neo4jmarketplace"
 IMAGE_DEFINITION="neo4j-ce-vm"
-IMAGE_VERSION="1.0.0"
+IMAGE_VERSION="1.1.0"
 
 echo "=== Creating Neo4j CE VM Image ==="
 echo "Resource Group:    ${RESOURCE_GROUP}"
@@ -69,6 +69,7 @@ az vm create \
   --name "${VM_NAME}" \
   --image "RedHat:RHEL:9-lvm-gen2:latest" \
   --size "${VM_SIZE}" \
+  --disk-controller-type NVMe \
   --admin-username azureuser \
   --generate-ssh-keys \
   --public-ip-sku Standard \
@@ -155,7 +156,7 @@ else
     --os-type Linux \
     --os-state Generalized \
     --hyper-v-generation V2 \
-    --features "SecurityType=TrustedLaunch" \
+    --features "SecurityType=TrustedLaunch DiskControllerTypes=SCSI,NVMe IsAcceleratedNetworkSupported=True" \
     --output none
 fi
 
@@ -185,6 +186,7 @@ az sig image-version create \
   --gallery-image-definition "${IMAGE_DEFINITION}" \
   --gallery-image-version "${IMAGE_VERSION}" \
   --virtual-machine "${VM_ID}" \
+  --target-regions "${REGION}" "northcentralus" \
   --output none
 
 echo "Image version created."

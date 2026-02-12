@@ -112,13 +112,8 @@ class StackConfig:
             drv.close()
 
 
-def load_from_results(filename: str | None = None) -> StackConfig:
-    """Build a StackConfig from a connection file.
-
-    If *filename* is given, load that file from the results directory.
-    Otherwise, use the most recent connection file.
-    """
-    path = _find_connection_file(filename)
+def _load_connection_file(path: Path) -> StackConfig:
+    """Build a StackConfig from a single connection file path."""
     with open(path, encoding="utf-8") as fh:
         data = json.load(fh)
 
@@ -147,5 +142,27 @@ def load_from_results(filename: str | None = None) -> StackConfig:
         data_disk_id=data_disk_id,
         subscription_id=subscription_id,
     )
+
+
+def load_from_results(filename: str | None = None) -> StackConfig:
+    """Build a StackConfig from a connection file.
+
+    If *filename* is given, load that file from the results directory.
+    Otherwise, use the most recent connection file.
+    """
+    path = _find_connection_file(filename)
+    return _load_connection_file(path)
+
+
+def load_all_from_results() -> list[tuple[str, StackConfig]]:
+    """Load all connection files from the results directory.
+
+    Returns a list of (filename, StackConfig) tuples sorted by filename.
+    """
+    rd = _results_dir()
+    matches = sorted(rd.glob("connection-*.json"), key=lambda p: p.name)
+    if not matches:
+        raise FileNotFoundError(f"No connection files in {rd}")
+    return [(p.name, _load_connection_file(p)) for p in matches]
 
 

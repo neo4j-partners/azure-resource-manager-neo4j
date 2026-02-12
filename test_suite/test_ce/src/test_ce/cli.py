@@ -7,7 +7,7 @@ import sys
 from neo4j import Driver
 
 from test_ce.azure_helpers import run_azure_checks
-from test_ce.config import StackConfig, load_from_results
+from test_ce.config import StackConfig, load_all_from_results, load_from_results
 from test_ce.movies_dataset import (
     MIN_EXPECTED_NODES,
     cleanup_movies,
@@ -29,7 +29,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         "--results",
-        help="Connection JSON filename in deployments/.arm-testing/results/ (default: latest)",
+        help="Connection JSON filename in deployments/.arm-testing/results/ (default: all scenarios)",
     )
     parser.add_argument(
         "--simple",
@@ -45,8 +45,15 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _load_config(args: argparse.Namespace) -> StackConfig:
-    return load_from_results(args.results)
+def _log_config(config: StackConfig) -> None:
+    """Log connection details for a single scenario."""
+    logger.info("  Bolt : %s", config.neo4j_uri)
+    logger.info("  HTTP : %s", config.browser_url)
+    logger.info("  User : %s", config.username)
+    if config.has_azure_context:
+        logger.info("  RG   : %s", config.resource_group)
+        logger.info("  VM   : %s", config.vm_name)
+    logger.info("")
 
 
 def _run_crud_tests(reporter: TestReporter, driver: Driver) -> None:
@@ -101,6 +108,26 @@ def _run_full(
             _run_crud_tests(reporter, driver)
 
 
+def _run_scenario(
+    config: StackConfig, simple: bool, timeout: int
+) -> int:
+    """Run the test suite for a single scenario. Returns 0 on success, 1 on failure."""
+    _log_config(config)
+
+    if not wait_for_neo4j(config.browser_url, timeout=timeout):
+        logger.error("Neo4j not reachable — aborting")
+        return 1
+
+    reporter = TestReporter()
+
+    if simple:
+        _run_simple(reporter, config)
+    else:
+        _run_full(reporter, config, timeout)
+
+    return reporter.summary()
+
+
 def main() -> None:
     logging.basicConfig(
         level=logging.INFO,
@@ -111,26 +138,33 @@ def main() -> None:
 
     parser = _build_parser()
     args = parser.parse_args()
-    config = _load_config(args)
 
     logger.info("Neo4j CE Integration Tests")
-    logger.info("  Bolt : %s", config.neo4j_uri)
-    logger.info("  HTTP : %s", config.browser_url)
-    logger.info("  User : %s", config.username)
-    if config.has_azure_context:
-        logger.info("  RG   : %s", config.resource_group)
-        logger.info("  VM   : %s", config.vm_name)
     logger.info("")
 
-    if not wait_for_neo4j(config.browser_url, timeout=args.timeout):
-        logger.error("Neo4j not reachable — aborting")
-        sys.exit(1)
+    if args.results:
+        config = load_from_results(args.results)
+        sys.exit(_run_scenario(config, args.simple, args.timeout))
 
-    reporter = TestReporter()
+    scenarios = load_all_from_results()
+    failed_scenarios: list[str] = []
+    for i, (filename, config) in enumerate(scenarios):
+        if i > 0:
+            logger.info("")
+        logger.info("=" * 60)
+        logger.info("Scenario: %s", filename)
+        logger.info("=" * 60)
+        result = _run_scenario(config, args.simple, args.timeout)
+        if result != 0:
+            failed_scenarios.append(filename)
 
-    if args.simple:
-        _run_simple(reporter, config)
-    else:
-        _run_full(reporter, config, args.timeout)
+    passed = len(scenarios) - len(failed_scenarios)
+    logger.info("")
+    logger.info("=" * 60)
+    logger.info("ALL SCENARIOS: %d/%d passed", passed, len(scenarios))
+    if failed_scenarios:
+        for name in failed_scenarios:
+            logger.info("  FAILED: %s", name)
+    logger.info("=" * 60)
 
-    sys.exit(reporter.summary())
+    sys.exit(0 if not failed_scenarios else 1)

@@ -115,9 +115,10 @@ class DeploymentEngine:
         # Get password
         password = self.password_manager.get_password(scenario.name)
 
-        # Apply scenario overrides
+        # Apply scenario overrides (scenario.region takes priority over default)
+        region = scenario.region or self.settings.default_region
         params = self._apply_scenario_overrides(
-            base_params, scenario, self.settings.default_region
+            base_params, scenario, region
         )
 
         # Inject dynamic values
@@ -185,9 +186,12 @@ class DeploymentEngine:
         set_param("diskSize", scenario.disk_size)
         set_param("vmSize", scenario.vm_size)
 
-        # Community Edition: use standard RHEL 9 image for pre-publish testing
-        if scenario.license_type == "Community" and self.settings.ce_use_test_image:
-            set_param("useTestImage", True)
+        # Community Edition image overrides
+        if scenario.license_type == "Community":
+            if self.settings.ce_gallery_image_id:
+                set_param("galleryImageId", self.settings.ce_gallery_image_id)
+            elif self.settings.ce_use_test_image:
+                set_param("useTestImage", True)
 
         # Enterprise/Evaluation-only parameters (not used by CE template)
         if scenario.license_type != "Community":

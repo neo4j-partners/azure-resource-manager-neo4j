@@ -110,6 +110,9 @@ class TestScenario(BaseModel):
         "Evaluation", description="License type"
     )
 
+    # Region override (optional, defaults to settings.default_region)
+    region: Optional[str] = Field(None, description="Region override for this scenario")
+
     # VM-specific settings
     vm_size: Optional[str] = Field(None, description="Azure VM size")
     read_replica_count: Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] = Field(
@@ -202,9 +205,15 @@ class Settings(BaseModel):
 
     # Pre-publish image overrides
     ce_use_test_image: bool = Field(
-        True,
+        False,
         description="Use standard RHEL 9 image instead of neo4j-ce-vm marketplace image. "
-        "Set to false after neo4j-ce-vm offer is published to Azure Marketplace.",
+        "Set to true for pre-publish testing before the marketplace offer is available.",
+    )
+    ce_gallery_image_id: Optional[str] = Field(
+        None,
+        description="Azure Compute Gallery image version resource ID for CE deployments. "
+        "When set, deploys from this gallery image instead of the marketplace image. "
+        "Example: /subscriptions/.../galleries/neo4jmarketplace/images/neo4j-ce-vm/versions/1.1.0",
     )
 
 

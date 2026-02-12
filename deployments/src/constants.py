@@ -19,10 +19,8 @@ SETTINGS_FILE: Final[Path] = CONFIG_DIR / "settings.yaml"
 SCENARIOS_FILE: Final[Path] = CONFIG_DIR / "scenarios.yaml"
 
 # CE region categories for the setup wizard's region picker.
-# See marketplace/neo4j-ce/ARCHITECTURE.md for regional availability research.
 CE_ZONAL_REGIONS: Final[list[str]] = [
-    # Regions with availability zones where Eds_v6 + PremiumV2_LRS + zone 1 all work
-    # pickZones() returns ['1'] → PremiumV2_LRS + zone 1 pinning
+    # Regions with availability zones where Eds_v6 VMs are available
     "eastus2",       # Default test region
     "eastus",
     "centralus",
@@ -37,7 +35,6 @@ CE_ZONAL_REGIONS: Final[list[str]] = [
 
 CE_NONZONAL_REGIONS: Final[list[str]] = [
     # Eds_v6 available but no availability zones
-    # pickZones() returns [] → Premium_LRS + no zone pinning
     "northcentralus",
     "westus",
     "canadaeast",

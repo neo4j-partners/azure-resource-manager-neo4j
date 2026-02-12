@@ -29,11 +29,11 @@ param dataDiskId string
 @description('Name of the standalone managed data disk.')
 param dataDiskName string
 
-@description('Whether the target region supports availability zones.')
-param useZones bool
-
 @description('Use a standard RHEL 9 image instead of the neo4j-ce-vm marketplace image. For pre-publish CI testing only.')
 param useTestImage bool = false
+
+@description('Azure Compute Gallery image version resource ID. When set, deploys from this gallery image instead of the marketplace image.')
+param galleryImageId string = ''
 
 var vmName = 'vm-neo4j-${location}-${resourceSuffix}'
 var publicIpName = 'pip-neo4j-${location}-${resourceSuffix}'
@@ -42,7 +42,6 @@ var nicName = 'nic-neo4j-${location}-${resourceSuffix}'
 resource publicIp 'Microsoft.Network/publicIPAddresses@2025-05-01' = {
   name: publicIpName
   location: location
-  zones: useZones ? ['1'] : null
   tags: {
     Neo4jEdition: 'Community'
     DeployedBy: 'arm-template'
@@ -67,6 +66,7 @@ resource nic 'Microsoft.Network/networkInterfaces@2025-05-01' = {
     DeployedBy: 'arm-template'
   }
   properties: {
+    enableAcceleratedNetworking: true
     ipConfigurations: [
       {
         name: 'ipconfig'
@@ -87,14 +87,14 @@ resource nic 'Microsoft.Network/networkInterfaces@2025-05-01' = {
 resource vm 'Microsoft.Compute/virtualMachines@2025-04-01' = {
   name: vmName
   location: location
-  zones: useZones ? ['1'] : null
   tags: {
     Neo4jVersion: graphDatabaseVersion
     Neo4jEdition: 'Community'
     DeployedBy: 'arm-template'
     TemplateVersion: '2.0.0'
   }
-  plan: useTestImage ? null : {
+  // Gallery images and test images don't need a marketplace plan block
+  plan: (useTestImage || !empty(galleryImageId)) ? null : {
     publisher: 'neo4j'
     product: 'neo4j-ce-vm'
     name: 'per-core-hour'
@@ -111,7 +111,10 @@ resource vm 'Microsoft.Compute/virtualMachines@2025-04-01' = {
           storageAccountType: 'Premium_LRS'
         }
       }
-      imageReference: useTestImage ? {
+      // Priority: galleryImageId > useTestImage > marketplace image
+      imageReference: !empty(galleryImageId) ? {
+        id: galleryImageId
+      } : useTestImage ? {
         publisher: 'RedHat'
         offer: 'RHEL'
         sku: '9-lvm-gen2'
@@ -134,6 +137,13 @@ resource vm 'Microsoft.Compute/virtualMachines@2025-04-01' = {
           deleteOption: 'Detach'
         }
       ]
+    }
+    securityProfile: {
+      securityType: 'TrustedLaunch'
+      uefiSettings: {
+        secureBootEnabled: true
+        vTpmEnabled: true
+      }
     }
     osProfile: {
       computerName: 'neo4j-ce'

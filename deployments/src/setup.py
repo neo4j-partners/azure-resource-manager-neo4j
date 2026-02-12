@@ -102,7 +102,7 @@ class SetupWizard:
             repository_name=github_info[1] if github_info else None,
             password_strategy=password_strategy,
             owner_email=owner_email,
-            ce_use_test_image=True,
+            ce_use_test_image=False,
         )
 
         # Show summary
@@ -188,9 +188,9 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
         """Select default Azure region via region-category picker."""
         console.print("\n[bold]Step 3: Default Azure Region[/bold]")
         console.print("What type of region do you want to deploy to?")
-        console.print("  1. [cyan]Zonal[/cyan] (default)         — Zones + PremiumV2_LRS")
-        console.print("  2. [cyan]Non-zonal[/cyan]               — No zones, Premium_LRS fallback")
-        console.print("  3. [cyan]Quota-restricted zonal[/cyan]  — Zones but needs quota request")
+        console.print("  1. [cyan]Zonal[/cyan] (default)         — Regions with availability zones")
+        console.print("  2. [cyan]Non-zonal[/cyan]               — Regions without availability zones")
+        console.print("  3. [cyan]Quota-restricted zonal[/cyan]  — Zonal but needs quota request")
 
         category = IntPrompt.ask("Enter choice", default=1, choices=["1", "2", "3"])
 
@@ -306,14 +306,72 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
                 disk_size=32,
                 license_type="Evaluation",
             ),
+            # CE marketplace image v1.1.0 validation — see TEST_CE.md
+            # NVMe (US baseline)
             TestScenario(
-                name="ce-standalone-latest",
+                name="ce-eastus2-nvme",
                 deployment_type=DeploymentType.VM,
                 node_count=1,
                 graph_database_version="latest",
                 vm_size="Standard_E4ds_v6",
                 disk_size=32,
                 license_type="Community",
+                region="eastus2",
+            ),
+            # NVMe (Europe)
+            TestScenario(
+                name="ce-uksouth-nvme",
+                deployment_type=DeploymentType.VM,
+                node_count=1,
+                graph_database_version="latest",
+                vm_size="Standard_E4ds_v6",
+                disk_size=32,
+                license_type="Community",
+                region="uksouth",
+            ),
+            # SCSI (Europe, LTS)
+            TestScenario(
+                name="ce-swedencentral-scsi",
+                deployment_type=DeploymentType.VM,
+                node_count=1,
+                graph_database_version="5",
+                vm_size="Standard_E4s_v5",
+                disk_size=32,
+                license_type="Community",
+                region="swedencentral",
+            ),
+            # SCSI (US)
+            TestScenario(
+                name="ce-northcentralus-scsi",
+                deployment_type=DeploymentType.VM,
+                node_count=1,
+                graph_database_version="latest",
+                vm_size="Standard_E4s_v5",
+                disk_size=32,
+                license_type="Community",
+                region="northcentralus",
+            ),
+            # SCSI (Europe, LTS)
+            TestScenario(
+                name="ce-ukwest-scsi",
+                deployment_type=DeploymentType.VM,
+                node_count=1,
+                graph_database_version="5",
+                vm_size="Standard_E4s_v5",
+                disk_size=32,
+                license_type="Community",
+                region="ukwest",
+            ),
+            # NVMe smaller size (Europe, LTS)
+            TestScenario(
+                name="ce-northeurope-nvme",
+                deployment_type=DeploymentType.VM,
+                node_count=1,
+                graph_database_version="5",
+                vm_size="Standard_E2ds_v6",
+                disk_size=32,
+                license_type="Community",
+                region="northeurope",
             ),
         ]
 
@@ -340,9 +398,10 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
         if ce_scenarios:
             console.print("\n[cyan]Community Edition scenarios:[/cyan]")
             for s in ce_scenarios:
+                region_info = f", {s.region}" if s.region else ""
                 console.print(
                     f"  uv run neo4j-deploy deploy -s {s.name}"
-                    f"  [dim]({s.vm_size}, standalone)[/dim]"
+                    f"  [dim]({s.vm_size}, standalone{region_info})[/dim]"
                 )
 
     def _show_summary(self, settings: Settings) -> None:

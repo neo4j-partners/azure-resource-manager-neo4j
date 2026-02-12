@@ -33,11 +33,11 @@
               "password": "Admin Password",
               "confirmPassword": "Confirm password"
             },
-            "toolTip": "Admin password for Neo4j and SSH access to VMs",
+            "toolTip": "Admin password for Neo4j and SSH access to VMs. Allowed special characters: ! @ # % _ + - = .",
             "constraints": {
               "required": true,
-              "regex": "^(?:(?=.*[a-z])(?:(?=.*[A-Z])(?=.*[\\d\\W])|(?=.*\\W)(?=.*\\d))|(?=.*\\W)(?=.*[A-Z])(?=.*\\d)).{12,72}$",
-              "validationMessage": "The password must be between 12 and 72 characters long, and contain characters from at least 3 of the following groups: uppercase characters, lowercase characters, numbers, and special characters."
+              "regex": "^(?=[a-zA-Z0-9!@#%_+\\-=.]{12,72}$)(?:(?=.*[a-z])(?:(?=.*[A-Z])(?=.*[\\d!@#%_+\\-=.])|(?=.*[!@#%_+\\-=.])(?=.*\\d))|(?=.*[!@#%_+\\-=.])(?=.*[A-Z])(?=.*\\d)).*$",
+              "validationMessage": "The password must be 12-72 characters long using letters, numbers, and the special characters ! @ # % _ + - = . and must contain at least 3 of: uppercase, lowercase, numbers, special characters."
             },
             "options": {
               "hideConfirmation": false

@@ -36,6 +36,11 @@ This is the Bicep/ARM template that orchestrates the full deployment (VNet, NSG,
 - **Plan Name:** `Per Core Hour`
 - **Plan Type:** Solution Template
 
+### Plan Listing
+
+- **Plan summary:** Neo4j Community Edition deployed on Azure with per core hour pricing.
+- **Plan description:** Deploy a standalone Neo4j Community Edition instance on Azure with automated provisioning. This plan deploys a single VM with a managed data disk, virtual network, network security group, and public IP. Neo4j is installed and configured automatically via cloud-init. Pricing is based on per core hour usage at $0.04/core hour in addition to Azure infrastructure costs.
+
 ### Technical Configuration
 
 - **Version:** Start at `1.0.0`
@@ -92,23 +97,19 @@ This works because the CE marketplace image is just base RHEL 9 — Neo4j is not
 
 #### Pre-publish testing
 
-Until `neo4j-ce-vm` is published, deployments use a standard RHEL 9 image:
+The `useTestImage` parameter allows testing with a standard RHEL 9 image before the marketplace image is published:
 
 - **CI (GitHub Actions):** The workflow passes `useTestImage=true` automatically.
-- **Local testing (`deployments/`):** `uv run neo4j-deploy setup` sets `ce_use_test_image: true` automatically. To change it later, edit `.arm-testing/config/settings.yaml`.
+- **Local testing (`deployments/`):** Edit `ce_use_test_image` in `.arm-testing/config/settings.yaml`, or re-run `uv run neo4j-deploy setup`.
 - **Manual `az` CLI:** Pass `useTestImage=true` as a parameter override.
 
-#### After `neo4j-ce-vm` is published
-
-1. Remove `useTestImage=true` from `.github/workflows/community.yml`
-2. Set `ce_use_test_image: false` in `.arm-testing/config/settings.yaml` (or re-run `uv run neo4j-deploy setup`)
-3. The `useTestImage` parameter can remain in the template (defaults to `false` = marketplace path) or be removed if desired
+Now that `neo4j-ce-vm` is published, the deployment framework defaults to the marketplace image (`ce_use_test_image: false`). The `useTestImage` parameter remains in the template for CI or debugging use.
 
 ---
 
 ## Offer 2: `neo4j-ce-vm` (Azure Virtual Machine)
 
-**Status:** Created in Partner Center. VM image created in Azure Compute Gallery.
+**Status:** Published. VM image v1.1.0 in Azure Compute Gallery with NVMe + SCSI support.
 
 This is the VM image with the metered billing ($0.04/core hour) attached. The solution template above references this image when deploying.
 
@@ -124,39 +125,87 @@ This is the VM image with the metered billing ($0.04/core hour) attached. The so
 - **Plan Name:** `Per Core Hour`
 - **Pricing:** $0.04/core hour (metered)
 
-### Technical Configuration (Mirror EE Settings)
+### Plan Listing
 
-**Image type:**
-- x64 Gen 2
-- SKU ID: `per-core-hour`
+- **Plan summary:** Neo4j Community Edition VM image with per core hour metered billing.
+- **Plan description:** Base VM image for Neo4j Community Edition with metered billing at $0.04/core hour. This image provides a certified RHEL 9 base with Neo4j installed at deploy time via cloud-init. Used by the Neo4j Community Edition solution template for automated deployments.
 
-**Operating system:**
-- Family: Linux
-- Vendor: Red Hat Enterprise Linux
+### Technical Configuration
 
-**Open ports:**
+Go to **Partner Center** > `neo4j-ce-vm` offer > `per-core-hour` plan > **Technical configuration** tab. Fill out each section top-to-bottom:
 
-| Label | Port | Protocol |
+#### 1. Configuration options
+
+- Leave **"Reuse or change technical configuration"** unchecked.
+
+#### 2. Image types offered
+
+The form will already show one row with SKU ID `per-core-hour`. Change the **Image type** dropdown:
+
+- Change `x64 Gen 1` → **`x64 Gen 2`**
+
+> **Important:** The image was created as Gen 2 in Azure Compute Gallery. The image type here must match.
+
+#### 3. VM Images
+
+Click **+ Add VM Image** and fill in:
+
+- **Image version:** `1.1.0` (or current `IMAGE_VERSION` from `makeVm.sh`)
+- **Supported image types:** x64 Gen 2
+- Under **Azure Compute Gallery**, select:
+  - **Gallery:** `neo4jmarketplace`
+  - **Image:** `neo4j-ce-vm`
+  - **Version:** `1.1.0`
+
+#### 4. Operating system
+
+- **Operating system family:** Select **Linux** (default is Windows — must change)
+- **Release:** Select **Red Hat Enterprise Linux**
+
+#### 5. Recommended VM sizes
+
+Click **Select VM sizes**. The list has multiple pages — scroll or search to find these 3 sizes (matching the `createUiDefinition.json` recommended sizes):
+
+1. **E4ds Standard v6** — select this first (becomes the default shown to customers)
+2. **E2ds Standard v6**
+3. **E8ds Standard v6**
+
+#### 6. Open ports
+
+Click **+ Add port** three times to add:
+
+| Label | Port or port range | Protocol supported |
 |---|---|---|
 | Bolt | 7687 | TCP |
 | Browser HTTP | 7474 | TCP |
 | Browser HTTPS | 7473 | TCP |
 
-**Properties (check these):**
+> **Note:** SSH (22) and Linux defaults are added automatically. You only need to add the Neo4j-specific ports.
+
+#### 7. Properties
+
+Check these three boxes (leave everything else unchecked):
+
 - [x] Supports VM extensions
 - [ ] Supports backup
-- [ ] Supports accelerated networking
+- [x] Supports accelerated networking
 - [ ] Is a network virtual appliance
-- [ ] Supports NVMe
+- [x] Supports NVMe
 - [ ] Supports cloud-init configuration
 - [ ] Supports Microsoft Entra Identity authentication
 - [ ] Supports hibernation
 - [x] Supports remote desktop/SSH
 - [x] Requires custom ARM template for deployment
 
-**Security type:** Select **"Trusted launch (Recommended)"** in Partner Center. The VM image was created with TrustedLaunch security features and the image definition requires it. Do NOT select "None" (which the EE offer uses — that is the legacy approach).
+#### 8. Security type
 
-**Recommended VM sizes:** Select 2 (matching EE pattern)
+- Select **"Trusted launch (Recommended)"**
+
+> **Important:** The VM image was created with TrustedLaunch security features and the image definition requires it. Do NOT select "None" (which the EE offer uses — that is the legacy approach).
+
+#### 9. Save
+
+Click **Save draft** at the top of the page.
 
 ### VM Image: Creating the Image
 
@@ -198,8 +247,8 @@ The script is **idempotent** — safe to re-run after a failure. It checks for e
 | 2 | Cleans up any leftover VM from a previous run, then creates a VM from the approved RHEL 9 Gen2 base image |
 | 3 | SSHs in to install latest OS updates (marketplace certification requirement) and deprovision |
 | 4 | Deallocates and generalizes the VM |
-| 5 | Checks if Azure Compute Gallery (`neo4jmarketplace`) and image definition exist, creates if missing |
-| 6 | Deletes any existing image version from a previous run, then captures the VM as image version `1.0.0` |
+| 5 | Checks if Azure Compute Gallery (`neo4jmarketplace`) and image definition exist, creates if missing. Image definition declares features: `SecurityType=TrustedLaunch`, `DiskControllerTypes=SCSI,NVMe`, `IsAcceleratedNetworkSupported=True` |
+| 6 | Deletes any existing image version from a previous run, then captures the VM as the configured image version |
 | 7 | Registers `Microsoft.PartnerCenterIngestion` provider and grants Partner Center access to the gallery |
 
 **Deprovisioning** follows the [Microsoft best practices](https://learn.microsoft.com/en-us/azure/virtual-machines/linux/create-upload-generic):
@@ -220,16 +269,59 @@ az group delete --name neo4j-ce-image-rg --yes --no-wait
 
 > **Note:** Do NOT delete the resource group until the image has been successfully published in Partner Center. The gallery must remain accessible during the certification process.
 
+#### Image Definition Features (Important)
+
+The image definition in Azure Compute Gallery must declare the correct **features** to control which VM sizes can use the image. These features are **immutable** — they cannot be updated after creation. If you need to change them, you must delete all image versions, delete the image definition, and recreate it.
+
+The current image definition declares:
+
+| Feature | Value | Purpose |
+|---|---|---|
+| `SecurityType` | `TrustedLaunch` | Required for Gen2 VMs with Trusted Launch |
+| `DiskControllerTypes` | `SCSI,NVMe` | Allows both v5 (SCSI) and v6+ (NVMe) VM sizes |
+| `IsAcceleratedNetworkSupported` | `True` | Enables accelerated networking on supported sizes |
+
+**Why this matters:** Azure v6 VM sizes (e.g., `Standard_E4ds_v6`) require NVMe disk controllers. If the image definition only declares `SCSI`, deployments on v6 VMs fail with:
+
+```
+The VM size 'Standard_E4ds_v6' cannot boot with OS image or disk.
+Please check that disk controller types supported by the OS image or disk
+is one of the supported disk controller types for the VM size.
+```
+
+The `--features` flag on `az sig image-definition create` controls this. The format is a single space-delimited string:
+
+```bash
+--features "SecurityType=TrustedLaunch DiskControllerTypes=SCSI,NVMe IsAcceleratedNetworkSupported=True"
+```
+
+You can verify the published image features with:
+
+```bash
+az vm image show --publisher neo4j --offer neo4j-ce-vm --sku per-core-hour \
+  --version <version> --location <region> --query "features" --output table
+```
+
+#### Partner Center Properties
+
+The properties checkboxes in Partner Center Technical Configuration should match the image definition features:
+
+- [x] Supports accelerated networking
+- [x] Supports NVMe
+
+These were not checked for v1.0.0 and should be enabled when publishing v1.1.0.
+
 #### Upload to Partner Center
 
 1. Go to **Partner Center** > `neo4j-ce-vm` > `per-core-hour` plan > **Technical Configuration**
 2. Click **+ Add VM Image**
-3. Set version to `1.0.0`
+3. Set version to the current `IMAGE_VERSION` from `makeVm.sh` (e.g., `1.1.0`)
 4. Image type: **x64 Gen 2**
 5. Under **Azure Compute Gallery**, select:
    - Gallery: `neo4jmarketplace`
    - Image: `neo4j-ce-vm`
-   - Version: `1.0.0`
+   - Version: matching `IMAGE_VERSION`
+6. Update **Properties** to check "Supports accelerated networking" and "Supports NVMe"
 
 ---
 
@@ -261,6 +353,38 @@ Customer deploys from Azure Marketplace
                     └─────────────────────────┘
 ```
 
+### Where Pricing Lives
+
+Pricing is configured **only on the VM offer** (`neo4j-ce-vm`), not on both offers. This is by design — Microsoft's marketplace architecture splits the responsibilities:
+
+| Offer | Role | Pricing |
+|---|---|---|
+| `neo4j-ce` (Azure Application — Solution Template) | Orchestration: deploys all infrastructure (VNet, NSG, disk, VM) | **None** — Solution Templates are not transactable |
+| `neo4j-ce-vm` (Azure Virtual Machine) | VM image + billing meter | **$0.04/core hour** (usage-based, monthly billed) |
+
+From [Microsoft's docs](https://learn.microsoft.com/en-us/partner-center/marketplace-offers/plan-azure-application-offer#plans):
+
+> **Solution templates aren't transactable in Microsoft Marketplace**, but they can be used to deploy paid VM offers that are billed through Microsoft Marketplace.
+
+And for Managed Applications (the other Azure Application plan type, which we do **not** use):
+
+> Pricing for your Managed Application must only account for the management fee and **may not be used for IP/software costs**. Use the underlying virtual machine or container offer to transact IP/software costs.
+
+**How billing works at deploy time:**
+
+1. Customer clicks "Deploy" on the `neo4j-ce` marketplace listing
+2. The Solution Template (ARM JSON) creates all resources, including a VM from the `neo4j-ce-vm` marketplace image
+3. Because the VM is deployed from a marketplace image with a usage-based plan, Azure automatically attaches the **VM offer's billing meter** ($0.04/core hour)
+4. The customer's bill shows two line items: **Azure infrastructure** (the VM compute, disk, networking) **+ Neo4j software fee** (from the VM offer's meter)
+
+### VM Plan Should Be Hidden
+
+The `neo4j-ce-vm` plan (`per-core-hour`) should be marked as **hidden** in Partner Center. A hidden plan can only be deployed through a Solution Template, Managed Application, or CLI — it won't appear in the marketplace storefront for direct deployment. This ensures customers always deploy through the `neo4j-ce` Solution Template, which sets up the full environment (VNet, NSG, disk, cloud-init, etc.).
+
+> From [Microsoft's docs](https://learn.microsoft.com/en-us/partner-center/marketplace-offers/azure-vm-plan-pricing-and-availability#hide-plan): A hidden plan isn't visible on Microsoft Marketplace and can only be deployed through a Solution Template, Managed Application, Azure CLI or Azure PowerShell.
+
+To hide the plan: **Partner Center** > `neo4j-ce-vm` > `per-core-hour` plan > **Pricing and availability** > check **"Hide plan"**.
+
 ---
 
 ## Progress
@@ -273,14 +397,15 @@ Customer deploys from Azure Marketplace
 - [x] Granted Partner Center access to the gallery
 - [x] Updated `marketplace/neo4j-ce/modules/vm.bicep` to reference `neo4j-ce-vm` marketplace image
 - [x] Created 350x350 logo (`logos/logo-mark-fullcolor-350x350.png`)
+- [x] Published `neo4j-ce-vm` v1.0.0 to Azure Marketplace
+- [x] Updated deployment framework to use marketplace image by default (`ce_use_test_image: false`)
+- [x] Rebuilt image definition with NVMe + SCSI + AcceleratedNetwork features (`neo4jmarketplace/neo4j-ce-vm/1.1.0`)
 
 ### Remaining Steps
 
-1. **Configure the `neo4j-ce-vm` VM offer in Partner Center:**
-   - Create the `per-core-hour` plan and configure pricing at $0.04/core hour
-   - Fill in offer listing details (description, logos, links, etc.)
-   - Configure Technical Configuration (ports, properties, security type — see settings above)
-   - Add VM Image: gallery `neo4jmarketplace`, image `neo4j-ce-vm`, version `1.0.0`
+1. **Publish v1.1.0 of `neo4j-ce-vm` in Partner Center:**
+   - Add VM Image: gallery `neo4jmarketplace`, image `neo4j-ce-vm`, version `1.1.0`
+   - Check "Supports accelerated networking" and "Supports NVMe" in Properties
    - Submit for **Review and publish**
 
 2. **Get a Customer Usage Attribution GUID** from Microsoft and update the placeholder `XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX` in `marketplace/neo4j-ce/main.bicep`

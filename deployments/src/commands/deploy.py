@@ -92,7 +92,7 @@ def deploy(
     table.add_column("Region", style="green")
 
     for s in scenarios_to_deploy:
-        target_region = cfg.settings.default_region
+        target_region = s.region or cfg.settings.default_region
         size_display = s.vm_size or "Standard_E4s_v5"
 
         table.add_row(
@@ -210,7 +210,7 @@ def _execute_deployments(cfg, prepared, planner, engines, cleanup_mode, debug):
         deployment_id = str(uuid.uuid4())
 
         # Create resource group
-        target_region = cfg.settings.default_region
+        target_region = prep.scenario.region or cfg.settings.default_region
         tags = rg_manager.generate_tags(
             scenario_name=prep.scenario.name,
             deployment_id=deployment_id,

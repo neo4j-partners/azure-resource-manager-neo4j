@@ -76,8 +76,14 @@ class PasswordManager:
         """
         # Azure requires passwords to have 3 of: lowercase, uppercase, numbers, special chars
         # We'll ensure we have all 4 for maximum security
-
-        alphabet = string.ascii_letters + string.digits + "!@#$%^&*()-_=+[]{}|;:,.<>?"
+        #
+        # Only use shell-safe special characters. The password is base64-encoded
+        # for cloud-init transport, but after decoding it is passed through bash:
+        #   neo4j-admin dbms set-initial-password "$ADMIN_PASSWORD"
+        # Characters like $ & | ; < > ` ! ^ { } ( ) are unsafe even in double
+        # quotes (variable expansion, subshells, redirects, history expansion).
+        safe_special = "!@#%_+-=."
+        alphabet = string.ascii_letters + string.digits + safe_special
 
         while True:
             password = "".join(secrets.choice(alphabet) for _ in range(24))
@@ -86,7 +92,7 @@ class PasswordManager:
             has_lower = any(c.islower() for c in password)
             has_upper = any(c.isupper() for c in password)
             has_digit = any(c.isdigit() for c in password)
-            has_special = any(c in "!@#$%^&*()-_=+[]{}|;:,.<>?" for c in password)
+            has_special = any(c in safe_special for c in password)
 
             if has_lower and has_upper and has_digit and has_special:
                 console.print("[dim]Generated secure password[/dim]")
