@@ -38,6 +38,7 @@ class PackageBuilder:
         template_dir: Path,
         env_file: Path,
         output_dir: Path,
+        pid_env_var: str = "NEO4J_PARTNER_PID",
     ):
         """
         Initialize the package builder.
@@ -46,10 +47,12 @@ class PackageBuilder:
             template_dir: Path to the marketplace template directory (e.g., marketplace/neo4j-enterprise)
             env_file: Path to the .env file containing the PID
             output_dir: Path to output the zip file
+            pid_env_var: Name of the environment variable containing the PID
         """
         self.template_dir = template_dir
         self.env_file = env_file
         self.output_dir = output_dir
+        self.pid_env_var = pid_env_var
 
         # Template files
         self.bicep_file = template_dir / "main.bicep"
@@ -67,10 +70,10 @@ class PackageBuilder:
             return None
 
         load_dotenv(self.env_file)
-        pid = os.getenv("NEO4J_PARTNER_PID")
+        pid = os.getenv(self.pid_env_var)
 
         if not pid:
-            console.print("[red]Error: NEO4J_PARTNER_PID not found in .env file[/red]")
+            console.print(f"[red]Error: {self.pid_env_var} not found in .env file[/red]")
             return None
 
         # Validate UUID format

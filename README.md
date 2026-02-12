@@ -51,11 +51,11 @@ See **[deployments/README.md](deployments/README.md)** for full command referenc
 
 ### Build Marketplace Packages
 
-Before building, copy `.env.sample` to `.env` and set your Partner Center PID (GUID):
+Before building, copy `.env.sample` to `.env` and set your Partner Center PIDs (GUIDs):
 
 ```bash
 cp .env.sample .env
-# Edit .env with your NEO4J_PARTNER_PID
+# Edit .env with your NEO4J_PARTNER_PID (Enterprise) and CE_NEO4J_PARTNER_PID (Community)
 ```
 
 Then build:

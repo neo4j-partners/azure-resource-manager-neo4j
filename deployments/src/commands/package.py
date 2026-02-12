@@ -32,11 +32,15 @@ def _build_package(edition_value: str, env_file: Optional[Path]) -> None:
     else:
         env_path = root_dir / ".env"
 
+    # Use edition-specific PID env var
+    pid_env_var = "CE_NEO4J_PARTNER_PID" if edition_value == "community" else "NEO4J_PARTNER_PID"
+
     # Build the package
     builder = PackageBuilder(
         template_dir=template_dir,
         env_file=env_path,
         output_dir=root_dir,
+        pid_env_var=pid_env_var,
     )
 
     success = builder.build(template_name=ed.template_dirname)
