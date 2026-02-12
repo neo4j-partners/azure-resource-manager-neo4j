@@ -26,13 +26,25 @@ for arg in "$@"; do
 done
 
 CE_SCENARIOS=(
-  ce-eastus2-nvme
-  ce-uksouth-nvme
-  ce-swedencentral-scsi
-  ce-northcentralus-scsi
-  ce-ukwest-scsi
-  ce-northeurope-nvme
+  ce-westus2-nvme
+  ce-francecentral-nvme
+  ce-germanywestcentral-scsi
+  ce-southcentralus-scsi
+  ce-westeurope-scsi
+  ce-norwayeast-nvme
 )
+
+# ── Pre-compile Bicep ──────────────────────────────────────────────
+# Compile main.bicep → main.json once before launching parallel deployments.
+# The orchestrator skips recompilation when main.json is already up-to-date,
+# avoiding a race where parallel processes delete each other's compiled output.
+if ! ${VALIDATE_ONLY}; then
+  BICEP_DIR="$(cd "$(dirname "$0")/../marketplace/neo4j-ce" && pwd)"
+  echo "=== Pre-compiling Bicep template ==="
+  az bicep build --file "${BICEP_DIR}/main.bicep"
+  echo "  ✓ ${BICEP_DIR}/main.json"
+  echo ""
+fi
 
 # ── Deploy ────────────────────────────────────────────────────────
 if ! ${VALIDATE_ONLY}; then

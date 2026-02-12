@@ -309,69 +309,69 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
             # CE marketplace image v1.1.0 validation — see TEST_CE.md
             # NVMe (US baseline)
             TestScenario(
-                name="ce-eastus2-nvme",
+                name="ce-westus2-nvme",
                 deployment_type=DeploymentType.VM,
                 node_count=1,
                 graph_database_version="latest",
                 vm_size="Standard_E4ds_v6",
                 disk_size=32,
                 license_type="Community",
-                region="eastus2",
+                region="westus2",
             ),
             # NVMe (Europe)
             TestScenario(
-                name="ce-uksouth-nvme",
+                name="ce-francecentral-nvme",
                 deployment_type=DeploymentType.VM,
                 node_count=1,
                 graph_database_version="latest",
                 vm_size="Standard_E4ds_v6",
                 disk_size=32,
                 license_type="Community",
-                region="uksouth",
+                region="francecentral",
             ),
             # SCSI (Europe, LTS)
             TestScenario(
-                name="ce-swedencentral-scsi",
+                name="ce-germanywestcentral-scsi",
                 deployment_type=DeploymentType.VM,
                 node_count=1,
                 graph_database_version="5",
                 vm_size="Standard_E4s_v5",
                 disk_size=32,
                 license_type="Community",
-                region="swedencentral",
+                region="germanywestcentral",
             ),
             # SCSI (US)
             TestScenario(
-                name="ce-northcentralus-scsi",
+                name="ce-southcentralus-scsi",
                 deployment_type=DeploymentType.VM,
                 node_count=1,
                 graph_database_version="latest",
                 vm_size="Standard_E4s_v5",
                 disk_size=32,
                 license_type="Community",
-                region="northcentralus",
+                region="southcentralus",
             ),
             # SCSI (Europe, LTS)
             TestScenario(
-                name="ce-ukwest-scsi",
+                name="ce-westeurope-scsi",
                 deployment_type=DeploymentType.VM,
                 node_count=1,
                 graph_database_version="5",
                 vm_size="Standard_E4s_v5",
                 disk_size=32,
                 license_type="Community",
-                region="ukwest",
+                region="westeurope",
             ),
             # NVMe smaller size (Europe, LTS)
             TestScenario(
-                name="ce-northeurope-nvme",
+                name="ce-norwayeast-nvme",
                 deployment_type=DeploymentType.VM,
                 node_count=1,
                 graph_database_version="5",
                 vm_size="Standard_E2ds_v6",
                 disk_size=32,
                 license_type="Community",
-                region="northeurope",
+                region="norwayeast",
             ),
         ]
 

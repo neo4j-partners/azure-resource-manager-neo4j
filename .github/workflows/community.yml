@@ -105,7 +105,7 @@ jobs:
         with:
           resourceGroupName: ${{ steps.variables.outputs.rgName }}
           template: ./${{ env.TEMPLATE_PATH }}/mainTemplate-generated.json
-          parameters: ./${{ env.TEMPLATE_PATH }}/parameters.json graphDatabaseVersion="latest" useTestImage=true
+          parameters: ./${{ env.TEMPLATE_PATH }}/parameters.json graphDatabaseVersion="latest"
           deploymentName: ${{ steps.variables.outputs.depName }}
 
       - name: Check VM provisioning status
@@ -289,7 +289,7 @@ jobs:
         with:
           resourceGroupName: ${{ steps.variables.outputs.rgName }}
           template: ./${{ env.TEMPLATE_PATH }}/mainTemplate-generated.json
-          parameters: ./${{ env.TEMPLATE_PATH }}/parameters.json graphDatabaseVersion="latest" useTestImage=true
+          parameters: ./${{ env.TEMPLATE_PATH }}/parameters.json graphDatabaseVersion="latest"
           deploymentName: ${{ steps.variables.outputs.depName }}
 
       - name: Check VM provisioning status

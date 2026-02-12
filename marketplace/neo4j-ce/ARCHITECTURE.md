@@ -34,129 +34,42 @@ The template omits `diskControllerType` from the VM's `storageProfile`. For NVMe
 
 RHEL 9 supports NVMe natively but does not include the `/dev/disk/azure/data/by-lun/` symlinks by default. The cloud-init `bootcmd` installs [azure-vm-utils](https://github.com/Azure/azure-vm-utils) udev rules before `disk_setup` runs, creating the symlinks that cloud-init uses to format and mount the data disk at `/dev/disk/azure/data/by-lun/0`.
 
-## Automatic zone detection with pickZones()
+## No zone pinning — Premium_LRS everywhere
 
-The template uses Bicep's built-in `pickZones()` function to detect availability zone support at deploy time:
+The template deploys all resources without availability zone pinning and uses `Premium_LRS` for all disks. This was a deliberate decision after testing revealed a fundamental flaw with the previous `pickZones()` approach (see "Why zone pinning was removed" below).
+
+This means:
+- **Data disk** (`disk.bicep`): `Premium_LRS`, no `zones` property
+- **Public IP** (`vm.bicep`): no `zones` property
+- **VM** (`vm.bicep`): no `zones` property
+
+The trade-off is losing `PremiumV2_LRS`'s tuneable IOPS/throughput, but for a marketplace template that must work with every VM size in every region, universal compatibility is the right call. The disk storage tier (`Premium_LRS` vs `PremiumV2_LRS`) is independent of the disk controller type (NVMe vs SCSI) — switching to `Premium_LRS` does not affect NVMe/SCSI compatibility.
+
+## Trusted Launch security
+
+All VMs use the `TrustedLaunch` security profile with Secure Boot and vTPM enabled. This is required by the marketplace image definition (`SecurityType=TrustedLaunch`).
 
 ```bicep
-var zones = pickZones('Microsoft.Compute', 'virtualMachines', location)
-var useZones = !empty(zones)
+securityProfile: {
+  securityType: 'TrustedLaunch'
+  uefiSettings: {
+    secureBootEnabled: true
+    vTpmEnabled: true
+  }
+}
 ```
 
-In zonal regions (East US 2, North Europe, etc.), `pickZones()` returns `['1']` and the template pins all resources to zone 1 with `PremiumV2_LRS`. In non-zonal regions (North Central US, West US, etc.), it returns `[]` and the template deploys without zone pinning using `Premium_LRS`.
+The image definition uses `SecurityType=TrustedLaunch` (not `TrustedLaunchSupported`), which means VMs from this image can **only** be Trusted Launch. `TrustedLaunchSupported` would allow both Gen2 and Trusted Launch, but the stricter setting is acceptable since the Bicep template always sets Trusted Launch.
 
-This single check drives all conditional decisions across three resources:
-- **Data disk** (`disk.bicep`): `zones` and `sku.name` (`PremiumV2_LRS` or `Premium_LRS`)
-- **Public IP** (`vm.bicep`): `zones`
-- **VM** (`vm.bicep`): `zones`
+## Image selection (3-way)
 
-All three resources reference the same `useZones` boolean derived from `pickZones()`, ensuring the data disk and VM are always in the same zone (or both non-zonal). No customer-facing parameters, no hardcoded region lists.
+The VM supports three image sources, selected by priority:
 
-PremiumV2_LRS was chosen for zonal regions because:
-- Better baseline IOPS (3000) and throughput (125 MB/s) at no additional cost
-- Sub-millisecond latency
-- Tuneable IOPS/throughput independent of disk size (important for database workloads)
-- Available in 51+ regions including all major deployment targets
+1. **Gallery image** (`galleryImageId` parameter) — for pre-publish testing of new image versions
+2. **Test image** (`useTestImage=true`) — deploys from a standard RHEL 9 image for CI testing
+3. **Marketplace image** (default) — the published `neo4j-ce-vm` marketplace offer
 
-In non-zonal regions, the fallback to Premium_LRS ensures the template deploys everywhere the VM SKU is available, at the cost of reduced IOPS in those secondary regions.
-
-## Regional availability research
-
-This section documents the regional availability of the three resources the template depends on: the VM SKU, the disk SKU, and availability zones. All data was verified against official Microsoft documentation and `az vm list-skus` in February 2026. Azure regions expand continuously — run `az vm list-skus --size Standard_E4ds_v6 --all --output table` for current per-subscription availability.
-
-### Eds_v6 series (NVMe-only VM)
-
-Microsoft does not publish a static region list for individual VM SKUs. The [Edsv6 series documentation](https://learn.microsoft.com/en-us/azure/virtual-machines/edsv6-series) directs users to the [Products available by region](https://azure.microsoft.com/en-us/explore/global-infrastructure/products-by-region/) tool or the Azure CLI (`az vm list-skus`). The Eds_v6 series is available across 40+ regions including all major US, Europe, and Asia-Pacific regions.
-
-Key facts:
-- Uses 5th Gen Intel Xeon Platinum (Emerald Rapids) processors
-- NVMe-only — all v6 VMs dropped SCSI support
-- Memory-optimized (8 GiB RAM per vCPU)
-- Available in both zonal and non-zonal regions
-- Some regions may require a quota request (check `az vm list-skus` for `NotAvailableForSubscription` restrictions)
-- Not available in some smaller non-zonal regions (australiasoutheast, norwaywest, southindia)
-
-### Availability zone support by region
-
-Source: [Azure regions with availability zone support](https://learn.microsoft.com/en-us/azure/reliability/availability-zones-region-support) and [List of Azure regions](https://learn.microsoft.com/en-us/azure/reliability/regions-list).
-
-Regions with availability zones (38 regions as of February 2026):
-
-| US | Europe | Asia-Pacific | Other |
-|---|---|---|---|
-| East US | North Europe | Japan East | Brazil South |
-| East US 2 | UK South | Southeast Asia | South Africa North |
-| Central US | France Central | Australia East | Israel Central |
-| West US 2 | Germany West Central | Korea Central | Qatar Central |
-| West US 3 | Sweden Central | Central India | UAE North |
-| South Central US | Switzerland North | East Asia | Mexico Central |
-| | Norway East | Indonesia Central | Chile Central |
-| | Italy North | Malaysia West | |
-| | Spain Central | New Zealand North | |
-| | Poland Central | South India | |
-| | Austria East | Japan West | |
-| | West Europe | Korea South | |
-| | Belgium Central | | |
-| | Denmark East | | |
-
-Regions where the template auto-detects and deploys without zone pinning (non-zonal):
-
-- North Central US
-- West US
-- Australia Southeast
-- Australia Central / Central 2
-- Canada East
-- Norway West
-- UK West
-- West Central US
-- West India
-- France South, Germany North, Switzerland West, Sweden South, UAE Central, South Africa West (restricted access)
-
-### PremiumV2_LRS (Premium SSD v2)
-
-Source: [Premium SSD v2 — regional availability](https://learn.microsoft.com/en-us/azure/virtual-machines/disks-types#premium-ssd-v2).
-
-Premium SSD v2 is available in 40+ regions. Key constraints:
-- Must attach to a zonal VM in AZ-enabled regions
-- Cannot be used as an OS disk (the template uses Premium_LRS for the OS disk)
-- Does not support host caching (the template sets caching to None)
-- Tuneable IOPS/throughput independent of disk size
-
-**Regions with 2+ availability zones** (template uses PremiumV2_LRS + zone 1):
-
-East US, East US 2, Central US, South Central US, West US 2, West US 3, Canada Central, Brazil South, North Europe, West Europe, UK South, France Central, Germany West Central, Sweden Central, Switzerland North, Norway East, Italy North, Spain Central, Poland Central, Austria East, Japan East, Southeast Asia, Australia East, Korea Central, Central India, East Asia, South Africa North, Israel Central, UAE North, Mexico Central
-
-**Regions with 1 availability zone** (template uses PremiumV2_LRS + zone 1):
-
-Indonesia Central, Japan West, New Zealand North, Malaysia West
-
-**Regions without availability zones** (template falls back to Premium_LRS, no zone pinning):
-
-North Central US, West US, Australia Southeast, Australia Central 2, Canada East, Norway West, UK West, West Central US, Taiwan North
-
-### Zone 1 availability
-
-Every Azure region that has availability zones includes zone 1. The logical zone numbers always start at 1, though the physical datacenter mapped to "zone 1" is randomized per subscription ([zone mapping](https://learn.microsoft.com/en-us/azure/reliability/availability-zones-overview#physical-and-logical-availability-zones)). Pinning to zone 1 via `pickZones('Microsoft.Compute', 'virtualMachines', location)` is safe in any zonal region.
-
-### Combined compatibility
-
-When all three requirements are combined (Eds_v6 + PremiumV2_LRS + zone support), the template deploys with full zonal + NVMe + PremiumV2_LRS configuration in 30+ major regions across all continents. In the remaining non-zonal regions where Eds_v6 is available (northcentralus, westus, canadaeast, ukwest), the template automatically falls back to non-zonal + Premium_LRS.
-
-### Tradeoffs in non-zonal regions
-
-- No availability zone protection (single-datacenter failure risk)
-- Premium_LRS instead of PremiumV2_LRS (lower baseline IOPS: 7,500 vs tuneable up to 80,000; higher latency; no independent IOPS/throughput scaling)
-- Still uses Eds_v6 VM with NVMe (no compute performance regression)
-
-### How to verify for your subscription
-
-```bash
-# List Eds_v6 availability with zone and restriction info
-az vm list-skus --size Standard_E4ds_v6 --all --output table
-
-# Check zones for a specific region
-az vm list-skus --size Standard_E4ds_v6 --location eastus2 --output table
-```
+Gallery and test images skip the marketplace `plan` block. The marketplace image includes it.
 
 ## Cloud-init idempotency for disk reattach
 
@@ -179,8 +92,8 @@ The identity module was removed. The previous deployment created a `UserAssigned
 
 The VM uses discrete `Microsoft.Network/publicIPAddresses` and `Microsoft.Network/networkInterfaces` resources instead of VMSS-inline network configuration.
 
-- **Public IP:** Standard SKU, static allocation, zone-aligned when `useZones` is true (zone 1 in zonal regions, no zone pinning in non-zonal regions). The DNS label `neo4j-{suffix}` produces a hostname like `neo4j-abc123.eastus2.cloudapp.azure.com`.
-- **NIC:** References the subnet from the existing `network.bicep` module and the public IP.
+- **Public IP:** Standard SKU, static allocation. The DNS label `neo4j-{suffix}` produces a hostname like `neo4j-abc123.eastus2.cloudapp.azure.com`.
+- **NIC:** References the subnet from the existing `network.bicep` module and the public IP. Accelerated networking (`enableAcceleratedNetworking: true`) is enabled for SR-IOV hardware offload.
 
 The network module (`network.bicep`) is unchanged. NSG rules (SSH/22, HTTPS/7473, HTTP/7474, Bolt/7687) and VNet/subnet configuration remain identical.
 
@@ -202,37 +115,58 @@ The hostname changed from `vm0.neo4j-{suffix}.{region}.cloudapp.azure.com` (VMSS
 | `nsgId` | NSG resource ID |
 | `username` | Neo4j admin username (always `neo4j`) |
 
-## Design decisions and resources
+## Design decisions and lessons learned
 
-### Why pickZones() is reliable for this template
+### Why zone pinning was removed
 
-1. **Microsoft uses it in production.** The [Azure Landing Zones (ALZ) Bicep templates](https://azure.github.io/Azure-Landing-Zones/bicep/gettingstarted/) use `pickZones()` in their `main.bicep` files to auto-detect zone support. These are production-grade templates backed by Microsoft support.
+The template originally used `pickZones('Microsoft.Compute', 'virtualMachines', location)` to auto-detect zone support and pin resources to zone 1 with `PremiumV2_LRS` disks.
 
-2. **The only known bug doesn't apply.** The one documented issue ([GitHub #5462](https://github.com/Azure/bicep/issues/5462)) is an `InternalServerError` when `pickZones()` is called from a module invoked at management group scope. Marketplace deployments run at resource group scope.
+Testing revealed a fundamental flaw: `pickZones()` checks whether a **resource type** supports zones in a region, but it does **not** consider the specific **VM SKU**. In `northeurope`, `Standard_E2ds_v6` is only available in zones 2 and 3 — but `pickZones()` returns `['1']`, so the template pinned the VM to zone 1 where the SKU doesn't exist, producing an `OverconstrainedZonalAllocationRequest` error.
 
-3. **The usage pattern avoids all edge cases.** The common pitfall is indexing into an empty array (`pickZones(...)[0]`). The implementation uses `!empty(pickZones(...))` to derive a boolean, then ternary expressions. No array indexing.
+```
+$ az vm list-skus --location northeurope --size Standard_E2ds_v6 \
+    --query "[].{name:name, zones:locationInfo[0].zones}"
+[{ "name": "Standard_E2ds_v6", "zones": ["2", "3"] }]
+```
 
-`pickZones()` is a server-side ARM function — no deployment scripts, no managed identities, no external dependencies. Available since API version 2022-08-01.
+This is not just a testing problem — it affects marketplace customers too. Any customer selecting a v6 VM in a region where that SKU isn't in zone 1 would hit this error. The `createUiDefinition.json` recommends `Standard_E4ds_v6` as the default, making this a likely failure path.
 
-Additional edge cases considered:
+Three options were evaluated:
+- **Option A: Remove zone pinning** — simplest and safest, works everywhere
+- **Option B: Explicit zone parameter** — correct by design, but requires the customer to know which zone their VM size supports
+- **Option C: Query SKU availability at deploy time** — adds complexity and a deployment script dependency
 
-- **Zone-redundant services (ZRS):** `pickZones()` returns an empty array for ZRS resource types. This does not apply — we query `Microsoft.Compute/virtualMachines`, which is a zonal resource type and returns zone numbers correctly.
-- **VS Code tooling:** The VS Code ARM Tools extension may show false syntax errors for `pickZones()`. This is a cosmetic IDE issue, not a runtime problem. Bicep CLI compiles and deploys correctly.
-- **Azure Selected Zone:** [Azure Selected Zone](https://github.com/Azure/AzureSelectedZone) (`zonePlacementPolicy='any'`) is a preview feature that lets Azure auto-select the optimal zone. It is limited to East US 2 EUAP, is not GA, and has unknown interaction with PremiumV2_LRS. Not suitable for a marketplace template that must work broadly today.
+Option A was chosen. `Premium_LRS` works in every region with every VM size. NVMe (v6) and SCSI (v5) VMs both work with `Premium_LRS` disks. This matches how the Enterprise template works (no zone pinning).
 
-### Why no marketplace UI region filtering
+### Why passwords must avoid shell metacharacters
 
-The `createUiDefinition.json` location selector supports a `resourceTypes` filter that restricts the region dropdown to regions where specific resource types exist. However, this is a coarse filter — it cannot distinguish between PremiumV2_LRS and Premium_LRS availability within a region. The `ArmApiControl` element can make live ARM API calls (like querying `Microsoft.Compute/resourceSkus`) to populate dropdowns or add validation warnings, but the implementation is complex, fragile, and hard to debug.
+Testing uncovered a silent authentication failure when the generated password contained shell-hostile characters like `$`, backticks, or `^`. The password flow is:
 
-Since the template auto-detects via `pickZones()` and falls back gracefully, the marketplace UI does not need to filter regions. The customer picks any region and the template does the right thing.
+1. Deploy tool generates password, base64-encodes it in the Bicep parameter
+2. `main.bicep` base64-encodes again for cloud-init: `base64(adminPassword)`
+3. Cloud-init decodes and passes to bash: `neo4j-admin dbms set-initial-password "$ADMIN_PASSWORD"`
+
+The base64 encoding protects the password during YAML transport, but after `base64 -d` decodes it, characters like `$^` are interpreted as variable expansion by bash (even inside double quotes). The password gets silently truncated, causing Neo4j to set a different password than the one the customer expects.
+
+**Fixes applied:**
+- Password generator (`deployments/src/password.py`): restricted special characters to shell-safe set: `! @ # % _ + - = .`
+- Marketplace UI (`createUiDefinition.json`): PasswordBox regex only accepts those same safe characters, with a validation message telling the user which characters are allowed
+
+### Marketplace image build requirements
+
+Building a gallery image that works across both NVMe (v6) and SCSI (v5) VMs requires careful attention to the source VM configuration:
+
+1. **Source VM must use a v6+ size with NVMe.** The gallery image version inherits the disk controller type from the source VM's VHD, not from the image definition features. An image definition declaring `DiskControllerTypes=SCSI,NVMe` is necessary but **not sufficient** — the VHD itself must be NVMe-compatible. The source VM (`Standard_D2ds_v6`) must be created with `--disk-controller-type NVMe`.
+
+2. **Trusted Launch images require explicit security profile.** Gallery images with `SecurityType=TrustedLaunch` require deploying VMs to set `securityProfile` with `securityType: 'TrustedLaunch'`. Azure does not auto-infer this from the image.
+
+3. **Accelerated networking must be explicitly enabled.** The image definition declares `IsAcceleratedNetworkSupported=True`, but Azure does not auto-enable it on the NIC. The `enableAcceleratedNetworking: true` property must be set explicitly on the NIC resource.
+
+4. **Gallery images must be replicated to deployment regions.** Image versions are only available in the regions they have been replicated to. Use `--target-regions` during `az sig image-version create` to replicate at capture time.
 
 ### Why Eds_v6 (NVMe-only)
 
 The Eds_v6 series uses 5th Gen Intel Xeon (Emerald Rapids) processors and is NVMe-only — all v6+ VM generations dropped SCSI support. NVMe delivers higher remote disk throughput compared to SCSI at the same price. Using an NVMe-only series eliminates the ambiguity of dual-capable SKUs (where Azure defaults to SCSI when `diskControllerType` is omitted). Neo4j Aura already runs E-Series v6 in production on Azure. The template omits `diskControllerType` — for NVMe-only SKUs, Azure automatically uses NVMe without explicit configuration.
-
-### Why PremiumV2_LRS with Premium_LRS fallback
-
-Premium SSD v2 provides sub-millisecond latency and tuneable IOPS/throughput independent of disk size — important for database workloads where a 32GB disk would otherwise be limited to 120 IOPS on Premium SSD. The fallback to Premium_LRS in non-zonal regions ensures the template deploys everywhere the VM SKU is available, at the cost of reduced IOPS in those secondary regions.
 
 ### Why unconditional password setting
 
@@ -240,31 +174,26 @@ The enterprise template sets `neo4j-admin dbms set-initial-password` uncondition
 
 ### Resources
 
-- [Azure pickZones() function reference](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/bicep-functions-resource#pickzones)
-- [Azure Landing Zones Bicep — zone auto-detection](https://azure.github.io/Azure-Landing-Zones/bicep/gettingstarted/)
-- [Azure Verified Modules (AVM) — zone interface spec](https://azure.github.io/Azure-Verified-Modules/specs/bcp/res/interfaces/)
 - [Edsv6 VM series — NVMe and disk performance](https://learn.microsoft.com/en-us/azure/virtual-machines/edsv6-series)
 - [Premium SSD v2 — regional availability and constraints](https://learn.microsoft.com/en-us/azure/virtual-machines/disks-types#premium-ssd-v2)
 - [Azure NVMe disk identification — azure-vm-utils](https://learn.microsoft.com/en-us/azure/virtual-machines/linux/azure-virtual-machine-utilities)
 - [Azure disk device naming and symlinks](https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/linux/troubleshoot-device-names-problems)
+- [NVMe FAQ: How to create image definition supporting NVMe](https://learn.microsoft.com/azure/virtual-machines/enable-nvme-remote-faqs#how-do-i-create-an-image-definition-that-supports-nvme-for-remote-disks)
+- [NVMe Overview: Supported VM families](https://learn.microsoft.com/azure/virtual-machines/nvme-overview)
 - [Neo4j Operations Manual — set-initial-password](https://neo4j.com/docs/operations-manual/current/configuration/set-initial-password/)
 - [Neo4j Operations Manual — file locations (RPM)](https://neo4j.com/docs/operations-manual/5/configuration/file-locations/)
-- [pickZones management group scope bug — GitHub #5462](https://github.com/Azure/bicep/issues/5462)
-- [Zone-aware ARM/Bicep patterns — nimccoll/ZoneAware](https://github.com/nimccoll/ZoneAware)
-- [Azure regions with availability zone support](https://learn.microsoft.com/en-us/azure/reliability/availability-zones-region-support)
-- [List of Azure regions](https://learn.microsoft.com/en-us/azure/reliability/regions-list)
+- [Azure pickZones() function reference](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/bicep-functions-resource#pickzones)
 - [Products available by region](https://azure.microsoft.com/en-us/explore/global-infrastructure/products-by-region/)
-- [Availability zones — physical and logical zone mapping](https://learn.microsoft.com/en-us/azure/reliability/availability-zones-overview#physical-and-logical-availability-zones)
 
 ## Module structure
 
 ```
 marketplace/neo4j-ce/
-  main.bicep              # Orchestrator: pickZones() detection, cloud-init substitution
+  main.bicep              # Orchestrator: cloud-init substitution, module wiring
   modules/
-    network.bicep         # VNet, subnet, NSG (unchanged)
-    disk.bicep            # Standalone managed data disk (PremiumV2_LRS or Premium_LRS, conditional zone)
-    vm.bicep              # VM (NVMe via Eds_v6, conditional zone), NIC, public IP (conditional zone)
+    network.bicep         # VNet, subnet, NSG
+    disk.bicep            # Standalone managed data disk (Premium_LRS)
+    vm.bicep              # VM (NVMe via Eds_v6, Trusted Launch), NIC (accelerated networking), public IP
 scripts/neo4j-ce/
   cloud-init/
     standalone.yaml       # Cloud-init: NVMe udev rules, disk mount, Neo4j install, configuration
