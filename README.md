@@ -49,6 +49,24 @@ uv run neo4j-deploy cleanup --all --force
 
 See **[deployments/README.md](deployments/README.md)** for full command reference.
 
+### Connecting to Neo4j
+
+After deployment, find the FQDN and public IP for your instance:
+
+```bash
+# CE — show the VM's public IP and FQDN
+az vm show --resource-group <resource-group> --name <vm-name> --show-details \
+  --query '{publicIp: publicIps, fqdn: fqdns}' --output table
+```
+
+Then open Neo4j Browser at:
+
+```
+http://<fqdn>:7474
+```
+
+Connect with the Bolt driver at `neo4j://<fqdn>:7687`. The default username is `neo4j` and the password is the `adminPassword` set during deployment.
+
 ### Build Marketplace Packages
 
 Before building, copy `.env.sample` to `.env` and set your Partner Center PIDs (GUIDs):
