@@ -387,6 +387,108 @@ To hide the plan: **Partner Center** > `neo4j-ce-vm` > `per-core-hour` plan > **
 
 ---
 
+## Verifying the Marketplace Listing via Azure CLI
+
+After publishing, verify the listing is properly configured using these Azure CLI commands.
+
+### 1. Confirm the offers exist
+
+```bash
+az vm image list-offers --publisher neo4j --location eastus2 --output table
+```
+
+Expected output includes:
+
+| Location | Name |
+|---|---|
+| eastus2 | neo4j-ce-vm |
+| eastus2 | neo4j-ee-vm |
+
+### 2. Confirm the plan/SKU exists
+
+```bash
+az vm image list-skus --publisher neo4j --offer neo4j-ce-vm --location eastus2 --output table
+```
+
+Expected output:
+
+| Location | Name |
+|---|---|
+| eastus2 | per-core-hour |
+
+### 3. List published image versions
+
+```bash
+az vm image list --publisher neo4j --offer neo4j-ce-vm --sku per-core-hour \
+  --location eastus2 --all --output table
+```
+
+Expected output:
+
+| Architecture | Offer | Publisher | Sku | Version |
+|---|---|---|---|---|
+| x64 | neo4j-ce-vm | neo4j | per-core-hour | 1.0.0 |
+| x64 | neo4j-ce-vm | neo4j | per-core-hour | 1.1.0 |
+
+### 4. Verify image details and plan info
+
+```bash
+az vm image show --urn neo4j:neo4j-ce-vm:per-core-hour:1.1.0 \
+  --location eastus2 --output json
+```
+
+Key fields to verify:
+
+| Field | Expected Value |
+|---|---|
+| `architecture` | `x64` |
+| `hyperVGeneration` | `V2` |
+| `plan.publisher` | `neo4j` |
+| `plan.product` | `neo4j-ce-vm` |
+| `plan.name` | `per-core-hour` |
+| `imageDeprecationStatus.imageState` | `Active` |
+
+### 5. Verify image features
+
+```bash
+az vm image show --urn neo4j:neo4j-ce-vm:per-core-hour:1.1.0 \
+  --location eastus2 --query "features" --output table
+```
+
+Expected features:
+
+| Name | Value |
+|---|---|
+| SecurityType | TrustedLaunchSupported |
+| IsAcceleratedNetworkSupported | True |
+| DiskControllerTypes | SCSI, NVMe |
+
+### 6. Verify marketplace terms are accepted
+
+```bash
+az vm image terms show --publisher neo4j --offer neo4j-ce-vm \
+  --plan per-core-hour --output json
+```
+
+Key fields to verify:
+
+| Field | Expected Value |
+|---|---|
+| `accepted` | `true` |
+| `publisher` | `neo4j` |
+| `product` | `neo4j-ce-vm` |
+| `plan` | `per-core-hour` |
+
+If `accepted` is `false`, accept the terms with:
+
+```bash
+az vm image terms accept --publisher neo4j --offer neo4j-ce-vm --plan per-core-hour
+```
+
+> **Note:** The Azure CLI does not expose the actual pricing ($0.04/core hour). Pricing is configured in Partner Center and visible to customers at deployment time in the Azure Portal.
+
+---
+
 ## Progress
 
 ### Completed

@@ -12,11 +12,23 @@ Azure's service healing automatically restarts standalone VMs on healthy hosts w
 
 The Neo4j data disk is defined as a separate `Microsoft.Compute/disks` resource (`disk.bicep`), not as an inline data disk on the VM profile.
 
-**Why:** Inline VMSS data disks are destroyed when the instance is deleted or reimaged. A standalone disk resource persists independently of the VM lifecycle. When the VM is deleted (intentionally or by Azure during recovery), the disk survives. A new VM attaches the same disk via `createOption: Attach` and resumes with all data intact.
+**How it works:**
+
+1. `disk.bicep` creates an empty Premium_LRS managed disk sized by the `diskSize` parameter (32–4095 GB)
+2. `vm.bicep` attaches it at LUN 0 with `deleteOption: 'Detach'`
+3. Cloud-init formats the disk (XFS) and mounts it at `/var/lib/neo4j` using Azure udev symlinks (`/dev/disk/azure/data/by-lun/0`)
+
+**Why a separate disk:**
+
+- **Data survives VM deletion.** Inline VMSS data disks are destroyed when the instance is deleted or reimaged. A standalone disk resource persists independently of the VM lifecycle. When the VM is deleted (intentionally or by Azure during recovery), the disk survives. A new VM attaches the same disk via `createOption: Attach` and resumes with all data intact.
+- **Independent sizing.** Users choose data disk capacity separately from the OS disk, paying only for the storage they need.
+- **I/O isolation.** Database reads and writes don't compete with OS operations on the same disk.
 
 **deleteOption: Detach** is set on the VM's data disk attachment. This ensures Azure detaches (rather than deletes) the disk when the VM resource is removed.
 
 **Redeployment:** ARM incremental mode is idempotent. If the disk already exists with matching properties, ARM skips recreation. The VM is created fresh and attaches the existing disk.
+
+**Durability:** Azure managed disks with Premium_LRS store 3 replicas within a single datacenter. The disk is resilient to VM crashes and reboots, VM deallocation, VM deletion (detached, not deleted), and host hardware failure (Azure migrates the VM; the disk is unaffected). It is **not** resilient to datacenter-wide outages (LRS has no geo-redundancy) or deletion of the disk resource itself.
 
 ## NVMe disk controller (Eds_v6 series)
 
