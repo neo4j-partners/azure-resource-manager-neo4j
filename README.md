@@ -137,3 +137,16 @@ GitHub Actions workflows validate deployments on pull requests:
 ## Azure Marketplace
 
 - [Neo4j Enterprise on Azure Marketplace](https://azuremarketplace.microsoft.com/en-us/marketplace/apps/neo4j.neo4j-ee)
+- [Neo4j Community Edition on Azure Marketplace](https://azuremarketplace.microsoft.com/en-us/marketplace/apps/neo4j.neo4j-ce)
+
+### Community Edition Architecture
+
+The CE offer deploys a standalone VM (not a scale set) with a separate managed data disk for Neo4j data. Key design choices:
+
+- **NVMe-first (Eds_v6 series):** Defaults to `Standard_E4ds_v6` — NVMe-only VMs with higher remote disk throughput vs SCSI at the same price. The marketplace image supports both NVMe and SCSI (`DiskControllerTypes=SCSI,NVMe`) so users can override to v5 sizes if needed.
+- **Trusted Launch:** All VMs use Secure Boot + vTPM. Required by the marketplace image definition.
+- **Standalone managed data disk:** A separate `Microsoft.Compute/disks` resource (Premium_LRS) attached at LUN 0 with `deleteOption: Detach`. Data survives VM deletion and can be reattached to a new VM. Cloud-init handles both fresh disks and reattached disks with existing data.
+- **No zone pinning:** Resources deploy without availability zone constraints, ensuring compatibility with every VM SKU in every region. `Premium_LRS` is used universally instead of `PremiumV2_LRS`.
+- **Accelerated networking:** SR-IOV hardware offload enabled on the NIC.
+
+See [CE Architecture](marketplace/neo4j-ce/ARCHITECTURE.md) for full details and design rationale.
