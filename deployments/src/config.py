@@ -163,7 +163,7 @@ class ConfigManager:
         example_scenarios = {
             "scenarios": [
                 {
-                    "name": "standalone-v5",
+                    "name": "standalone-lts",
                     "deployment_type": "vm",
                     "node_count": 1,
                     "graph_database_version": "5",
@@ -174,7 +174,7 @@ class ConfigManager:
                     "install_bloom": False,
                 },
                 {
-                    "name": "cluster-v5",
+                    "name": "cluster-lts",
                     "deployment_type": "vm",
                     "node_count": 3,
                     "graph_database_version": "5",

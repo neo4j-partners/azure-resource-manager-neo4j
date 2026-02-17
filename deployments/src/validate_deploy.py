@@ -310,6 +310,51 @@ class Neo4jValidator:
             console.print(f"[yellow]⚠ License check error: {e}[/yellow]")
             console.print("[green]✓ Continuing validation (database is accessible)[/green]")
 
+    def check_community_edition(self) -> None:
+        """
+        Verify the database is running Community Edition.
+
+        Queries dbms.components() and checks the edition field.
+
+        Raises:
+            RuntimeError: If edition check fails or edition is not community
+        """
+        console.print("[cyan]Checking Neo4j edition...[/cyan]")
+
+        if not self._driver:
+            raise RuntimeError("Driver not initialized. Use context manager.")
+
+        try:
+            with self._driver.session() as session:
+                records = session.execute_read(
+                    lambda tx: list(tx.run("CALL dbms.components()"))
+                )
+
+                if not records:
+                    console.print("[yellow]⚠ dbms.components() returned no results[/yellow]")
+                    console.print("[green]✓ Skipping edition verification[/green]")
+                    return
+
+                record = records[0]
+                record_dict = dict(record)
+                edition = record_dict.get("edition", "unknown")
+
+                console.print(f"[dim]Edition: {edition}[/dim]")
+
+                if edition.lower() == "community":
+                    console.print("[green]✓ Verified Community Edition[/green]")
+                else:
+                    raise RuntimeError(
+                        f"Expected Community Edition but found: {edition}"
+                    )
+
+        except RuntimeError:
+            raise
+        except Exception as e:
+            error_msg = f"Failed to check Community Edition: {e}"
+            console.print(f"[red]✗ {error_msg}[/red]")
+            raise RuntimeError(error_msg) from e
+
     def run_full_validation(
         self,
         license_type: str = "Evaluation",
@@ -320,13 +365,14 @@ class Neo4jValidator:
 
         Executes all validation steps:
         1. Check cluster topology (if cluster deployment)
-        2. Create movies dataset
-        3. Verify dataset was created
-        4. Check license type (if Evaluation)
-        5. Clean up test dataset
+        2. Check edition (if Community)
+        3. Create movies dataset
+        4. Verify dataset was created
+        5. Check license type (if Evaluation)
+        6. Clean up test dataset
 
         Args:
-            license_type: Expected license type ("Evaluation" or "Enterprise")
+            license_type: Expected license type ("Evaluation", "Enterprise", or "Community")
             expected_node_count: Expected number of cluster nodes (None for standalone)
 
         Returns:
@@ -337,6 +383,10 @@ class Neo4jValidator:
             # Check cluster topology first (before writing data)
             if expected_node_count is not None and expected_node_count > 1:
                 self.check_cluster_nodes(expected_node_count)
+
+            # Check Community Edition
+            if license_type == "Community":
+                self.check_community_edition()
 
             # Create and verify dataset
             self.create_movies_dataset()
@@ -536,7 +586,7 @@ def main():
         console.print("\n[cyan]Usage (manual - cluster):[/cyan]")
         console.print("  validate_deploy <uri> <username> <password> <license_type> <node_count>")
         console.print("\n[cyan]Examples:[/cyan]")
-        console.print("  validate_deploy standalone-v5")
+        console.print("  validate_deploy standalone-lts")
         console.print("  validate_deploy bolt://standalone.example.com:7687 neo4j mypassword Evaluation")
         console.print("  validate_deploy neo4j://cluster.example.com:7687 neo4j mypassword Enterprise 3")
         sys.exit(1)

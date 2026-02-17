@@ -16,17 +16,32 @@ from typing import Any, Optional
 from rich.console import Console
 
 from .constants import PARAMS_DIR
-from .models import Settings, TestScenario
+from .models import Edition, Settings, TestScenario
 from .password import PasswordManager
 from .utils import (
-    construct_artifact_url,
     get_timestamp,
     load_json,
     save_json,
-    validate_artifact_url,
 )
 
 console = Console()
+
+# Root of the repository, resolved once at import time.
+_REPO_ROOT = Path(__file__).parent.parent.parent.resolve()
+
+
+def get_template_dir(license_type: str) -> Path:
+    """
+    Resolve the marketplace template directory based on license type.
+
+    Args:
+        license_type: "Community", "Enterprise", or "Evaluation"
+
+    Returns:
+        Absolute path to the template directory
+    """
+    edition = Edition.from_license_type(license_type)
+    return _REPO_ROOT / "marketplace" / edition.template_dirname
 
 
 class DeploymentEngine:
@@ -75,7 +90,6 @@ class DeploymentEngine:
     def generate_parameter_file(
         self,
         scenario: TestScenario,
-        region: Optional[str] = None,
         debug_mode: bool = False,
     ) -> Path:
         """
@@ -83,7 +97,6 @@ class DeploymentEngine:
 
         Args:
             scenario: Test scenario configuration
-            region: Override region (uses default from settings if None)
             debug_mode: Enable debug mode with verbose logging
 
         Returns:
@@ -102,9 +115,10 @@ class DeploymentEngine:
         # Get password
         password = self.password_manager.get_password(scenario.name)
 
-        # Apply scenario overrides
+        # Apply scenario overrides (scenario.region takes priority over default)
+        region = scenario.region or self.settings.default_region
         params = self._apply_scenario_overrides(
-            base_params, scenario, region or self.settings.default_region
+            base_params, scenario, region
         )
 
         # Inject dynamic values
@@ -166,23 +180,29 @@ class DeploymentEngine:
                 p[key] = {}
             p[key]["value"] = value
 
-        # Common parameters for Enterprise VM deployments
-        set_param("nodeCount", scenario.node_count)
-        set_param("graphDatabaseVersion", scenario.graph_database_version)
-        set_param("licenseType", scenario.license_type)
-
         # Common parameters
+        set_param("graphDatabaseVersion", scenario.graph_database_version)
         set_param("location", region)
         set_param("diskSize", scenario.disk_size)
-
-        # VM-specific parameters
         set_param("vmSize", scenario.vm_size)
 
-        # Read replicas (4.4 only)
-        if scenario.read_replica_count > 0:
-            set_param("readReplicaCount", scenario.read_replica_count)
-            set_param("readReplicaVmSize", scenario.read_replica_vm_size)
-            set_param("readReplicaDiskSize", scenario.read_replica_disk_size)
+        # Community Edition image overrides
+        if scenario.license_type == "Community":
+            if self.settings.ce_gallery_image_id:
+                set_param("galleryImageId", self.settings.ce_gallery_image_id)
+            elif self.settings.ce_use_test_image:
+                set_param("useTestImage", True)
+
+        # Enterprise/Evaluation-only parameters (not used by CE template)
+        if scenario.license_type != "Community":
+            set_param("nodeCount", scenario.node_count)
+            set_param("licenseType", scenario.license_type)
+
+            # Read replicas (4.4 only)
+            if scenario.read_replica_count > 0:
+                set_param("readReplicaCount", scenario.read_replica_count)
+                set_param("readReplicaVmSize", scenario.read_replica_vm_size)
+                set_param("readReplicaDiskSize", scenario.read_replica_disk_size)
 
         # Note: Plugin parameters (installGraphDataScience, installBloom) removed
         # VM templates now use cloud-init with plugins configured directly in scripts
@@ -249,7 +269,9 @@ class DeploymentEngine:
             )
 
         # Node count validation (already handled by Pydantic, but double-check)
-        if scenario.node_count == 1:
+        if scenario.license_type == "Community":
+            console.print("[dim]Deploying Community Edition standalone instance[/dim]")
+        elif scenario.node_count == 1:
             console.print("[dim]Deploying standalone instance (1 node)[/dim]")
         elif scenario.node_count >= 3:
             console.print(
@@ -328,7 +350,7 @@ class DeploymentPlanner:
             Resource group name following pattern: {prefix}-{scenario}-{timestamp}
 
         Example:
-            neo4j-test-standalone-v5-20250116-143052
+            neo4j-test-standalone-lts-20250116-143052
         """
         if not timestamp:
             timestamp = get_timestamp()
@@ -365,7 +387,7 @@ class DeploymentPlanner:
             Deployment name following pattern: neo4j-deploy-{scenario}-{timestamp}
 
         Example:
-            neo4j-deploy-standalone-v5-20250116-143052
+            neo4j-deploy-standalone-lts-20250116-143052
         """
         if not timestamp:
             timestamp = get_timestamp()

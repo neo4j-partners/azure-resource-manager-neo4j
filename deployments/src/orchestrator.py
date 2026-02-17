@@ -209,30 +209,34 @@ class DeploymentOrchestrator:
         template_path = self.template_file.resolve()
         params_path = parameter_file.resolve()
 
-        # IMPORTANT: For Bicep templates, pre-compile to JSON to avoid Azure CLI caching issues
-        # Azure CLI's internal Bicep compilation caching is unreliable and causes stale deployments
-        # By compiling ourselves, we ensure the latest code is always used
+        # For Bicep templates, compile to JSON before deploying.
+        # If main.json already exists and is at least as new as main.bicep,
+        # skip recompilation. This avoids a race condition when multiple
+        # parallel deployments share the same template directory.
         if template_path.suffix == ".bicep":
             json_path = template_path.with_suffix('.json')
 
-            # Always delete existing JSON and recompile fresh
+            needs_compile = True
             if json_path.exists():
-                json_path.unlink()
-                console.print(f"[dim]Deleted cached {json_path.name}[/dim]")
+                bicep_mtime = template_path.stat().st_mtime
+                json_mtime = json_path.stat().st_mtime
+                if json_mtime >= bicep_mtime:
+                    console.print(f"[dim]Using existing {json_path.name} (up-to-date)[/dim]")
+                    needs_compile = False
 
-            # Compile Bicep to JSON
-            console.print(f"[dim]Compiling Bicep template...[/dim]")
-            compile_result = run_command(
-                f"az bicep build --file {template_path}",
-                check=False
-            )
+            if needs_compile:
+                console.print(f"[dim]Compiling Bicep template...[/dim]")
+                compile_result = run_command(
+                    f"az bicep build --file {template_path}",
+                    check=False
+                )
 
-            if compile_result.returncode != 0:
-                console.print(f"[red]✗ Bicep compilation failed[/red]")
-                return False
+                if compile_result.returncode != 0:
+                    console.print(f"[red]✗ Bicep compilation failed[/red]")
+                    return False
 
-            console.print(f"[dim]Using compiled {json_path.name} for deployment[/dim]")
-            # Deploy the compiled JSON instead of Bicep
+                console.print(f"[dim]Using compiled {json_path.name} for deployment[/dim]")
+
             template_path = json_path
 
         # Note: Don't use @ symbol with local files - it causes Azure CLI errors
@@ -498,6 +502,168 @@ class DeploymentOrchestrator:
             )
             return None
 
+    def get_instance_info(
+        self,
+        resource_group: str,
+    ) -> Optional[dict]:
+        """
+        Query compute resources in the resource group to get VM size and storage details.
+
+        Tries VMSS first (Enterprise), then standalone VM (Community Edition).
+
+        Args:
+            resource_group: Resource group name
+
+        Returns:
+            Dictionary with vm_size, disk_controller_type, disk_size_gb, storage_account_type,
+            or None if query failed
+        """
+        info = self._get_vmss_info(resource_group)
+        if info:
+            return info
+
+        return self._get_vm_info(resource_group)
+
+    def _get_vmss_info(
+        self,
+        resource_group: str,
+    ) -> Optional[dict]:
+        """
+        Query VMSS in the resource group for VM size and storage details.
+
+        Args:
+            resource_group: Resource group name
+
+        Returns:
+            Instance info dict or None if no VMSS found
+        """
+        try:
+            result = run_command(
+                f"az vmss list "
+                f"--resource-group {resource_group} "
+                f"--output json",
+                check=False,
+            )
+
+            if result.returncode != 0 or not result.stdout:
+                return None
+
+            vmss_list = json.loads(result.stdout)
+            if not vmss_list:
+                return None
+
+            vmss = vmss_list[0]
+            vm_size = vmss.get("sku", {}).get("name", "Unknown")
+
+            # Extract disk controller type from storage profile
+            storage_profile = vmss.get("virtualMachineProfile", {}).get("storageProfile", {})
+            disk_controller_type = storage_profile.get("diskControllerType", None)
+
+            # Extract data disk info
+            data_disks = storage_profile.get("dataDisks", [])
+            disk_size_gb = None
+            storage_account_type = None
+            if data_disks:
+                disk_size_gb = data_disks[0].get("diskSizeGB")
+                storage_account_type = (
+                    data_disks[0].get("managedDisk", {}).get("storageAccountType")
+                )
+
+            # If diskControllerType not in VMSS model, query the instance view
+            if not disk_controller_type:
+                instance_result = run_command(
+                    f"az vmss list-instances "
+                    f"--resource-group {resource_group} "
+                    f"--name {vmss.get('name', '')} "
+                    f"--query [0].storageProfile.diskControllerType "
+                    f"--output tsv",
+                    check=False,
+                )
+                if instance_result.returncode == 0 and instance_result.stdout.strip():
+                    disk_controller_type = instance_result.stdout.strip()
+
+            # Normalize the controller type display
+            if disk_controller_type:
+                disk_controller_type = disk_controller_type.upper()
+            else:
+                disk_controller_type = "SCSI"
+
+            return {
+                "vm_size": vm_size,
+                "disk_controller_type": disk_controller_type,
+                "disk_size_gb": disk_size_gb,
+                "storage_account_type": storage_account_type,
+            }
+
+        except Exception:
+            return None
+
+    def _get_vm_info(
+        self,
+        resource_group: str,
+    ) -> Optional[dict]:
+        """
+        Query standalone VM in the resource group for VM size and storage details.
+
+        Used for Community Edition deployments which use a single VM instead of VMSS.
+
+        Args:
+            resource_group: Resource group name
+
+        Returns:
+            Instance info dict or None if no VM found
+        """
+        try:
+            result = run_command(
+                f"az vm list "
+                f"--resource-group {resource_group} "
+                f"--output json",
+                check=False,
+            )
+
+            if result.returncode != 0 or not result.stdout:
+                return None
+
+            vm_list = json.loads(result.stdout)
+            if not vm_list:
+                return None
+
+            vm = vm_list[0]
+            vm_size = vm.get("hardwareProfile", {}).get("vmSize", "Unknown")
+
+            # Extract disk controller type from storage profile
+            storage_profile = vm.get("storageProfile", {})
+            disk_controller_type = storage_profile.get("diskControllerType", None)
+
+            # Extract data disk info
+            data_disks = storage_profile.get("dataDisks", [])
+            disk_size_gb = None
+            storage_account_type = None
+            if data_disks:
+                disk_size_gb = data_disks[0].get("diskSizeGB")
+                storage_account_type = (
+                    data_disks[0].get("managedDisk", {}).get("storageAccountType")
+                )
+
+            # Normalize the controller type display
+            if disk_controller_type:
+                disk_controller_type = disk_controller_type.upper()
+            else:
+                disk_controller_type = "SCSI"
+
+            return {
+                "vm_size": vm_size,
+                "disk_controller_type": disk_controller_type,
+                "disk_size_gb": disk_size_gb,
+                "storage_account_type": storage_account_type,
+            }
+
+        except Exception as e:
+            console.print(
+                f"[yellow]Warning: Could not query VM info: {e}[/yellow]"
+            )
+            return None
+
     def save_connection_info(
         self,
         conn_info: ConnectionInfo,
@@ -646,8 +812,8 @@ class DeploymentPlanner:
             Resource group name following pattern: {prefix}-{scenario}-{timestamp}
 
         Example:
-            >>> generate_resource_group_name("standalone-v5")
-            "neo4j-test-standalone-v5-20250116-143052"
+            >>> generate_resource_group_name("standalone-lts")
+            "neo4j-test-standalone-lts-20250116-143052"
         """
         if not timestamp:
             timestamp = get_timestamp()
@@ -683,8 +849,8 @@ class DeploymentPlanner:
             Deployment name following pattern: neo4j-deploy-{scenario}-{timestamp}
 
         Example:
-            >>> generate_deployment_name("standalone-v5")
-            "neo4j-deploy-standalone-v5-20250116-143052"
+            >>> generate_deployment_name("standalone-lts")
+            "neo4j-deploy-standalone-lts-20250116-143052"
         """
         if not timestamp:
             timestamp = get_timestamp()

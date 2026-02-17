@@ -18,12 +18,34 @@ TEMPLATES_DIR: Final[Path] = ARM_TESTING_DIR / "templates"
 SETTINGS_FILE: Final[Path] = CONFIG_DIR / "settings.yaml"
 SCENARIOS_FILE: Final[Path] = CONFIG_DIR / "scenarios.yaml"
 
-# Default Azure regions (commonly used for testing)
-DEFAULT_REGIONS: Final[list[str]] = [
-    "westeurope",
-    "eastus2",
+# CE region categories for the setup wizard's region picker.
+CE_ZONAL_REGIONS: Final[list[str]] = [
+    # Regions with availability zones where Eds_v6 VMs are available
+    "eastus2",       # Default test region
+    "eastus",
+    "centralus",
+    "westus3",
     "northeurope",
     "uksouth",
+    "swedencentral",
+    "japaneast",
+    "japanwest",
+    "australiaeast",
+]
+
+CE_NONZONAL_REGIONS: Final[list[str]] = [
+    # Eds_v6 available but no availability zones
+    "northcentralus",
+    "westus",
+    "canadaeast",
+    "ukwest",
+]
+
+CE_RESTRICTED_REGIONS: Final[list[str]] = [
+    # Eds_v6 exists with zones but subscription-restricted (needs quota request)
+    "westeurope",
+    "southcentralus",
+    "westus2",
 ]
 
 # Resource naming patterns
@@ -38,10 +60,10 @@ DEFAULT_VM_SIZES: Final[dict[str, str]] = {
 }
 
 # Neo4j versions
-NEO4J_VERSIONS: Final[list[str]] = ["5"]
+NEO4J_VERSIONS: Final[list[str]] = ["latest", "5"]
 
 # License types
-LICENSE_TYPES: Final[list[str]] = ["Enterprise", "Evaluation"]
+LICENSE_TYPES: Final[list[str]] = ["Enterprise", "Evaluation", "Community"]
 
 # Cleanup modes
 CLEANUP_MODES: Final[list[str]] = ["immediate", "on-success", "manual", "scheduled"]

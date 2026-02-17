@@ -4,7 +4,7 @@ param resourceSuffix string
 var networkSGName = 'nsg-neo4j-${location}-${resourceSuffix}'
 var vnetName = 'vnet-neo4j-${location}-${resourceSuffix}'
 
-resource networkSG 'Microsoft.Network/networkSecurityGroups@2025-01-01' = {
+resource networkSG 'Microsoft.Network/networkSecurityGroups@2025-05-01' = {
   name: networkSGName
   location: location
   properties: {
@@ -111,7 +111,7 @@ resource networkSG 'Microsoft.Network/networkSecurityGroups@2025-01-01' = {
   }
 }
 
-resource vnet 'Microsoft.Network/virtualNetworks@2025-01-01' = {
+resource vnet 'Microsoft.Network/virtualNetworks@2025-05-01' = {
   name: vnetName
   location: location
   properties: {

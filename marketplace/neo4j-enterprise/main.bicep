@@ -30,7 +30,8 @@ param diskSize int
 param location string = resourceGroup().location
 
 // Customer Usage Attribution - Partner tracking GUID
-#disable-next-line no-deployments-resources
+// API version is prescribed by Microsoft's CUA specification
+#disable-next-line no-deployments-resources use-recent-api-versions
 resource partnerUsageAttribution 'Microsoft.Resources/deployments@2021-04-01' = {
   name: 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX'
   properties: {

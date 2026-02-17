@@ -4,7 +4,7 @@ name: Test Bicep Template for Enterprise
 # - Bicep templates (compiled to ARM JSON)
 # - Python-based validation (validate_deploy)
 #
-# Test scenarios (Neo4j v5 only):
+# Test scenarios (Neo4j LTS only):
 # - Cluster (3 nodes) with Enterprise license
 # - Standalone with Enterprise license
 # - Cluster (3 nodes) with Evaluation license
@@ -32,7 +32,7 @@ env:
   DEPLOYMENTS_PATH: deployments
 
 jobs:
-  test-template-cluster-v5:
+  test-template-cluster-lts:
     name: Test ARM (Neo4j Cluster)
     runs-on: ubuntu-22.04
     timeout-minutes: 60
@@ -103,7 +103,7 @@ jobs:
           az bicep build --file main.bicep --outfile mainTemplate-generated.json
           echo "Bicep template compiled successfully"
 
-      - name: Deploy ARM Template (Neo4j Cluster v5)
+      - name: Deploy ARM Template (Neo4j Cluster LTS)
         id: deployARM
         uses: azure/arm-deploy@v1
         with:
@@ -213,7 +213,7 @@ jobs:
             az group delete --name ${{ steps.variables.outputs.rgName }} --yes
             echo "Azure resource group deleted"
 
-  test-template-standalone-v5:
+  test-template-standalone-lts:
     name: Test ARM (Neo4j Standalone)
     runs-on: ubuntu-22.04
     env:
@@ -282,7 +282,7 @@ jobs:
           az bicep build --file main.bicep --outfile mainTemplate-generated.json
           echo "Bicep template compiled successfully"
 
-      - name: Deploy ARM Template (Neo4j Standalone v5)
+      - name: Deploy ARM Template (Neo4j Standalone LTS)
         id: deployARM
         uses: azure/arm-deploy@v1
         with:
@@ -398,7 +398,7 @@ jobs:
             az group delete --name ${{ steps.variables.outputs.rgName }} --yes
             echo "Azure resource group deleted !!"
 
-  test-template-cluster-v5-evaluation:
+  test-template-cluster-lts-evaluation:
     name: Test ARM (Neo4j Cluster Evaluation)
     runs-on: ubuntu-22.04
     env:
@@ -467,7 +467,7 @@ jobs:
           az bicep build --file main.bicep --outfile mainTemplate-generated.json
           echo "Bicep template compiled successfully"
 
-      - name: Deploy ARM Template (Neo4j Cluster v5)
+      - name: Deploy ARM Template (Neo4j Cluster LTS)
         id: deployARM
         uses: azure/arm-deploy@v1
         with:
@@ -546,7 +546,7 @@ jobs:
             az group delete --name ${{ steps.variables.outputs.rgName }} --yes
             echo "Azure resource group deleted !!"
 
-  test-template-standalone-v5-evaluation:
+  test-template-standalone-lts-evaluation:
     name: Test ARM (Neo4j Standalone Evaluation)
     runs-on: ubuntu-22.04
     env:
@@ -615,7 +615,7 @@ jobs:
           az bicep build --file main.bicep --outfile mainTemplate-generated.json
           echo "Bicep template compiled successfully"
 
-      - name: Deploy ARM Template (Neo4j Standalone v5)
+      - name: Deploy ARM Template (Neo4j Standalone LTS)
         id: deployARM
         uses: azure/arm-deploy@v1
         with:

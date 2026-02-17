@@ -2,228 +2,154 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## CRITICAL
+
+- The `marketplace/neo4j-enterprise/` directory is a very old template pattern and should **NOT** be referenced as an example of how to do deployments — it contains many bad practices.
+- It is absolutely critical to discuss how to fix a bug with the user before proceeding with a fix. **Always ask questions and discuss with the user before making changes.** Do not jump straight into implementing a fix.
+- Make ONLY the changes the user requested. Do not add, remove, or modify anything beyond what was explicitly asked for — even if it seems like an improvement. If you believe something should be changed, ask first.
+
 ## Overview
 
-This repository contains Azure infrastructure-as-code for deploying Neo4j Enterprise on Azure using VM Scale Sets (VMSS) with load balancers.
+Azure infrastructure-as-code for deploying Neo4j on Azure, published to the Azure Marketplace. Two separate marketplace offers:
 
-All templates use Azure Bicep (modern infrastructure-as-code) compiled to ARM JSON for marketplace publishing.
+- **Enterprise** (`marketplace/neo4j-enterprise/`) - VM Scale Sets, 1-10 nodes, Neo4j 5.x Enterprise
+- **Community Edition** (`marketplace/neo4j-ce/`) - Single VM, Neo4j CE (latest or 5.x)
 
-## Repository Structure
+All templates use Azure Bicep compiled to ARM JSON for marketplace publishing.
 
-```
-├── marketplace/
-│   └── neo4j-enterprise/           # VM-based Enterprise (VMSS)
-├── scripts/
-│   └── neo4j-enterprise/           # VM provisioning scripts
-├── deployments/                     # Python testing framework
-│   ├── neo4j_deploy.py             # CLI entry point
-│   └── src/                        # Testing modules
-└── bicepconfig.json                # Bicep linter configuration
-```
+## Working Directory Convention
 
-## Architecture: VM-based Enterprise (`marketplace/neo4j-enterprise/`)
+**Always run `deployments/` commands from the `deployments/` directory** (prefix with `cd deployments &&` or use `@deployments`). The CLI tool `neo4j-deploy` and all `uv run` commands expect this working directory.
 
-Modular Bicep template deploying Neo4j on Azure VM Scale Sets:
+## Important: Modifying the Setup Flow
 
-**Key modules:**
-- `modules/network.bicep` - VNet, subnets, NSG
-- `modules/identity.bicep` - Managed identity
-- `modules/loadbalancer.bicep` - Azure Load Balancer
-- `modules/vmss.bicep` - Primary cluster nodes
-
-**Deployment options:**
-- Standalone (1 node) or cluster (3-10 nodes)
-- Neo4j 5.x
-- License: Enterprise or Evaluation
+When changes are needed to `uv run neo4j-deploy setup`, modify the **setup command implementation** in `deployments/src/setup.py` (the `SetupWizard` class) and related models in `deployments/src/models.py` — NOT the generated template files in `.arm-testing/templates/`.
 
 ## Common Commands
 
-### Deploying Templates Locally
-
 ```bash
-cd marketplace/neo4j-enterprise
-./deploy.sh <resource-group-name>
-```
-
-The deploy script:
-1. Creates resource group
-2. Compiles `main.bicep` to `mainTemplate-generated.json`
-3. Deploys using `az deployment group create`
-4. Cleans up temporary JSON file
-
-### Validating Deployments
-
-The `deployments/` directory contains a Python-based testing framework:
-
-```bash
-# First-time setup
+# Deployments CLI (always run from deployments/)
 cd deployments
-uv run neo4j-deploy setup
+uv run neo4j-deploy setup                          # Interactive first-time config
+uv run neo4j-deploy validate                       # Bicep lint + compile
+uv run neo4j-deploy deploy --scenario standalone-lts  # Deploy single scenario
+uv run neo4j-deploy deploy --all                   # Deploy all scenarios
+uv run neo4j-deploy test                            # Neo4j connectivity + CRUD validation
+uv run neo4j-deploy status                          # Check deployment status
+uv run neo4j-deploy cleanup --all                   # Delete Azure resource groups
+uv run neo4j-deploy deploy --scenario standalone-lts --dry-run  # Preview only
 
-# Validate templates (Bicep linting)
-uv run neo4j-deploy validate
-
-# Deploy and test specific scenario
-uv run neo4j-deploy deploy --scenario standalone-v5
-
-# Check deployment status
-uv run neo4j-deploy status
-
-# Clean up resources
-uv run neo4j-deploy cleanup --all
-```
-
-### Validating Individual Deployments
-
-After manual deployment, validate using:
-```bash
+# Validate individual deployment after manual deploy
 cd deployments
 uv run validate_deploy <scenario-name>
-```
 
-This connects to Neo4j via Bolt protocol and validates:
-- Database connectivity
-- License type
-- CRUD operations (creates Movies graph dataset)
-- Cleanup of test data
-
-### Publishing to Azure Marketplace
-
-```bash
-cd marketplace/neo4j-enterprise
-./makeArchive.sh
-```
-
-This script:
-1. Compiles `main.bicep` → `mainTemplate.json`
-2. Packages into `archive.zip` for marketplace
-3. Cleans up temporary files
-
-Upload `archive.zip` to [Azure Partner Portal](https://partner.microsoft.com/en-us/dashboard/commercial-marketplace/overview)
-
-### Bicep Development
-
-**Compile Bicep to ARM JSON:**
-```bash
+# Bicep development
 az bicep build --file main.bicep --outfile mainTemplate.json
-```
+az bicep build --file main.bicep   # Validate only (linter runs automatically)
 
-**Validate Bicep:**
-```bash
-az bicep build --file main.bicep
-```
+# Deploy templates locally
+cd marketplace/neo4j-enterprise && ./deploy.sh <resource-group-name>
 
-Bicep linter runs automatically during build. Configuration in `bicepconfig.json` enforces:
-- No hardcoded secrets
-- Secure parameters for sensitive data
-- No secret exposure in outputs
-- Stable resource identifiers
+# Package for Azure Marketplace
+cd marketplace/neo4j-enterprise && ./makeArchive.sh   # Creates archive.zip
+cd marketplace/neo4j-ce && ./makeArchive.sh
 
-**Pre-commit hook:**
-```bash
+# Build CE VM image for marketplace
+cd marketplace/neo4j-ce && ./makeVm.sh [resource-group] [region]
+
+# Pre-commit hook for Bicep validation
 ./scripts/install-git-hooks.sh
 ```
 
-This installs a hook that validates Bicep files before commits.
+## Architecture
 
-## Critical Architectural Details
+### Bicep Template Structure (both offers)
 
-### Script Execution in VM-based Deployments
+Each marketplace offer follows the same pattern:
 
-VM provisioning uses CustomScript extension that downloads and executes bash scripts from GitHub:
-
-```bicep
-var scriptsBaseUrl = 'https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/main/'
+```
+marketplace/<offer>/
+├── main.bicep              # Entry point - orchestrates modules, loads cloud-init
+├── main.json               # Compiled ARM JSON (for marketplace)
+├── parameters.json         # Default parameters (base for deployment engine)
+├── createUiDefinition.json # Azure Portal UI wizard
+└── modules/                # Modular Bicep resources
 ```
 
-Scripts handle:
-- Data disk mounting and formatting
-- Neo4j installation from Debian packages
-- Cluster configuration (discovery via Azure metadata)
-- Plugin installation (GDS, Bloom)
-- Service startup
+**Enterprise modules:** network.bicep, identity.bicep, loadbalancer.bicep (conditional: 3+ nodes), vmss.bicep
+**CE modules:** network.bicep, disk.bicep (zone-aware), vm.bicep
 
-**Enterprise scripts:**
-- `scripts/neo4j-enterprise/node.sh` - Neo4j 5.x
+### Cloud-Init Provisioning
 
-**Future migration:** Scripts will be replaced with cloud-init YAML embedded in Bicep using `loadTextContent()`.
+VM provisioning uses cloud-init YAML loaded via Bicep `loadTextContent()`:
 
-## Testing Framework Architecture
+- Enterprise: `scripts/neo4j-enterprise/cloud-init/{standalone,cluster}.yaml`
+- CE: `scripts/neo4j-ce/cloud-init/standalone.yaml`
 
-The `deployments/` directory contains a comprehensive Python testing framework built with:
-- **Typer** - CLI interface
-- **Rich** - Terminal output formatting
-- **neo4j** - Bolt protocol client
-- **Azure SDK** - Resource group management
+**Variable substitution pattern** in `main.bicep`:
+```bicep
+var cloudInitStep1 = replace(cloudInitTemplate, '${unique_string}', deploymentUniqueId)
+var cloudInitStep2 = replace(cloudInitStep1, '${admin_password}', passwordBase64)
+// ... chained replaces, then base64 encode for user data
+```
 
-**Key components:**
-- `neo4j_deploy.py` - Main CLI entry point
-- `src/orchestrator.py` - Deployment orchestration
-- `src/validate_deploy.py` - Neo4j connectivity validation
-- `src/deployment.py` - Azure deployment operations
-- `src/config.py` - Configuration management
+Passwords are base64-encoded to avoid shell escaping issues, decoded in cloud-init runcmd.
 
-Configuration stored in `.arm-testing/`:
-- `config/settings.yaml` - Azure subscription, regions
-- `config/scenarios.yaml` - Test scenario definitions
-- `state/` - Deployment tracking
-- `results/` - Test outputs and reports
+### Cluster Discovery (Enterprise)
+
+DNS-based discovery, no Azure CLI needed at runtime:
+- VMSS public hostnames: `vm{i}.neo4j-{uniqueString}.{location}.cloudapp.azure.com`
+- Discovery endpoints: `vm0:5000,vm1:5000,vm2:5000`
+
+### Legacy Script
+
+`scripts/neo4j-enterprise/node.sh` is the old bash-based provisioning (pre-cloud-init). Being replaced by cloud-init YAML.
+
+## Testing Framework (`deployments/`)
+
+Python CLI built with Typer + Rich + Pydantic + Neo4j driver + Azure SDK.
+
+### Key Architecture
+
+- **Entry point:** `deployments/neo4j_deploy.py` - Typer app
+- **Commands:** `deployments/src/commands/` - Each CLI command (setup, deploy, test, validate, cleanup, status, package, report)
+- **Models:** `deployments/src/models.py` - Pydantic models: `Settings`, `TestScenario`, `DeploymentState`, `Edition` enum (enterprise/community), `ScenarioCollection`
+- **Config:** `deployments/src/config.py` - `ConfigManager` reads/writes YAML in `.arm-testing/config/`
+- **Setup:** `deployments/src/setup.py` - `SetupWizard` interactive configuration (region, password strategy, scenarios)
+- **Deployment:** `deployments/src/deployment.py` - `DeploymentEngine` generates parameter files from scenarios + base parameters.json
+- **Orchestrator:** `deployments/src/orchestrator.py` - Submits ARM deployments via `az deployment group create`
+- **Validation:** `deployments/src/validate_deploy.py` - `Neo4jValidator` connects via Bolt, creates Movies dataset, verifies CRUD + license
+
+### Deployment Flow
+
+1. `ConfigManager` loads `Settings` + `ScenarioCollection` from `.arm-testing/config/`
+2. `DeploymentEngine` loads base `parameters.json` from the correct marketplace directory (resolved via `Edition` enum), applies scenario overrides, generates timestamped param file in `.arm-testing/params/`
+3. `DeploymentOrchestrator` submits to Azure with `--no-wait`, `DeploymentMonitor` polls status
+4. On success, `Neo4jValidator` runs connectivity + CRUD tests
+
+### Scenario Definitions
+
+Default scenarios (created by setup wizard):
+- `standalone-lts` - Enterprise, 1 node, Neo4j 5, Evaluation license
+- `cluster-lts` - Enterprise, 3 nodes, Neo4j 5, Evaluation license
+- `ce-standalone-latest` - CE, 1 node, latest version, Community license
+
+`TestScenario` model enforces: CE = 1 node only + no plugins; read replicas = Neo4j 4.4 only.
 
 ## GitHub Actions CI/CD
 
-**`.github/workflows/enterprise.yml`** - Enterprise VM-based
-- Tests standalone, 3-node cluster, 5-node cluster scenarios
-- Neo4j 5.x
-- Runs on pull requests affecting enterprise templates
+`.github/workflows/enterprise.yml` - Runs on PRs affecting enterprise templates. Compiles Bicep, deploys, runs `uv run validate_deploy`, cleans up.
 
-The workflow:
-1. Compiles Bicep to ARM JSON
-2. Deploys to temporary resource group
-3. Runs `uv run validate_deploy` to verify deployment
-4. Cleans up resources
+## Key Parameters
+
+**Enterprise:** `nodeCount` (1, 3-10), `graphDatabaseVersion` ("5"), `adminPassword` (secure), `licenseType` (Enterprise/Evaluation), `vmSize`, `diskSize`
+
+**CE:** `graphDatabaseVersion` ("latest"/"5"), `adminPassword` (secure, 12-72 chars), `vmSize`, `diskSize` (32-4095), `useTestImage` (bool, for pre-publish testing with RHEL 9)
 
 ## Development Standards
 
-**Bicep conventions:**
-- Use modules for clear separation (network, compute, storage)
-- Parameter descriptions required for all parameters
-- Use `@secure()` decorator for passwords and secrets
-- Resource naming: `${prefix}-${resourceType}-${suffix}`
-- Tag all resources with deployment metadata
+**Bicep:** Use modules for separation. `@secure()` for passwords. Parameter descriptions required. Resource naming: `${prefix}-${resourceType}-${suffix}`. Tag all resources.
 
-**Security requirements:**
-- Never hardcode secrets in templates
-- Use Azure Key Vault with managed identity (where applicable)
-- Validate outputs don't expose secrets
-- Follow principle of least privilege for managed identities
+**Code style:** Prefer clarity over cleverness. No unnecessary abstraction. Complete cut-over (no compatibility layers).
 
-**Code style:**
-- Prefer clarity over cleverness
-- No unnecessary abstraction
-- Complete cut-over (no compatibility layers)
-- Document complex logic with comments
-
-## Parameter Overrides
-
-Templates accept parameter overrides via CLI:
-
-**Common parameters:**
-- `nodeCount` - Cluster size (1, 3-10)
-- `graphDatabaseVersion` - "5"
-- `adminPassword` - Neo4j password (secure string)
-- `licenseType` - "Enterprise" or "Evaluation"
-- `vmSize` - Azure VM size
-- `diskSize` - Data disk size in GB
-
-**Example:**
-```bash
-az deployment group create \
-  --resource-group my-rg \
-  --template-file main.bicep \
-  --parameters @parameters.json \
-  --parameters nodeCount=3 adminPassword="SecurePass123!" licenseType="Enterprise"
-```
-
-## Useful Documentation
-
-- `deployments/README.md` - Testing framework usage
+**Linting:** `bicepconfig.json` enforces no hardcoded secrets, secure parameters, no secret exposure in outputs, stable resource identifiers.

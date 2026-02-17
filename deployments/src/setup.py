@@ -2,8 +2,6 @@
 Interactive setup wizard for first-time configuration.
 """
 
-from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Optional
 
 from rich.console import Console
@@ -13,10 +11,9 @@ from rich.table import Table
 
 from .config import ConfigManager
 from .constants import (
-    CLEANUP_MODES,
-    DEFAULT_CLEANUP_MODE,
-    DEFAULT_REGIONS,
-    NEO4J_VERSIONS,
+    CE_NONZONAL_REGIONS,
+    CE_RESTRICTED_REGIONS,
+    CE_ZONAL_REGIONS,
 )
 from .models import (
     CleanupMode,
@@ -26,9 +23,7 @@ from .models import (
     TestScenario,
 )
 from .utils import (
-    console,
     get_az_account_info,
-    get_az_default_location,
     get_git_remote_url,
     get_git_user_email,
     parse_github_url,
@@ -84,7 +79,7 @@ class SetupWizard:
             default_region, resource_group_prefix
         )
 
-        # Step 8: Finalize
+        # Finalize
         owner_email = get_git_user_email() or Prompt.ask(
             "Enter your email for resource tagging"
         )
@@ -107,6 +102,7 @@ class SetupWizard:
             repository_name=github_info[1] if github_info else None,
             password_strategy=password_strategy,
             owner_email=owner_email,
+            ce_use_test_image=False,
         )
 
         # Show summary
@@ -125,11 +121,13 @@ class SetupWizard:
         # Create example templates
         self.config_manager.create_example_templates()
 
-        # Update README
-        self._update_readme()
-
         console.print("\n[bold green]✓ Setup complete![/bold green]")
-        console.print("You can now run:")
+
+        # Show configured scenarios grouped by edition
+        if create_scenarios:
+            self._show_scenario_commands(scenarios)
+
+        console.print("\n[cyan]Other commands:[/cyan]")
         console.print("  [cyan]uv run neo4j-deploy validate[/cyan]     - Validate templates")
         console.print("  [cyan]uv run neo4j-deploy deploy --all[/cyan] - Deploy all scenarios")
         console.print("  [cyan]uv run neo4j-deploy status[/cyan]       - Check deployment status")
@@ -187,41 +185,33 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
         return az_info
 
     def _select_region(self) -> str:
-        """Select default Azure region."""
+        """Select default Azure region via region-category picker."""
         console.print("\n[bold]Step 3: Default Azure Region[/bold]")
+        console.print("What type of region do you want to deploy to?")
+        console.print("  1. [cyan]Zonal[/cyan] (default)         — Regions with availability zones")
+        console.print("  2. [cyan]Non-zonal[/cyan]               — Regions without availability zones")
+        console.print("  3. [cyan]Quota-restricted zonal[/cyan]  — Zonal but needs quota request")
 
-        # Try to detect default region from Azure CLI
-        detected_region = get_az_default_location()
+        category = IntPrompt.ask("Enter choice", default=1, choices=["1", "2", "3"])
 
-        if detected_region:
-            console.print(f"[cyan]Detected Azure default location: {detected_region}[/cyan]")
-            if Confirm.ask(f"Use {detected_region} as default region?", default=True):
-                return detected_region
+        region_lists = {
+            1: CE_ZONAL_REGIONS,
+            2: CE_NONZONAL_REGIONS,
+            3: CE_RESTRICTED_REGIONS,
+        }
+        regions = region_lists[category]
 
-        console.print("Select default region for test deployments:")
-
-        for i, region in enumerate(DEFAULT_REGIONS, 1):
+        console.print("\nSelect a region:")
+        for i, region in enumerate(regions, 1):
             console.print(f"  {i}. {region}")
-        console.print(f"  {len(DEFAULT_REGIONS) + 1}. Custom (enter manually)")
 
-        # Default to first region in list
-        default_choice = 1
-
-        # If detected region is in the list, use it as default
-        if detected_region and detected_region in DEFAULT_REGIONS:
-            default_choice = DEFAULT_REGIONS.index(detected_region) + 1
-
-        choice = IntPrompt.ask(
+        region_choice = IntPrompt.ask(
             "Enter choice",
-            default=default_choice,
-            choices=[str(i) for i in range(1, len(DEFAULT_REGIONS) + 2)],
+            default=1,
+            choices=[str(i) for i in range(1, len(regions) + 1)],
         )
 
-        if choice == len(DEFAULT_REGIONS) + 1:
-            default_region_value = detected_region or "westeurope"
-            return Prompt.ask("Enter Azure region", default=default_region_value)
-        else:
-            return DEFAULT_REGIONS[choice - 1]
+        return regions[region_choice - 1]
 
     def _configure_resource_naming(self) -> str:
         """Configure resource naming convention."""
@@ -229,7 +219,7 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
         console.print(
             "Resource groups will be named: [cyan]{prefix}-{scenario}-{timestamp}[/cyan]"
         )
-        console.print("Example: [cyan]neo4j-test-standalone-v5-20250116-143052[/cyan]")
+        console.print("Example: [cyan]neo4j-test-standalone-lts-20250116-143052[/cyan]")
 
         use_default = Confirm.ask(
             "Use default prefix 'neo4j-test'?", default=True
@@ -275,7 +265,7 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
         Returns:
             Tuple of (password strategy, vault name if applicable)
         """
-        console.print("\n[bold]Step 6: Neo4j Password Configuration[/bold]")
+        console.print("\n[bold]Step 7: Neo4j Password Configuration[/bold]")
         console.print("How should admin passwords be provided?")
         console.print("  1. [cyan]Generate[/cyan] random secure password per deployment (recommended)")
         console.print("  2. [cyan]Environment[/cyan] variable NEO4J_ADMIN_PASSWORD")
@@ -293,14 +283,13 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
 
         return strategy, None
 
-
     def _create_default_scenarios(self) -> ScenarioCollection:
-        """Create default test scenarios."""
+        """Create default test scenarios for Enterprise and Community editions."""
         from .models import DeploymentType
 
         scenarios = [
             TestScenario(
-                name="standalone-v5",
+                name="standalone-lts",
                 deployment_type=DeploymentType.VM,
                 node_count=1,
                 graph_database_version="5",
@@ -309,7 +298,7 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
                 license_type="Evaluation",
             ),
             TestScenario(
-                name="cluster-v5",
+                name="cluster-lts",
                 deployment_type=DeploymentType.VM,
                 node_count=3,
                 graph_database_version="5",
@@ -317,9 +306,103 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
                 disk_size=32,
                 license_type="Evaluation",
             ),
+            # CE marketplace image v1.1.0 validation — see TEST_CE.md
+            # NVMe (US baseline)
+            TestScenario(
+                name="ce-westus2-nvme",
+                deployment_type=DeploymentType.VM,
+                node_count=1,
+                graph_database_version="latest",
+                vm_size="Standard_E4ds_v6",
+                disk_size=32,
+                license_type="Community",
+                region="westus2",
+            ),
+            # NVMe (Europe)
+            TestScenario(
+                name="ce-francecentral-nvme",
+                deployment_type=DeploymentType.VM,
+                node_count=1,
+                graph_database_version="latest",
+                vm_size="Standard_E4ds_v6",
+                disk_size=32,
+                license_type="Community",
+                region="francecentral",
+            ),
+            # SCSI (Europe, LTS)
+            TestScenario(
+                name="ce-germanywestcentral-scsi",
+                deployment_type=DeploymentType.VM,
+                node_count=1,
+                graph_database_version="5",
+                vm_size="Standard_E4s_v5",
+                disk_size=32,
+                license_type="Community",
+                region="germanywestcentral",
+            ),
+            # SCSI (US)
+            TestScenario(
+                name="ce-southcentralus-scsi",
+                deployment_type=DeploymentType.VM,
+                node_count=1,
+                graph_database_version="latest",
+                vm_size="Standard_E4s_v5",
+                disk_size=32,
+                license_type="Community",
+                region="southcentralus",
+            ),
+            # SCSI (Europe, LTS)
+            TestScenario(
+                name="ce-westeurope-scsi",
+                deployment_type=DeploymentType.VM,
+                node_count=1,
+                graph_database_version="5",
+                vm_size="Standard_E4s_v5",
+                disk_size=32,
+                license_type="Community",
+                region="westeurope",
+            ),
+            # NVMe smaller size (Europe, LTS)
+            TestScenario(
+                name="ce-norwayeast-nvme",
+                deployment_type=DeploymentType.VM,
+                node_count=1,
+                graph_database_version="5",
+                vm_size="Standard_E2ds_v6",
+                disk_size=32,
+                license_type="Community",
+                region="norwayeast",
+            ),
         ]
 
         return ScenarioCollection(scenarios=scenarios)
+
+    def _show_scenario_commands(self, scenarios: ScenarioCollection) -> None:
+        """Show deploy commands for configured scenarios grouped by edition."""
+        ee_scenarios = [
+            s for s in scenarios.scenarios if s.license_type != "Community"
+        ]
+        ce_scenarios = [
+            s for s in scenarios.scenarios if s.license_type == "Community"
+        ]
+
+        if ee_scenarios:
+            console.print("\n[cyan]Enterprise Edition scenarios:[/cyan]")
+            for s in ee_scenarios:
+                nodes = f"{s.node_count} node" if s.node_count == 1 else f"{s.node_count} nodes"
+                console.print(
+                    f"  uv run neo4j-deploy deploy -s {s.name}"
+                    f"  [dim]({s.vm_size}, {nodes}, {s.license_type})[/dim]"
+                )
+
+        if ce_scenarios:
+            console.print("\n[cyan]Community Edition scenarios:[/cyan]")
+            for s in ce_scenarios:
+                region_info = f", {s.region}" if s.region else ""
+                console.print(
+                    f"  uv run neo4j-deploy deploy -s {s.name}"
+                    f"  [dim]({s.vm_size}, standalone{region_info})[/dim]"
+                )
 
     def _show_summary(self, settings: Settings) -> None:
         """Show configuration summary."""
@@ -340,72 +423,3 @@ You can run this setup again anytime with: [cyan]uv run neo4j-deploy setup[/cyan
 
         console.print(table)
 
-    def _update_readme(self) -> None:
-        """Create or update README.md in deployments directory."""
-        readme_content = """# Neo4j Azure Deployment Tools
-
-Automated deployment and testing framework for Neo4j Enterprise on Azure.
-
-## Quick Start
-
-```bash
-# First-time setup (already completed)
-uv run neo4j-deploy setup
-
-# Validate templates
-uv run neo4j-deploy validate
-
-# Deploy all scenarios
-uv run neo4j-deploy deploy --all
-
-# Deploy specific scenario
-uv run neo4j-deploy deploy --scenario standalone-v5
-
-# Check deployment status
-uv run neo4j-deploy status
-
-# Generate test report
-uv run neo4j-deploy report
-
-# Clean up resources
-uv run neo4j-deploy cleanup --all
-```
-
-## Configuration
-
-Configuration files are located in `.arm-testing/config/`:
-- `settings.yaml` - Main settings (Azure subscription, regions, cleanup modes)
-- `scenarios.yaml` - Test scenario definitions
-
-Example templates are in `.arm-testing/templates/`
-
-## Directory Structure
-
-```
-.arm-testing/
-├── config/       # Configuration files
-├── state/        # Deployment tracking
-├── params/       # Generated parameter files
-├── results/      # Test outputs and reports
-├── logs/         # Execution logs
-├── cache/        # Downloaded binaries
-└── templates/    # Example configurations
-```
-
-## Requirements
-
-- Python 3.12+ with uv
-- Azure CLI (`az`) installed and configured
-- Git (for automatic branch detection)
-- Active Azure subscription
-
-## Documentation
-
-See SCRIPT_PROPOSAL.md in marketplace/neo4j-enterprise/ for detailed implementation specifications.
-"""
-
-        readme_path = Path("README.md")
-        with open(readme_path, "w") as f:
-            f.write(readme_content)
-
-        console.print(f"[green]Updated {readme_path}[/green]")
