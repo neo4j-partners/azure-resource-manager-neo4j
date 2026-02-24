@@ -10,29 +10,31 @@ Azure's service healing automatically restarts standalone VMs on healthy hosts w
 
 ## Standalone managed data disk
 
-> **The consistent theme across all Azure database reference architectures: never put database data on the OS disk.**
+> **Never put database data on the OS disk.** If you delete the VM and lose the OS disk, you lose the data from the database. A separate managed disk survives VM deletion, so a replacement VM reattaches it and picks up where the last one left off. For production deployments, this is the difference between a routine redeployment and total data loss.
 
-This design follows Microsoft's well-documented best practices for database workloads on Azure VMs. Microsoft's [DBMS deployment guidance for SAP workloads](https://learn.microsoft.com/azure/sap/workloads/dbms-guide-general#storage-structure-of-a-vm-for-rdbms-deployments) recommends separating the operating system, DBMS executables, and database files onto different Azure disks. The [SQL Server on Azure VMs storage best practices](https://learn.microsoft.com/azure/azure-sql/virtual-machines/windows/performance-guidelines-best-practices-storage) reinforce this — data files and log files should never share the OS disk. The [Azure Well-Architected Framework for Disk Storage](https://learn.microsoft.com/azure/well-architected/service-guides/azure-disk-storage#performance-efficiency) recommends Premium SSD or better for database workloads, with `deleteOption: Detach` to decouple disk lifecycle from VM lifecycle. Other database vendors on the Azure Marketplace (MongoDB, Cassandra, PostgreSQL) follow the same pattern: separate managed data disk(s) with `Detach` delete semantics. Even for a single-node Community Edition deployment, the cost is identical (you pay for storage capacity regardless of how disks are organized), while gaining data survivability, I/O isolation, and independent sizing.
+Although Azure managed disks replicate data three times within a datacenter (LRS), and host failures are handled transparently by migrating the VM to healthy hardware, that hardware redundancy doesn't protect against VM lifecycle events. The OS disk is tied to the VM resource. When the VM is deleted, whether by a failed redeployment, a scale-down, or an operator mistake, the OS disk is deleted with it and those three replicas disappear together. A separate data disk with `deleteOption: Detach` has the same three-replica hardware protection, but its lifecycle is independent of the VM. Delete the VM and the data disk stays.
+
+Every database platform on the Azure Marketplace puts its data files on a separate managed disk. SQL Server, MongoDB, Cassandra, PostgreSQL all follow the same pattern. The [Azure Well-Architected Framework for Disk Storage](https://learn.microsoft.com/azure/well-architected/service-guides/azure-disk-storage#performance-efficiency) recommends Premium SSD or better for database workloads, with `deleteOption: Detach` to decouple disk lifecycle from VM lifecycle. The cost is identical for a single-node deployment since Azure charges for storage capacity regardless of how disks are organized.
 
 The Neo4j data disk is defined as a separate `Microsoft.Compute/disks` resource (`disk.bicep`), not as an inline data disk on the VM profile.
 
+**The value of external disks:**
+
+- **Data survives VM deletion.** The disk persists independently of the VM lifecycle. When the VM is deleted, whether intentionally or by Azure during host recovery, the disk stays. A new VM attaches it via `createOption: Attach` and resumes with all data intact.
+- **Independent sizing.** Data disk capacity is chosen separately from the OS disk. Pay only for the storage you need.
+- **I/O isolation.** Database reads and writes don't compete with OS operations for disk bandwidth.
+
 **How it works:**
 
-1. `disk.bicep` creates an empty Premium_LRS managed disk sized by the `diskSize` parameter (32–4095 GB)
+1. `disk.bicep` creates an empty Premium_LRS managed disk sized by the `diskSize` parameter (32-4095 GB)
 2. `vm.bicep` attaches it at LUN 0 with `deleteOption: 'Detach'`
 3. Cloud-init formats the disk (XFS) and mounts it at `/var/lib/neo4j` using Azure udev symlinks (`/dev/disk/azure/data/by-lun/0`)
 
-**Why a separate disk:**
-
-- **Data survives VM deletion.** Inline VMSS data disks are destroyed when the instance is deleted or reimaged. A standalone disk resource persists independently of the VM lifecycle. When the VM is deleted (intentionally or by Azure during recovery), the disk survives. A new VM attaches the same disk via `createOption: Attach` and resumes with all data intact.
-- **Independent sizing.** Users choose data disk capacity separately from the OS disk, paying only for the storage they need.
-- **I/O isolation.** Database reads and writes don't compete with OS operations on the same disk.
-
-**deleteOption: Detach** is set on the VM's data disk attachment. This ensures Azure detaches (rather than deletes) the disk when the VM resource is removed.
+`deleteOption: Detach` on the VM's data disk attachment tells Azure to detach (not delete) the disk when the VM resource is removed.
 
 **Redeployment:** ARM incremental mode is idempotent. If the disk already exists with matching properties, ARM skips recreation. The VM is created fresh and attaches the existing disk.
 
-**Durability:** Azure managed disks with Premium_LRS store 3 replicas within a single datacenter. The disk is resilient to VM crashes and reboots, VM deallocation, VM deletion (detached, not deleted), and host hardware failure (Azure migrates the VM; the disk is unaffected). It is **not** resilient to datacenter-wide outages (LRS has no geo-redundancy) or deletion of the disk resource itself.
+**Durability:** Azure managed disks with Premium_LRS store 3 replicas within a single datacenter. The disk is resilient to VM crashes, reboots, deallocation, deletion (detached, not deleted), and host hardware failure (Azure migrates the VM; the disk is unaffected). It is not resilient to datacenter-wide outages (LRS has no geo-redundancy) or deletion of the disk resource itself.
 
 ## NVMe disk controller (Eds_v6 series)
 
@@ -190,6 +192,8 @@ The enterprise template sets `neo4j-admin dbms set-initial-password` uncondition
 
 ### Resources
 
+- [DBMS deployment guidance for SAP workloads — storage structure](https://learn.microsoft.com/azure/sap/workloads/dbms-guide-general#storage-structure-of-a-vm-for-rdbms-deployments)
+- [SQL Server on Azure VMs — storage best practices](https://learn.microsoft.com/azure/azure-sql/virtual-machines/windows/performance-guidelines-best-practices-storage)
 - [Edsv6 VM series — NVMe and disk performance](https://learn.microsoft.com/en-us/azure/virtual-machines/edsv6-series)
 - [Premium SSD v2 — regional availability and constraints](https://learn.microsoft.com/en-us/azure/virtual-machines/disks-types#premium-ssd-v2)
 - [Azure NVMe disk identification — azure-vm-utils](https://learn.microsoft.com/en-us/azure/virtual-machines/linux/azure-virtual-machine-utilities)
