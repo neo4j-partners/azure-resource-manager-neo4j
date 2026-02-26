@@ -1,4 +1,4 @@
-# Azure Neo4j Deployment
+# azure-resource-manager-neo4j
 
 Infrastructure-as-code for deploying Neo4j on Azure using Bicep templates, published to the Azure Marketplace.
 
