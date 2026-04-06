@@ -134,6 +134,7 @@
                 "diskSizeGB": "[parameters('diskSize')]",
                 "managedDisk": {
                   "storageAccountType": "Premium_LRS"
+                }
               },
               "imageReference": {
                 "publisher": "Neo4j",
