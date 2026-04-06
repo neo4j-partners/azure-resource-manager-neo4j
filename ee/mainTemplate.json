@@ -166,7 +166,7 @@
                             "properties": {
                               "idleTimeoutInMinutes": 30,
                               "dnsSettings": {
-                                "domainNameLabel": "[concat('node-', variables('uniqueString'))]"
+                                "domainNameLabel": "[variables('uniqueString')]"
                               }
                             }
                           }
@@ -203,9 +203,9 @@
       }
     ],
     "outputs": {
-      "adminURL": {
+      "neo4jBrowserURL": {
         "type": "string",
-        "value": "[concat('http://vm0.node-', variables('uniqueString'), '.', parameters('location'), '.cloudapp.azure.com:7474')]"
+        "value": "[concat('http://vm0.', variables('uniqueString'), '.', parameters('location'), '.cloudapp.azure.com:7474')]"
       }
     }
   }

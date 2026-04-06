@@ -29,7 +29,7 @@ nodeIndex=`curl -H Metadata:true "http://169.254.169.254/metadata/instance/compu
   | jq ".name" \
   | sed 's/.*_//' \
   | sed 's/"//'`
-publicHostname='vm'$nodeIndex'.node-'$uniqueString'.'$location'.cloudapp.azure.com'
+publicHostname='vm'$nodeIndex'.'$uniqueString'.'$location'.cloudapp.azure.com'
 
 sed -i "s/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g" /etc/neo4j/neo4j.conf
 sed -i "s/#server.default_advertised_address=localhost/server.default_advertised_address=$publicHostname/g" /etc/neo4j/neo4j.conf
@@ -46,9 +46,9 @@ else
   echo "Adding entries to /etc/hosts to route cluster traffic internally..."
   echo "
   # Route cluster traffic internally
-  10.0.0.4 vm0.node-${uniqueString}.${location}.cloudapp.azure.com
-  10.0.0.5 vm1.node-${uniqueString}.${location}.cloudapp.azure.com
-  10.0.0.6 vm2.node-${uniqueString}.${location}.cloudapp.azure.com
+  10.0.0.4 vm0.${uniqueString}.${location}.cloudapp.azure.com
+  10.0.0.5 vm1.${uniqueString}.${location}.cloudapp.azure.com
+  10.0.0.6 vm2.${uniqueString}.${location}.cloudapp.azure.com
   " >> /etc/hosts
 
   sed -i "s/#initial.dbms.default_primaries_count=1/initial.dbms.default_primaries_count=3/g" /etc/neo4j/neo4j.conf
@@ -68,7 +68,7 @@ else
   COREMEMBERS=""
 
   for ((i=0; i<$nodeCount; i++)); do
-    NODE_NAME="vm${i}.node-${uniqueString}.${location}.cloudapp.azure.com"
+    NODE_NAME="vm${i}.${uniqueString}.${location}.cloudapp.azure.com"
     NODE_IP=$(getent hosts $NODE_NAME | awk '{ print $1 }')
     COREMEMBERS+="$NODE_IP:6000,"
   done
