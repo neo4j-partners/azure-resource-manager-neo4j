@@ -137,9 +137,9 @@
                 "diskSizeGB": "[parameters('diskSize')]"
               },
               "imageReference": {
-                "publisher": "Neo4j",
-                "offer": "neo4j-ee-vm",
-                "sku": "byol",
+                "publisher": "OpenLogic",
+                "offer": "CentOS",
+                "sku": "8_5-gen2",
                 "version": "latest"
               }
             },
