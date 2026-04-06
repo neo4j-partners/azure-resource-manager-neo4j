@@ -48,34 +48,6 @@
         "properties": {
           "securityRules": [
             {
-              "name": "SSH",
-              "properties": {
-                "description": "SSH",
-                "protocol": "Tcp",
-                "sourcePortRange": "*",
-                "destinationPortRange": "22",
-                "sourceAddressPrefix": "Internet",
-                "destinationAddressPrefix": "*",
-                "access": "Allow",
-                "priority": 100,
-                "direction": "Inbound"
-              }
-            },
-            {
-              "name": "HTTS",
-              "properties": {
-                "description": "HTTPS",
-                "protocol": "Tcp",
-                "sourcePortRange": "*",
-                "destinationPortRange": "7473",
-                "sourceAddressPrefix": "Internet",
-                "destinationAddressPrefix": "*",
-                "access": "Allow",
-                "priority": 101,
-                "direction": "Inbound"
-              }
-            },
-            {
               "name": "HTTP",
               "properties": {
                 "description": "HTTP",
@@ -158,25 +130,18 @@
           "virtualMachineProfile": {
             "storageProfile": {
               "osDisk": {
-                "createOption": "FromImage"
+                "createOption": "FromImage",
+                "managedDisk": {
+                  "storageAccountType": "Standard_LRS"
+                },
+                "diskSizeGB": "[parameters('diskSize')]"
               },
               "imageReference": {
                 "publisher": "Neo4j",
                 "offer": "neo4j-ee-vm",
                 "sku": "byol",
                 "version": "latest"
-              },
-              "dataDisks": [
-                {
-                  "lun": 0,
-                  "createOption": "Empty",
-                  "managedDisk": {
-                    "storageAccountType": "Premium_LRS"
-                  },
-                  "caching": "None",
-                  "diskSizeGB": "[parameters('diskSize')]"
-                }
-              ]
+              }
             },
             "osProfile": {
               "computerNamePrefix": "node",
