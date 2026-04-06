@@ -129,18 +129,17 @@
           },
           "virtualMachineProfile": {
             "storageProfile": {
+              "osDisk": {
+                "createOption": "FromImage",
+                "diskSizeGB": "[parameters('diskSize')]",
+                "managedDisk": {
+                  "storageAccountType": "Premium_LRS"
+              },
               "imageReference": {
                 "publisher": "Neo4j",
                 "offer": "neo4j-ee-vm",
                 "sku": "byol",
                 "version": "latest"              },
-              "osDisk": {
-                "caching": "ReadWrite",
-                "createOption": "FromImage",
-                "diskSizeGB": "[parameters('diskSize')]",
-                "managedDisk": {
-                  "storageAccountType": "Premium_LRS"
-                }
               }
             },
             "osProfile": {
