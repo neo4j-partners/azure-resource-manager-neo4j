@@ -1,0 +1,17 @@
+{
+  "adminUsername": {
+    "value": "neo4j"
+  },
+  "adminPassword": {
+    "value": "foo123!"
+  },
+  "vmSize": {
+    "value": "Standard_E2s_v5"
+  },
+  "nodeCount": {
+    "value": 3
+  },
+  "diskSize": {
+     "value": 128
+  }
+}

@@ -11,24 +11,6 @@
       "vmSize": {
         "type": "string"
       },
-      "graphDatabaseVersion": {
-        "type": "string"
-      },
-      "graphDataScienceVersion": {
-        "type": "string"
-      },
-      "graphDataScienceLicenseKey": {
-        "type": "string"
-      },
-      "bloomVersion": {
-        "type": "string"
-      },
-      "bloomLicenseKey": {
-        "type": "string"
-      },
-      "apocVersion": {
-        "type": "string"
-      },
       "nodeCount": {
         "type": "int"
       },
@@ -245,7 +227,7 @@
                       ]
                     },
                     "protectedSettings": {
-                      "commandToExecute": "[concat('bash node.sh ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('graphDatabaseVersion'), ' ', parameters('graphDataScienceVersion'), ' ', parameters('graphDataScienceLicenseKey'), ' ', parameters('bloomVersion'), ' ', parameters('bloomLicenseKey'), ' ', parameters('apocVersion'), ' ', parameters('nodeCount'))]"
+                      "commandToExecute": "[concat('bash startup.sh ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('nodeCount'))]"
                     }
                   }
                 }
