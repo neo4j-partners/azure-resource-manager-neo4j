@@ -130,11 +130,10 @@
           "virtualMachineProfile": {
             "storageProfile": {
               "imageReference": {
-                "publisher": "RedHat",
-                "offer": "RHEL",
-                "sku": "9-lvm-gen2",
-                "version": "latest"
-              },
+                "publisher": "Neo4j",
+                "offer": "neo4j-ee-vm",
+                "sku": "byol",
+                "version": "latest"              },
               "osDisk": {
                 "caching": "ReadWrite",
                 "createOption": "FromImage",
