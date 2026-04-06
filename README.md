@@ -12,10 +12,6 @@ To deploy this template from the command line, follow these instructions.
 
 You can run these modules locally. However, Azure provides a preconfigured Cloud Shell that is an easier way to get started. Navigate to the [Azure Portal](http://portal.azure.com/) and open the cloud shell in the upper right.
 
-You can confirm your Azure CLI is working properly by running the command:
-
-    az group list
-
 Then you'll want to clone this repo. You can do that with the command:
 
     git clone https://github.com/neo4j-partners/azure-resource-manager-neo4j.git

@@ -6,7 +6,7 @@
     "value": "foo123!"
   },
   "vmSize": {
-    "value": "Standard_E2s_v5"
+    "value": "Standard_E32as_v7"
   },
   "nodeCount": {
     "value": 3
