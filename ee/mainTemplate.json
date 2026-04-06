@@ -132,7 +132,7 @@
               "osDisk": {
                 "createOption": "FromImage",
                 "managedDisk": {
-                  "storageAccountType": "StandardSSD_LRS"
+                  "storageAccountType": "PremiumV2_LRS"
                 },
                 "diskSizeGB": "[parameters('diskSize')]"
               },
