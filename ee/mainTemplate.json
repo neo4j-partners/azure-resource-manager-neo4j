@@ -129,18 +129,21 @@
           },
           "virtualMachineProfile": {
             "storageProfile": {
-              "osDisk": {
-                "createOption": "FromImage",
-                "managedDisk": {
-                  "storageAccountType": "PremiumV2_LRS"
-                },
-                "diskSizeGB": "[parameters('diskSize')]"
-              },
+              "diskControllerType": "SCSI",
               "imageReference": {
                 "publisher": "OpenLogic",
                 "offer": "CentOS",
                 "sku": "8_5-gen2",
                 "version": "latest"
+              },
+              "osDisk": {
+                "caching": "ReadWrite",
+                "createOption": "FromImage",
+                "diskSizeGB": "[parameters('diskSize')]",
+                "managedDisk": {
+                  "storageAccountType": "PremiumV2_LRS"
+                },
+                "osType": "Linux"
               }
             },
             "osProfile": {
