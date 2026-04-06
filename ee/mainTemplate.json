@@ -41,7 +41,7 @@
     },
     "resources": [
       {
-        "name": "networksecuritygroups",
+        "name": "nsg",
         "type": "Microsoft.Network/networkSecurityGroups",
         "apiVersion": "2025-05-01",
         "location": "[parameters('location')]",
@@ -107,7 +107,7 @@
       },
       {
         "type": "Microsoft.Compute/virtualMachineScaleSets",
-        "name": "nodes",
+        "name": "vmss",
         "location": "[parameters('location')]",
         "apiVersion": "2025-04-01",
         "dependsOn": [
