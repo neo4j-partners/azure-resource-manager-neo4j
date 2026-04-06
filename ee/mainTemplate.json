@@ -84,7 +84,7 @@
         "apiVersion": "2025-05-01",
         "location": "[parameters('location')]",
         "dependsOn": [
-          "[resourceId('Microsoft.Network/networkSecurityGroups', 'networksecuritygroups')]"
+          "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg')]"
         ],
         "properties": {
           "addressSpace": {
@@ -98,7 +98,7 @@
               "properties": {
                 "addressPrefix": "10.0.0.0/16",
                 "networkSecurityGroup": {
-                  "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'networksecuritygroups')]"
+                  "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg')]"
                 }
               }
             }
