@@ -109,7 +109,7 @@
         "type": "Microsoft.Compute/virtualMachineScaleSets",
         "name": "nodes",
         "location": "[parameters('location')]",
-        "apiVersion": "2017-03-30",
+        "apiVersion": "2025-04-01",
         "dependsOn": [
           "[resourceId('Microsoft.Network/virtualNetworks', 'vnet')]"
         ],
