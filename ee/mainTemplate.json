@@ -131,7 +131,6 @@
             "storageProfile": {
               "imageReference": {
                 "publisher": "Neo4j",
-                "offer": "neo4j-ee-vm",
                 "sku": "byol",
                 "version": "latest"              },
               "osDisk": {
