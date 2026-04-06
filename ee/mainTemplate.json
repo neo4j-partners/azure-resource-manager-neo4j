@@ -1,5 +1,5 @@
 {
-    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
       "adminUsername": {
@@ -43,7 +43,7 @@
       {
         "name": "networksecuritygroups",
         "type": "Microsoft.Network/networkSecurityGroups",
-        "apiVersion": "2016-06-01",
+        "apiVersion": "2025-05-01",
         "location": "[parameters('location')]",
         "properties": {
           "securityRules": [
@@ -81,7 +81,7 @@
       {
         "name": "vnet",
         "type": "Microsoft.Network/virtualNetworks",
-        "apiVersion": "2015-06-15",
+        "apiVersion": "2025-05-01",
         "location": "[parameters('location')]",
         "dependsOn": [
           "[resourceId('Microsoft.Network/networkSecurityGroups', 'networksecuritygroups')]"
