@@ -129,11 +129,11 @@
           },
           "virtualMachineProfile": {
             "storageProfile": {
-              "diskControllerType": "NVMe",
+              "diskControllerType": "SCSI",
               "imageReference": {
-                "publisher": "OpenLogic",
-                "offer": "CentOS",
-                "sku": "8_5-gen2",
+                "publisher": "RedHat",
+                "offer": "RHEL",
+                "sku": "9-lvm-gen2",
                 "version": "latest"
               },
               "osDisk": {
