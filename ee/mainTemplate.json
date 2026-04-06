@@ -129,7 +129,7 @@
           },
           "virtualMachineProfile": {
             "storageProfile": {
-              "diskControllerType": "SCSI",
+              "diskControllerType": "NVMe",
               "imageReference": {
                 "publisher": "OpenLogic",
                 "offer": "CentOS",
