@@ -3,7 +3,7 @@
     "value": "neo4j"
   },
   "adminPassword": {
-    "value": "foo123!"
+    "value": "foobar123"
   },
   "vmSize": {
     "value": "Standard_D4s_v5"
