@@ -1,64 +1,13 @@
-# Neo4j Enterprise - Azure Marketplace
+# marketplace
+This template is used by the Neo4j Azure Marketplace offer.  It is not intended to be used outside the marketplace. [makeArchive.sh](makeArchive.sh) will build a zip file that can be uploaded to the publish portal. 
 
-This template is used by the Neo4j Azure Marketplace offer. It is not intended to be used outside the marketplace.
+Unless you are a Neo4j employee updating the Azure Marketplace listing, you probably want to be using either the Marketplace listing itself or [simple](../simple).
 
-Unless you are a Neo4j employee updating the Azure Marketplace listing, you should use the [Azure Marketplace listing](https://azuremarketplace.microsoft.com/marketplace/apps/neo4j.neo4j-ee) itself.
-
----
-
-## Features
-
-### Secure Password Management
-
-The marketplace deployment uses Azure's secure string parameters to securely handle passwords:
-- Passwords are encrypted in deployment metadata using Azure platform encryption
-- Password entry is protected in the Azure Portal UI
-- Simple, straightforward password management
-
-## For Marketplace Users
-
-If you're deploying Neo4j from the Azure Marketplace, you'll be prompted to enter an admin password during deployment.
-
----
-
-## For Neo4j Employees
-
-# Test the Template
+# Test the template
 Documentation on how to do this is [here](https://docs.microsoft.com/en-us/azure/azure-resource-manager/templates/test-toolkit).  I haven't been able to get that working and have just used the portal.
 
-# Execute the marketplace template locally
-Update the marketplace/parameters.json to use the required params. 
-
-#### Note: Update the _artifactsLocation under parameters.json to the required path
-```
-  "_artifactsLocation": {
-    "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/Neo4j-5/"
-  }
-  
-  # Here Neo4j-5 is a branch name , replace it with the required branch name on which testing needs to be done.
-  # This path is used in the fileUris parameter in mainTemplate.json
-```
-
-Execute the below script under marketplace directory 
-
-#### Note: The resource group name provided will be created by the script automatically
-
-```
-cd marketplace
-./deploy.sh <resource-group-name>
-
-```
-
-After testing use the below script to delete the above resource group
-
-```
-cd marketplace
-./delete.sh <resource-group-name>
-
-```
-
-# Build the Archive and Upload
-To update the listing, run [makeArchive.sh](markArchive.sh).  Then upload the resulting archive.zip to the [Partner Portal](https://partner.microsoft.com/en-us/dashboard/commercial-marketplace/overview).
+# Build the archive and upload
+To update the listing, run [makeArchive.sh](markArchive.sh).  Then upload the resulting archive.zip to the [Azure Marketplace publish portal](https://partner.microsoft.com/en-us/dashboard/commercial-marketplace/overview).
 
 # Build VM Image
 This describes how we build the VM that the templates use.  Users should not need to do this.
@@ -116,10 +65,10 @@ The Publish Portal could potentially print an error: "The SAS URL start date (st
 
 The SAS URI should look like this:
 
-    https://sa45345345.blob.core.windows.net/vhds/osdisk_b91e6a0e9a.vhd?sp=r&st=2022-01-30T02:07:41Z&se=2023-01-30T10:07:41Z&spr=https&sv=2020-08-04&sr=b&sig=XXXXX
+    https://sa45345345.blob.core.windows.net/vhds/osdisk_b91e6a0e9a.vhd?sp=r&st=2022-01-30T02:07:41Z&se=2023-01-30T10:07:41Z&spr=https&sv=2020-08-04&sr=b&sig=%2FNfIZWzp1pE2JcH2lQcVLx72k0M%2Fidaan%2BlNHWMzOl0%3D
 
 Make sure it works by running:
 
     wget $uri
 
-Once you can successfully get the image, drop it into the Partner Portal.
+Once you can successfully get the image, drop it into the publisher portal.
