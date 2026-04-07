@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 
-mkdir tmp
-cd tmp
+for edition in "ee" "ce"; do
+  mkdir tmp
+  cd tmp
 
-mkdir scripts
-cp ../../scripts/node.sh ./scripts/node.sh
-cp ../mainTemplate.json ./
-cp ../createUiDefinition.json ./
+  cp ../$edition/startup.sh ./
+  cp ../$edition/mainTemplate.json ./
+  cp ../createUiDefinition-$edition.json ./createUiDefinition.json
+  zip -r ../archive-$edition.zip *
 
-zip -r ../archive.zip *
-cd -
-rm -rf tmp
+  cd ..
+  rm -rf tmp
+done

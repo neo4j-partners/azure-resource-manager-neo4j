@@ -1,0 +1,105 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/0.1.2-preview/CreateUIDefinition.MultiVm.json#",
+  "handler": "Microsoft.Azure.CreateUIDef",
+  "version": "0.1.2-preview",
+  "parameters": {
+    "basics": [
+      {
+        "name": "adminUsername",
+        "type": "Microsoft.Compute.UserNameTextBox",
+        "label": "Admin Username",
+        "toolTip": "Admin username on VMs",
+        "osPlatform": "Linux"
+      },
+      {
+        "name": "adminPassword",
+        "type": "Microsoft.Common.PasswordBox",
+        "label": {
+          "password": "Admin Password",
+          "confirmPassword": "Confirm password"
+        },
+        "toolTip": "Admin password on VMs and Neo4j password",
+        "constraints": {
+          "required": true,
+          "regex": "^(?:(?=.*[a-z])(?:(?=.*[A-Z])(?=.*[\\d\\W])|(?=.*\\W)(?=.*\\d))|(?=.*\\W)(?=.*[A-Z])(?=.*\\d)).{6,72}$",
+          "validationMessage": "The password must be between 6 and 72 characters long, and contain characters from at least 3 of the following groups: uppercase characters, lowercase characters, numbers, and special characters."
+        },
+        "options": {
+          "hideConfirmation": false
+        }
+      }
+    ],
+    "steps": [
+      {
+        "name": "neo4jConfig",
+        "label": "Neo4j Config",
+        "subLabel": {
+          "preValidation": "Configure the Cluster",
+          "postValidation": "Done"
+        },
+        "bladeTitle": "Neo4j Settings",
+        "elements": [
+          {
+            "name": "vmSize",
+            "type": "Microsoft.Compute.SizeSelector",
+            "label": "Virtual Machine Size",
+            "toolTip": "Size of VMs in the cluster",
+            "recommendedSizes": [
+              "Standard_D2s_v5",
+              "Standard_D4s_v5",
+              "Standard_D8s_v5",
+              "Standard_D16s_v5",
+              "Standard_D32s_v5",
+              "Standard_D48s_v5",
+              "Standard_D64s_v5",
+              "Standard_D96s_v5"
+            ],
+            "osPlatform": "Linux"
+          },
+          {
+            "name": "diskSize",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Disk Size",
+            "defaultValue": "128 GB",
+            "toolTip": "Size of disk on each node in the cluster",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "32 GB",
+                  "value": 32
+                },
+                {
+                  "label": "64 GB",
+                  "value": 64
+                },
+                {
+                  "label": "128 GB",
+                  "value": 128
+                },
+                {
+                  "label": "512 GB",
+                  "value": 512
+                },
+                {
+                  "label": "1 TB",
+                  "value": 1024
+                },
+                {
+                  "label": "2 TB",
+                  "value": 2048
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "outputs": {
+      "adminUsername": "[basics('adminUsername')]",
+      "adminPassword": "[basics('adminPassword')]",
+      "vmSize": "[steps('neo4jConfig').vmSize]",
+      "diskSize": "[steps('neo4jConfig').diskSize]",
+      "location": "[location()]"
+    }
+  }
+}
