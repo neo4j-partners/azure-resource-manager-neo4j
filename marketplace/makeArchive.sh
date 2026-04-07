@@ -4,8 +4,8 @@ for edition in "ee" "ce"; do
   mkdir tmp
   cd tmp
 
-  cp ../$edition/startup.sh ./
-  cp ../$edition/mainTemplate.json ./
+  cp ../../$edition/startup.sh ./
+  cp ../../$edition/mainTemplate.json ./
   cp ../createUiDefinition-$edition.json ./createUiDefinition.json
   zip -r ../archive-$edition.zip *
 
