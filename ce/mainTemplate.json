@@ -126,7 +126,7 @@
         ],
         "plan": {
           "publisher": "neo4j",
-          "product": "neo4j-ee-vm",
+          "product": "neo4j-ce-vm",
           "name": "byol"
         },
         "sku": {
@@ -149,7 +149,7 @@
               },
               "imageReference": {
                 "publisher": "Neo4j",
-                "offer": "neo4j-ee-vm",
+                "offer": "neo4j-ce-vm",
                 "sku": "byol",
                 "version": "latest"
               }
