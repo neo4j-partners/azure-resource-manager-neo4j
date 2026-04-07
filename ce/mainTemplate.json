@@ -1,4 +1,235 @@
 {
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "adminUsername": {
+        "type": "string"
+      },
+      "adminPassword": {
+        "type": "securestring"
+      },
+      "vmSize": {
+        "type": "string"
+      },
+      "nodeCount": {
+        "type": "int"
+      },
+      "diskSize": {
+        "type": "int"
+      },
+      "location": {
+        "type": "string",
+        "defaultValue": "[resourceGroup().location]"
+      },
+      "_artifactsLocation": {
+        "type": "string",
+        "metadata": {
+            "description": "The base URI where artifacts required by this template are located including a trailing '/'"
+        },
+        "defaultValue": "[deployment().properties.templateLink.uri]"
+      },
+      "_artifactsLocationSasToken": {
+        "type": "securestring",
+        "metadata": {
+            "description": "The sasToken required to access _artifactsLocation.  When the template is deployed using the accompanying scripts, a sasToken will be automatically generated. Use the defaultValue if the staging location is not secured."
+        },
+        "defaultValue": ""
+      }
+    },
+    "variables": {
+      "uniqueString": "[uniquestring(resourceGroup().id, deployment().name)]"
+    },
+    "resources": [
+      {
+        "name": "nsg",
+        "type": "Microsoft.Network/networkSecurityGroups",
+        "apiVersion": "2025-05-01",
+        "location": "[parameters('location')]",
+        "properties": {
+          "securityRules": [
+            {
+              "name": "HTTP",
+              "properties": {
+                "description": "HTTP",
+                "protocol": "Tcp",
+                "sourcePortRange": "*",
+                "destinationPortRange": "7474",
+                "sourceAddressPrefix": "Internet",
+                "destinationAddressPrefix": "*",
+                "access": "Allow",
+                "priority": 100,
+                "direction": "Inbound"
+              }
+            },
+            {
+              "name": "Bolt",
+              "properties": {
+                "description": "Bolt",
+                "protocol": "Tcp",
+                "sourcePortRange": "*",
+                "destinationPortRange": "7687",
+                "sourceAddressPrefix": "Internet",
+                "destinationAddressPrefix": "*",
+                "access": "Allow",
+                "priority": 101,
+                "direction": "Inbound"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "vnet",
+        "type": "Microsoft.Network/virtualNetworks",
+        "apiVersion": "2025-05-01",
+        "location": "[parameters('location')]",
+        "dependsOn": [
+          "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg')]"
+        ],
+        "properties": {
+          "addressSpace": {
+            "addressPrefixes": [
+              "10.0.0.0/8"
+            ]
+          },
+          "subnets": [
+            {
+              "name": "subnet",
+              "properties": {
+                "addressPrefix": "10.0.0.0/16",
+                "networkSecurityGroup": {
+                  "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg')]"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "Microsoft.Compute/virtualMachineScaleSets",
+        "name": "vmss",
+        "location": "[parameters('location')]",
+        "apiVersion": "2025-04-01",
+        "dependsOn": [
+          "[resourceId('Microsoft.Network/virtualNetworks', 'vnet')]"
+        ],
+        "plan": {
+          "publisher": "neo4j",
+          "product": "neo4j-ee-vm",
+          "name": "byol"
+        },
+        "sku": {
+          "name": "[parameters('vmSize')]",
+          "capacity": "[parameters('nodeCount')]"
+        },
+        "properties": {
+          "overprovision": false,
+          "upgradePolicy": {
+            "mode": "Manual"
+          },
+          "virtualMachineProfile": {
+            "storageProfile": {
+              "osDisk": {
+                "createOption": "FromImage",
+                "diskSizeGB": "[parameters('diskSize')]",
+                "managedDisk": {
+                  "storageAccountType": "Premium_LRS"
+                }
+              },
+              "imageReference": {
+                "publisher": "Neo4j",
+                "offer": "neo4j-ee-vm",
+                "sku": "byol",
+                "version": "latest"
+              }
+            },
+            "osProfile": {
+              "computerNamePrefix": "node",
+              "adminUsername": "[parameters('adminUsername')]",
+              "adminPassword": "[parameters('adminPassword')]"
+            },
+            "networkProfile": {
+              "networkInterfaceConfigurations": [
+                {
+                  "name": "nic",
+                  "properties": {
+                    "primary": true,
+                    "ipConfigurations": [
+                      {
+                        "name": "ipconfig",
+                        "properties": {
+                          "subnet": {
+                            "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'vnet', 'subnet')]"
+                          },
+                          "publicipaddressconfiguration": {
+                            "name": "public",
+                            "properties": {
+                              "idleTimeoutInMinutes": 30,
+                              "dnsSettings": {
+                                "domainNameLabel": "[variables('uniqueString')]"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "extensionProfile": {
+              "extensions": [
+                {
+                  "name": "extension",
+                  "properties": {
+                    "publisher": "Microsoft.Azure.Extensions",
+                    "type": "CustomScript",
+                    "typeHandlerVersion": "2.0",
+                    "autoUpgradeMinorVersion": true,
+                    "settings": {
+                      "fileUris": [
+                        "[uri(parameters('_artifactsLocation'), concat('startup.sh', parameters('_artifactsLocationSasToken')))]"
+                      ]
+                    },
+                    "protectedSettings": {
+                      "commandToExecute": "[concat('bash startup.sh ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('nodeCount'))]"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "outputs": {
+      "neo4jBrowserURL": {
+        "type": "string",
+        "value": "[concat('http://vm0.', variables('uniqueString'), '.', parameters('location'), '.cloudapp.azure.com:7474')]"
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {

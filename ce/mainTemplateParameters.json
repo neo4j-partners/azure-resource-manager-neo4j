@@ -1,0 +1,17 @@
+{
+  "adminUsername": {
+    "value": "neo4j"
+  },
+  "adminPassword": {
+    "value": "Foobar-123"
+  },
+  "vmSize": {
+    "value": "Standard_D4s_v5"
+  },
+  "diskSize": {
+    "value": 128
+  },
+  "_artifactsLocation": {
+    "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/refs/heads/main/ce/"
+  }
+}

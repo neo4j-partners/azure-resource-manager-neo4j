@@ -48,6 +48,20 @@
         "properties": {
           "securityRules": [
             {
+              "name": "SSH",
+              "properties": {
+                "description": "SSH",
+                "protocol": "Tcp",
+                "sourcePortRange": "*",
+                "destinationPortRange": "22",
+                "sourceAddressPrefix": "Internet",
+                "destinationAddressPrefix": "*",
+                "access": "Allow",
+                "priority": 100,
+                "direction": "Inbound"
+              }
+            },
+            {
               "name": "HTTP",
               "properties": {
                 "description": "HTTP",
@@ -57,7 +71,7 @@
                 "sourceAddressPrefix": "Internet",
                 "destinationAddressPrefix": "*",
                 "access": "Allow",
-                "priority": 100,
+                "priority": 101,
                 "direction": "Inbound"
               }
             },
@@ -71,7 +85,7 @@
                 "sourceAddressPrefix": "Internet",
                 "destinationAddressPrefix": "*",
                 "access": "Allow",
-                "priority": 101,
+                "priority": 102,
                 "direction": "Inbound"
               }
             }
