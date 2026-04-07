@@ -59,18 +59,19 @@ else
 
   echo "Configuring membership in neo4j.conf..."
 
-  COREMEMBERS=""
+  #COREMEMBERS=""
 
-  for ((i=0; i<$nodeCount; i++)); do
-    NODE_NAME="vm${i}.${uniqueString}.${location}.cloudapp.azure.com"
-    NODE_IP=$(getent hosts $NODE_NAME | awk '{ print $1 }')
-    COREMEMBERS+="$NODE_IP:6000,"
-  done
+  #for ((i=0; i<$nodeCount; i++)); do
+  #  NODE_NAME="vm${i}.${uniqueString}.${location}.cloudapp.azure.com"
+  #  NODE_IP=$(getent hosts $NODE_NAME | awk '{ print $1 }')
+  #  COREMEMBERS+="$NODE_IP:6000,"
+  #done
 
   # Remove trailing comma from the list of core members
-  COREMEMBERS=${COREMEMBERS::-1}
-  echo COREMEMBERS: $COREMEMBERS
+  #COREMEMBERS=${COREMEMBERS::-1}
+  #echo COREMEMBERS: $COREMEMBERS
 
+  COREMEMBERS="10.0.0.4:6000,10.0.0.5:6000,10.0.0.6:6000"
   sed -i "s/#dbms.cluster.endpoints=localhost:6000,localhost:6001,localhost:6002/dbms.cluster.endpoints=$COREMEMBERS/g" /etc/neo4j/neo4j.conf
 fi
 
