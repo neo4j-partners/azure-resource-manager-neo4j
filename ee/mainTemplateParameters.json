@@ -12,7 +12,7 @@
     "value": 3
   },
   "diskSize": {
-    "value": 128
+    "value": 100
   },
   "_artifactsLocation": {
     "value": "https://raw.githubusercontent.com/neo4j-partners/azure-resource-manager-neo4j/refs/heads/main/ee/"
