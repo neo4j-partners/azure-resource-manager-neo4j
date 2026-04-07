@@ -206,7 +206,7 @@
                       ]
                     },
                     "protectedSettings": {
-                      "commandToExecute": "[concat('bash startup.sh ', parameters('adminPassword'), ' ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('nodeCount'))]"
+                      "commandToExecute": "[concat('bash startup.sh \"', parameters('adminPassword'), '\" ', variables('uniqueString'), ' ', parameters('location'), ' ', parameters('nodeCount'))]"
                     }
                   }
                 }

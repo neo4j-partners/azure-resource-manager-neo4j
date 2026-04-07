@@ -2,15 +2,14 @@
 set -euo pipefail
 
 echo Running startup script...
-export password=$1
-export uniqueString=$2
-export location=$3
-export nodeCount=$4
+export password=${1}
+export uniqueString=${2}
+export location=${3}
+export nodeCount=${4}
 
-#### Note sure if still needed....
-#echo "Turning off firewalld"
-#systemctl stop firewalld
-#systemctl disable firewalld
+echo "Turning off firewalld"
+systemctl stop firewalld
+systemctl disable firewalld
 
 echo "Installing Graph Database..."
 rpm --import https://debian.neo4j.com/neotechnology.gpg.key
