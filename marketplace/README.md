@@ -1,20 +1,11 @@
 # marketplace
-This template is used by the Neo4j Azure Marketplace offer.  It is not intended to be used outside the marketplace. [makeArchive.sh](makeArchive.sh) will build a zip file that can be uploaded to the publish portal. 
-
-Unless you are a Neo4j employee updating the Azure Marketplace listing, you probably want to be using either the Marketplace listing itself or [simple](../simple).
-
-# Test the template
-Documentation on how to do this is [here](https://docs.microsoft.com/en-us/azure/azure-resource-manager/templates/test-toolkit).  I haven't been able to get that working and have just used the portal.
+This files are used by the Neo4j Azure Marketplace offers.  Unless you are a Neo4j employee updating the Azure Marketplace listing you shouldn't need to use these.
 
 # Build the archive and upload
-To update the listing, run [makeArchive.sh](markArchive.sh).  Then upload the resulting archive.zip to the [Azure Marketplace publish portal](https://partner.microsoft.com/en-us/dashboard/commercial-marketplace/overview).
+To update the listing, run [makeArchive.sh](markArchive.sh).  Then upload the resulting `archive-ce.zip` and `archive-ee.zip` to the [Microsoft Partner Center](https://partner.microsoft.com/en-us/dashboard/commercial-marketplace/overview).
 
 # Build VM Image
-This describes how we build the VM that the templates use.  Users should not need to do this.
-
-There's a newer feature called [Azure Image Gallery](https://docs.microsoft.com/en-us/azure/marketplace/azure-vm-use-approved-base#capture-image).  That requires the Azure AD be the same as the publisher one.  Our isn't.  I set up another Azure account and started down that path, but decided that we should fix the AD and come back to that appraoach later.
-
-So, we're taking the older SAS URI approach here.  Of course, most of the documentation has gone missing since I last did this.
+This describes how we build the VM images that the templates use.  Users should not need to do this.
 
 ## Identify the VM Image to Use
 We want the latest RHEL platform image.

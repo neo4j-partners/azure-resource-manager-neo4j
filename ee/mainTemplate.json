@@ -202,7 +202,7 @@
                     "autoUpgradeMinorVersion": true,
                     "settings": {
                       "fileUris": [
-                        "[uri(parameters('_artifactsLocation'), concat('startup.sh', parameters('_artifactsLocationSasToken')))]"
+                        "[uri(parameters('_artifactsLocation'), concat('scripts/startup.sh', parameters('_artifactsLocationSasToken')))]"
                       ]
                     },
                     "protectedSettings": {
