@@ -8,9 +8,9 @@ export location=$3
 export nodeCount=$4
 
 #### Note sure if still needed....
-#echo "Turning off firewalld"
-#systemctl stop firewalld
-#systemctl disable firewalld
+echo "Turning off firewalld"
+systemctl stop firewalld
+systemctl disable firewalld
 
 echo "Installing Graph Database..."
 rpm --import https://debian.neo4j.com/neotechnology.gpg.key
@@ -29,27 +29,21 @@ nodeIndex=`curl -H Metadata:true "http://169.254.169.254/metadata/instance/compu
   | jq ".name" \
   | sed 's/.*_//' \
   | sed 's/"//'`
-publicHostname='vm'$nodeIndex'.'$uniqueString'.'$location'.cloudapp.azure.com'
+
+EXTERNALIP=$(curl -s -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/publicIpAddress?api-version=2021-02-01&format=text")
+echo EXTERNALIP: $EXTERNALIP
 
 sed -i "s/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g" /etc/neo4j/neo4j.conf
-sed -i "s/#server.default_advertised_address=localhost/server.default_advertised_address=$publicHostname/g" /etc/neo4j/neo4j.conf
+sed -i "s/#server.default_advertised_address=localhost/server.default_advertised_address=$EXTERNALIP/g" /etc/neo4j/neo4j.conf
 sed -i "s/#server.bolt.listen_address=:7687/server.bolt.listen_address=0.0.0.0:7687/g" /etc/neo4j/neo4j.conf
-sed -i "s/#server.bolt.advertised_address=:7687/server.bolt.advertised_address=$publicHostname:7687/g" /etc/neo4j/neo4j.conf
+sed -i "s/#server.bolt.advertised_address=:7687/server.bolt.advertised_address=$EXTERNALIP:7687/g" /etc/neo4j/neo4j.conf
 sed -i "s/#server.http.listen_address=:7474/server.http.listen_address=0.0.0.0:7474/g" /etc/neo4j/neo4j.conf
-sed -i "s/#server.http.advertised_address=:7474/server.http.advertised_address=$publicHostname:7474/g" /etc/neo4j/neo4j.conf
+sed -i "s/#server.http.advertised_address=:7474/server.http.advertised_address=$EXTERNALIP:7474/g" /etc/neo4j/neo4j.conf
 
 if [[ $nodeCount == 1 ]]; then
   echo "Running on a single node."
 else
   echo "Running on multiple nodes."
-
-  echo "Adding entries to /etc/hosts to route cluster traffic internally..."
-  echo "
-  # Route cluster traffic internally
-  10.0.0.4 vm0.${uniqueString}.${location}.cloudapp.azure.com
-  10.0.0.5 vm1.${uniqueString}.${location}.cloudapp.azure.com
-  10.0.0.6 vm2.${uniqueString}.${location}.cloudapp.azure.com
-  " >> /etc/hosts
 
   sed -i "s/#initial.dbms.default_primaries_count=1/initial.dbms.default_primaries_count=3/g" /etc/neo4j/neo4j.conf
 

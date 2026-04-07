@@ -33,4 +33,6 @@ To delete your deployment run:
     az group delete --yes --name <RESOURCE_GROUP_NAME>
 
 ## Debugging
-If the Neo4j Browser isn't coming up, there's a good chance something isn't right in your deployment.  One thing to investigate is serial output from the VM.  If that looks good, the next place to check out is `/var/lib/waagent/custom-script/download/1`.
+If the Neo4j Browser isn't coming up, there's a good chance something isn't right in your deployment.  One thing to investigate is the waagent output on a VM.  You'll need to SSH into the VM.  The relevant directory is `/var/lib/waagent/custom-script/download/1/stdout`.
+
+If that looks ok, you might also check the Neo4j log file at `/var/log/neo4j/neo4j.log` and the config at `/etc/neo4j/neo4j.conf`.
