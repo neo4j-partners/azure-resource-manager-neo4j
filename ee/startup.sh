@@ -64,8 +64,8 @@ fi
 echo "Starting Neo4j..."
 neo4j-admin dbms set-initial-password "$password"
 
-# The RPM creates this script which does OS checks that incorrectly fail on GC RH platform images.  Neo4j eng is working on a fix.
-#rm -f /etc/init.d/neo4j
+# The RPM creates this script which does OS checks that incorrectly fail on Azure RH platform images.  Neo4j eng is working on a fix.
+rm -f /etc/init.d/neo4j
 
 systemctl enable neo4j
 service neo4j start
