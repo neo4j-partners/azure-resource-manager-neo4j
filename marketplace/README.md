@@ -1,18 +1,17 @@
 # marketplace
 This files are used by the Neo4j Azure Marketplace offers.  Unless you are a Neo4j employee updating the Azure Marketplace listing you shouldn't need to use these.
 
-# Build the archive and upload
+## Build the archive and upload
 To update the listing, run [makeArchive.sh](markArchive.sh).  Then upload the resulting `archive-ce.zip` and `archive-ee.zip` to the [Microsoft Partner Center](https://partner.microsoft.com/en-us/dashboard/commercial-marketplace/overview).
 
-# Build VM Image
+## Build VM Image
 This describes how we build the VM images that the templates use.  Users should not need to do this.
 
-## Identify the VM Image to Use
-We want the latest RHEL platform image.
+First we need to identify the VM image to use. We want the latest RHEL platform image.
 
     az vm image list-skus --publish RedHat --location westus --offer RHEL
 
-## Create a VM
+Now, let's create a VM
 
     saAccountName=sa45345345
     resourceGroup=rg1
@@ -25,12 +24,12 @@ SSH into the image using the command:
 
     ssh neo4j@<publicIpAddress>
 
-## Clear the History
+Clear the History
 
     sudo waagent -deprovision+user -force
     exit
 
-## Deallocate and Generalize the VM Image
+Deallocate and Generalize the VM Image
 
     az vm deallocate --resource-group $resourceGroup --name vm
     az vm generalize --resource-group $resourceGroup --name vm
