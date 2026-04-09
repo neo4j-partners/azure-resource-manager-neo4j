@@ -72,7 +72,7 @@
             "name": "nodeCount",
             "type": "Microsoft.Common.DropDown",
             "label": "Node Count",
-            "defaultValue": "1",
+            "defaultValue": "3",
             "toolTip": "Number of virtual machines to provision for Neo4j",
             "constraints": {
               "allowedValues": [
