@@ -34,7 +34,7 @@
     }
   },
   "variables": {
-    "uniqueString": "[uniquestring(resourceGroup().id, deployment().name)]"
+    "uniqueString": "[concat('a', uniquestring(resourceGroup().id, deployment().name))]"
   },
   "resources": [
     {
