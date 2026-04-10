@@ -8,7 +8,6 @@
         "name": "adminUsername",
         "type": "Microsoft.Compute.UserNameTextBox",
         "label": "Admin Username",
-        "defaultValue": "neo4j",
         "toolTip": "Admin username on VMs",
         "osPlatform": "Linux"
       },
