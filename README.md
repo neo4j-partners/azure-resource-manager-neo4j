@@ -98,7 +98,6 @@ Alternatively, you can deploy this template from the command line.
     ```
     ./deploy.sh <RESOURCE_GROUP_NAME>
     ```
-When complete the template prints the URL to access Neo4j.
 
 ### Deployed cloud resources
 
