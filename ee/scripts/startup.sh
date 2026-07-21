@@ -87,8 +87,21 @@ nodeIndex=`curl -H Metadata:true "http://169.254.169.254/metadata/instance/compu
   | sed 's/.*_//' \
   | sed 's/"//'`
 
-EXTERNALIP=$(curl -s -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/publicIpAddress?api-version=2021-02-01&format=text")
-echo EXTERNALIP: $EXTERNALIP
+# VMSS instances often have no instance-level public IP. Prefer public IP when
+# available, then fall back to private IP, then hostname so we never write an
+# empty advertised address.
+EXTERNALIP="$(curl -s -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/publicIpAddress?api-version=2021-02-01&format=text" || true)"
+if [ -z "$EXTERNALIP" ]; then
+  EXTERNALIP="$(curl -s -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/privateIpAddress?api-version=2021-02-01&format=text" || true)"
+fi
+if [ -z "$EXTERNALIP" ]; then
+  EXTERNALIP="$(hostname -f 2>/dev/null || hostname 2>/dev/null || true)"
+fi
+if [ -z "$EXTERNALIP" ]; then
+  echo "ERROR: Could not determine advertised address from IMDS or hostname." >&2
+  exit 1
+fi
+echo ADVERTISED_HOST: $EXTERNALIP
 
 sed -i "s/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/g" /etc/neo4j/neo4j.conf
 sed -i "s/#server.default_advertised_address=localhost/server.default_advertised_address=$EXTERNALIP/g" /etc/neo4j/neo4j.conf
