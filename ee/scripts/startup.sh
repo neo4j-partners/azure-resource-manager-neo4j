@@ -32,6 +32,33 @@ retry() {
   done
 }
 
+# Read-only diagnostics for the Azure RHUI base-OS repos. Gathers information
+# only -- it changes nothing and can never fail the deployment (all output goes
+# to stderr and the function always returns 0). Run before the install to record
+# a healthy baseline, and on failure to capture exactly what works vs. what does
+# not -- useful because the CustomScript extension runs in a different context
+# than an interactive SSH session.
+rhui_diagnostics() {
+  local phase="${1:-diagnostics}"
+  {
+    echo "==================== RHUI diagnostics (${phase}) ===================="
+    ( set +e
+      echo "--- context (user / cwd / time) ---"; id; echo "PWD=${PWD}"; date
+      echo "--- proxy & relevant env ---";         env | grep -Ei 'proxy|^path=|lang' | sort
+      echo "--- cloud-init status ---";            cloud-init status 2>/dev/null
+      echo "--- RHUI repo definitions ---";        cat /etc/yum.repos.d/rhui-*.repo 2>/dev/null
+      echo "--- dnf / yum repo URL variables ---"; head -n 50 /etc/dnf/vars/* /etc/yum/vars/* 2>/dev/null
+      echo "--- RHUI client cert files ---";       ls -lR /etc/pki/rhui/ 2>/dev/null
+      echo "--- RHUI endpoint reachability ---"
+      curl -sS -o /dev/null -w 'HTTP %{http_code}  ip=%{remote_ip}  time=%{time_total}s\n' \
+        --max-time 30 https://rhui4-1.microsoft.com/pulp/repos/ 2>&1
+      echo "--- enabled repos (verbose) ---";      yum -v repolist 2>&1 | sed -n '1,40p'
+    ) || true
+    echo "==================== end RHUI diagnostics (${phase}) ===================="
+  } >&2
+  return 0
+}
+
 echo "Turning off firewalld"
 systemctl stop firewalld
 systemctl disable firewalld
@@ -44,9 +71,13 @@ baseurl=https://yum.neo4j.com/stable/latest
 enabled=1
 gpgcheck=1" > /etc/yum.repos.d/neo4j.repo
 export NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
-# Readiness gate: refresh repo metadata first (installs nothing); retried because Azure RHUI can return transient errors on repomd.xml.
-retry yum -y makecache
-retry yum -y install neo4j-enterprise
+# Pre-install baseline of RHUI/repo state (read-only; does not affect the deploy).
+rhui_diagnostics "pre-install"
+# Readiness gate: refresh repo metadata first (installs nothing); retried because
+# Azure RHUI can return errors on repomd.xml. On persistent failure, dump
+# diagnostics before exiting so the extension log shows exactly what broke.
+retry yum -y makecache               || { rhui_diagnostics "makecache-failed"; exit 1; }
+retry yum -y install neo4j-enterprise || { rhui_diagnostics "install-failed"; exit 1; }
 
 echo "Configuring network in neo4j.conf..."
 
